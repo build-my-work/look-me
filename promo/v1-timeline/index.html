@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js" integrity="sha384-sG0Hv1tP1lZCk9KQmrIbY/XNwi+OY84GQqhMscbnsoBFqAz8KNCil1kvfL3Hbbk2" crossorigin="anonymous"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #000;
+      }
+      #root {
+        position: relative;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        background: #eef5f3;
+      }
+      .scene {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="main"
+      data-start="0"
+      data-duration="56"
+      data-width="1920"
+      data-height="1080"
+    >
+      <div
+        id="el-01-morning"
+        class="scene"
+        data-composition-id="01-morning"
+        data-composition-src="compositions/frames/01-morning.html"
+        data-start="0"
+        data-duration="9.5"
+        data-track-index="0"
+      ></div>
+
+      <div
+        id="el-02-tearfilm"
+        class="scene"
+        data-composition-id="02-tearfilm"
+        data-composition-src="compositions/frames/02-tearfilm.html"
+        data-start="9"
+        data-duration="10.5"
+        data-track-index="1"
+      ></div>
+
+      <div
+        id="el-03-theater"
+        class="scene"
+        data-composition-id="03-theater"
+        data-composition-src="compositions/frames/03-theater.html"
+        data-start="19"
+        data-duration="10.6"
+        data-track-index="0"
+      ></div>
+
+      <div
+        id="el-04-horizon"
+        class="scene"
+        data-composition-id="04-horizon"
+        data-composition-src="compositions/frames/04-horizon.html"
+        data-start="29"
+        data-duration="9.5"
+        data-track-index="1"
+      ></div>
+
+      <div
+        id="el-05-diary"
+        class="scene"
+        data-composition-id="05-diary"
+        data-composition-src="compositions/frames/05-diary.html"
+        data-start="38"
+        data-duration="10.4"
+        data-track-index="0"
+      ></div>
+
+      <div
+        id="el-06-cta"
+        class="scene"
+        data-composition-id="06-cta"
+        data-composition-src="compositions/frames/06-cta.html"
+        data-start="48"
+        data-duration="8"
+        data-track-index="1"
+      ></div>
+
+    </div>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      window.__timelines["main"] = gsap.timeline({ paused: true });
+      // ── frame transitions (injected by transitions.mjs) ──
+      (function () { var tl = window.__timelines["main"];
+        tl.to("#el-01-morning", { opacity: 0, duration: 0.5, ease: "power2.inOut" }, 9);
+        tl.fromTo("#el-02-tearfilm", { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "power2.inOut" }, 9);
+        tl.to("#el-02-tearfilm", { x: -1920, duration: 0.5, ease: "power3.inOut" }, 19);
+        tl.fromTo("#el-03-theater", { x: 1920, opacity: 1 }, { x: 0, duration: 0.5, ease: "power3.inOut" }, 19);
+        tl.to("#el-03-theater", { filter: "blur(10px)", scale: 1.03, opacity: 0, duration: 0.6, ease: "power2.inOut" }, 29);
+        tl.fromTo("#el-04-horizon", { filter: "blur(10px)", scale: 0.97, opacity: 0 }, { filter: "blur(0px)", scale: 1, opacity: 1, duration: 0.6, ease: "power2.inOut" }, 29);
+        tl.to("#el-04-horizon", { opacity: 0, duration: 0.5, ease: "power2.inOut" }, 38);
+        tl.fromTo("#el-05-diary", { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "power2.inOut" }, 38);
+        tl.to("#el-05-diary", { scale: 2.5, opacity: 0, filter: "blur(8px)", duration: 0.4, ease: "power3.in" }, 48);
+        tl.fromTo("#el-06-cta", { scale: 0.5, opacity: 0, filter: "blur(8px)" }, { scale: 1, opacity: 1, filter: "blur(0px)", duration: 0.4, ease: "power3.out" }, 48);
+        tl.to({}, { duration: 56 }, 0); // full-span anchor — main.duration() == composition total (Studio master duration)
+      })();
+    </script>
+  </body>
+</html>

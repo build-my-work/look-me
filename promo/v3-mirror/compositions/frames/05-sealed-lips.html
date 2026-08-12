@@ -1,0 +1,128 @@
+<template>
+  <style>
+    @font-face { font-family: "PingFang SC"; src: local("PingFang SC"); }
+    @font-face { font-family: "SF Mono"; src: local("SF Mono"), local("Menlo"), local("monospace"); }
+    #root {
+      position: absolute; inset: 0; width: 1920px; height: 1080px; overflow: hidden;
+      font-family: "PingFang SC", sans-serif; color: #1e3f45;
+    }
+    #root .sl-bg {
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(1100px 520px at 50% -12%, rgba(255, 252, 246, .95) 0%, transparent 62%),
+        #efe9de;
+    }
+    /* one glass card, centered — the wipe reveal is the frame's single restrained move */
+    #root .sl-card {
+      position: absolute; left: 50%; top: 244px; width: 1180px; transform: translateX(-50%);
+      background: rgba(247, 251, 248, .92);
+      border: 1px solid rgba(255, 255, 255, .85); border-radius: 26px;
+      box-shadow: 0 24px 56px -24px rgba(36, 77, 83, .4);
+      padding: 44px 56px 38px;
+      clip-path: inset(0 100% 0 0 round 26px);
+    }
+    #root .sl-title {
+      text-align: center; font-size: 56px; font-weight: 400; letter-spacing: .01em;
+      margin-bottom: 30px;
+    }
+    #root .sl-title .hl { color: #315f66; font-weight: 600; }
+    #root .sl-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 44px; }
+    #root .sl-col h3 { display: flex; align-items: center; gap: 10px; font-size: 30px; font-weight: 600; margin-bottom: 8px; }
+    #root .sl-yes h3 { color: #3f7d54; }
+    #root .sl-no h3 { color: #9b563f; }
+    #root .sl-col li {
+      position: relative; list-style: none; padding: 15px 0 15px 42px;
+      font-size: 26px; color: #4c6663; border-bottom: 1px dashed rgba(201, 218, 214, .7);
+      opacity: 0;
+    }
+    #root .sl-col li:last-child { border-bottom: none; }
+    #root .sl-yes li::before, #root .sl-no li::before {
+      content: ""; position: absolute; left: 0; top: 12px; width: 28px; height: 28px; border-radius: 50%;
+      background-position: center; background-repeat: no-repeat; background-size: 17px;
+    }
+    #root .sl-yes li::before {
+      background-color: #e0efe7;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233f7d54' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+    }
+    #root .sl-no li::before {
+      background-color: #f6e3dc;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239b563f' stroke-width='3.4' stroke-linecap='round'%3E%3Cline x1='5' y1='5' x2='19' y2='19'/%3E%3Cline x1='19' y1='5' x2='5' y2='19'/%3E%3C/svg%3E");
+    }
+    #root .sl-pet {
+      position: absolute; left: 232px; top: 512px; width: 176px; height: 220px; opacity: 0;
+      filter: drop-shadow(0 14px 20px rgba(36, 77, 83, .25));
+    }
+    #root .sl-pet img { width: 100%; height: 100%; object-fit: contain; object-position: bottom; }
+    #root .sl-foot {
+      position: absolute; left: 0; right: 0; top: 866px; text-align: center;
+      font-size: 40px; color: #315f66; font-weight: 500;
+    }
+    #root .sl-foot span { display: inline-block; opacity: 0; margin: 0 .3em; }
+  </style>
+
+  <div id="root" data-composition-id="05-sealed-lips" data-width="1920" data-height="1080" data-duration="10.4">
+    <div id="05-sealed-lips-bg" class="clip sl-bg" data-start="0" data-duration="10.4" data-track-index="0"></div>
+
+    <div id="05-sealed-lips-card" class="clip sl-card" data-start="0.2" data-duration="10.2" data-track-index="1">
+      <div class="sl-title">他看得见你，但<span class="hl">守口如瓶</span></div>
+      <div class="sl-cols">
+        <div class="sl-col sl-yes">
+          <h3>他在本机看的</h3>
+          <ul>
+            <li id="05-sealed-lips-y1">你的脸在不在画面里</li>
+            <li id="05-sealed-lips-y2">眼睛有没有闭上</li>
+            <li id="05-sealed-lips-y3">你有没有起身</li>
+          </ul>
+        </div>
+        <div class="sl-col sl-no">
+          <h3>他永远不会</h3>
+          <ul>
+            <li id="05-sealed-lips-n1">保存任何一帧画面</li>
+            <li id="05-sealed-lips-n2">把画面传出你的电脑</li>
+            <li id="05-sealed-lips-n3">偷看你的屏幕内容</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div id="05-sealed-lips-pet" class="clip sl-pet" data-start="5.6" data-duration="4.8" data-track-index="2">
+      <img src="assets/heterochromia-cat-idle.png" alt="">
+    </div>
+
+    <div id="05-sealed-lips-foot" class="clip sl-foot" data-start="7.6" data-duration="2.8" data-track-index="3">
+      <span id="05-sealed-lips-f1">不上传</span><span id="05-sealed-lips-f2">·</span><span id="05-sealed-lips-f3">不保存</span><span id="05-sealed-lips-f4">·</span><span id="05-sealed-lips-f5">没有云端</span>
+    </div>
+  </div>
+
+  <script>
+    window.__timelines = window.__timelines || {};
+    (function () {
+      var $ = function (id) { return document.getElementById(id); };
+      var tl = gsap.timeline({ paused: true, defaults: { ease: "power3.out" } });
+
+      // Scene 1 (0.0–1.6s): the single restrained move — a left-to-right wipe reveals the card
+      tl.to($("05-sealed-lips-card"),
+        { clipPath: "inset(0 0% 0 0 round 26px)", duration: 1.15, ease: "power2.inOut" }, 0.25);
+
+      // Scene 2 (1.6–5.6s): the six rows land in alternating cross-column rhythm
+      var seq = [
+        ["05-sealed-lips-y1", 1.75], ["05-sealed-lips-n1", 2.35],
+        ["05-sealed-lips-y2", 2.95], ["05-sealed-lips-n2", 3.55],
+        ["05-sealed-lips-y3", 4.15], ["05-sealed-lips-n3", 4.75],
+      ];
+      seq.forEach(function (pair) {
+        tl.fromTo($(pair[0]), { opacity: 0, x: -14 }, { opacity: 1, x: 0, duration: 0.38 }, pair[1]);
+      });
+
+      // Scene 3 (5.6–7.6s): the pet takes his watch beside the card — one small step, nothing else moves
+      tl.fromTo($("05-sealed-lips-pet"), { opacity: 0, x: -26 }, { opacity: 1, x: 0, duration: 0.55 }, 5.7);
+
+      // Scene 4 (7.6–10.0s): footer lands in beats; stillness is the payload — hold to the end
+      ["05-sealed-lips-f1", "05-sealed-lips-f2", "05-sealed-lips-f3", "05-sealed-lips-f4", "05-sealed-lips-f5"].forEach(function (fid, i) {
+        tl.fromTo($(fid), { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.34 }, 7.7 + i * 0.2);
+      });
+
+      window.__timelines["05-sealed-lips"] = tl;
+    })();
+  </script>
+</template>

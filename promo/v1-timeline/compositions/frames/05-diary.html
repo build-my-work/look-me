@@ -1,0 +1,181 @@
+<template>
+  <style>
+    @font-face { font-family: "PingFang SC"; src: local("PingFang SC"); }
+    @font-face { font-family: "SF Mono"; src: local("SF Mono"), local("Menlo"), local("monospace"); }
+    #root {
+      position: absolute; inset: 0; width: 1920px; height: 1080px; overflow: hidden;
+      font-family: "PingFang SC", sans-serif; color: #1e3f45;
+    }
+    #root .dy-bg {
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(1000px 460px at 30% -10%, rgba(255, 255, 255, .8) 0%, transparent 60%),
+        #eef5f3;
+    }
+    #root .dy-copy {
+      position: absolute; left: 0; right: 0; top: 100px; text-align: center;
+      font-size: 52px; font-weight: 400;
+    }
+    #root .dy-copy .w { display: inline-block; margin: 0 .12em; }
+    #root .dy-copy .l2 { color: #315f66; }
+    /* lanes panel (left) */
+    #root .dy-lanes {
+      position: absolute; left: 260px; top: 300px; width: 560px; height: 480px;
+      background: rgba(255, 255, 255, .9);
+      border: 1px solid rgba(201, 218, 214, .8); border-radius: 20px;
+      box-shadow: 0 16px 40px -22px rgba(36, 77, 83, .35);
+      padding: 26px 30px;
+      will-change: transform, opacity;
+    }
+    #root .dy-lanes .lt {
+      font-family: "SF Mono", monospace; font-size: 19px; color: #78908d; letter-spacing: .1em; margin-bottom: 18px;
+    }
+    #root .dy-lane { position: relative; height: 56px; border-bottom: 1px solid rgba(201, 218, 214, .6); }
+    #root .dy-lane:last-child { border-bottom: none; }
+    #root .dy-lane .lname {
+      position: absolute; left: 0; top: 50%; transform: translateY(-50%);
+      font-size: 19px; color: #4c6663; width: 96px;
+    }
+    #root .dy-dot {
+      position: absolute; top: 50%; width: 12px; height: 12px; border-radius: 50%;
+      background: #315f66; opacity: 0; transform: translateY(-50%);
+    }
+    #root .dy-dot.z { background: #a8c5bf; }
+    /* split-tilt privacy cards (right) */
+    #root .dy-card {
+      position: absolute; top: 328px; width: 470px; padding: 26px 30px 22px;
+      border-radius: 20px; background: rgba(255, 255, 255, .94);
+      border: 1px solid rgba(201, 218, 214, .85);
+      box-shadow: 0 16px 40px -20px rgba(36, 77, 83, .35);
+      will-change: transform, opacity;
+    }
+    #root .dy-yes { left: 905px; }
+    #root .dy-no { left: 1400px; }
+    #root .dy-card h3 { display: flex; align-items: center; gap: 10px; font-size: 28px; font-weight: 600; margin-bottom: 8px; }
+    #root .dy-yes h3 { color: #3f7d54; }
+    #root .dy-no h3 { color: #9b563f; }
+    #root .dy-card li {
+      position: relative; list-style: none; padding: 13px 0 13px 40px;
+      font-size: 23px; color: #4c6663; border-bottom: 1px dashed rgba(201, 218, 214, .7);
+      opacity: 0;
+    }
+    #root .dy-card li:last-child { border-bottom: none; }
+    #root .dy-yes li::before, #root .dy-no li::before {
+      content: ""; position: absolute; left: 0; top: 11px; width: 26px; height: 26px; border-radius: 50%;
+      background-position: center; background-repeat: no-repeat; background-size: 16px;
+    }
+    #root .dy-yes li::before {
+      background-color: #e0efe7;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233f7d54' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+    }
+    #root .dy-no li::before {
+      background-color: #f6e3dc;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239b563f' stroke-width='3.4' stroke-linecap='round'%3E%3Cline x1='5' y1='5' x2='19' y2='19'/%3E%3Cline x1='19' y1='5' x2='5' y2='19'/%3E%3C/svg%3E");
+    }
+    #root .dy-pet {
+      position: absolute; left: 858px; top: 596px; width: 132px; height: 165px; opacity: 0;
+      filter: drop-shadow(0 12px 18px rgba(36, 77, 83, .25));
+    }
+    #root .dy-pet img { width: 100%; height: 100%; object-fit: contain; object-position: bottom; }
+    #root .dy-foot {
+      position: absolute; left: 0; right: 0; top: 872px; text-align: center;
+      font-size: 38px; color: #315f66; font-weight: 500;
+    }
+    #root .dy-foot span { display: inline-block; opacity: 0; margin: 0 .3em; }
+  </style>
+
+  <div id="root" data-composition-id="05-diary" data-width="1920" data-height="1080" data-duration="10.4">
+    <div id="05-diary-bg" class="clip dy-bg" data-start="0" data-duration="10.4" data-track-index="0"></div>
+
+    <div id="05-diary-copy" class="clip dy-copy" data-start="0.2" data-duration="10.2" data-track-index="1">
+      <span class="l1" id="05-diary-l1"><span class="w">他记得你的每一天</span></span>
+      <span class="l2" id="05-diary-l2" style="display:none"><span class="w">但日记只锁在你电脑里</span></span>
+    </div>
+
+    <div id="05-diary-lanes" class="clip dy-lanes" data-start="0.3" data-duration="10.1" data-track-index="2">
+      <div class="lt">TIMELINE · 30 DAYS · 事件泳道</div>
+      <div class="dy-lane"><span class="lname">眨眼</span>
+        <span class="dy-dot" style="left:180px"></span><span class="dy-dot" style="left:260px"></span><span class="dy-dot z" style="left:330px"></span><span class="dy-dot" style="left:410px"></span><span class="dy-dot" style="left:480px"></span></div>
+      <div class="dy-lane"><span class="lname">哈欠</span>
+        <span class="dy-dot" style="left:220px"></span><span class="dy-dot z" style="left:430px"></span></div>
+      <div class="dy-lane"><span class="lname">看屏</span>
+        <span class="dy-dot" style="left:150px"></span><span class="dy-dot" style="left:230px"></span><span class="dy-dot" style="left:350px"></span><span class="dy-dot" style="left:460px"></span></div>
+      <div class="dy-lane"><span class="lname">起身</span>
+        <span class="dy-dot" style="left:200px"></span><span class="dy-dot z" style="left:390px"></span><span class="dy-dot" style="left:500px"></span></div>
+      <div class="dy-lane"><span class="lname">坐姿</span>
+        <span class="dy-dot z" style="left:170px"></span><span class="dy-dot" style="left:300px"></span><span class="dy-dot" style="left:440px"></span></div>
+      <div class="dy-lane"><span class="lname">提醒</span>
+        <span class="dy-dot" style="left:250px"></span><span class="dy-dot" style="left:420px"></span></div>
+    </div>
+
+    <div id="05-diary-yes" class="clip dy-card dy-yes" data-start="3.2" data-duration="7.2" data-track-index="3">
+      <h3>他在本机看的</h3>
+      <ul>
+        <li id="05-diary-y1">你的脸在不在画面里</li>
+        <li id="05-diary-y2">眼睛有没有闭上</li>
+        <li id="05-diary-y3">你有没有起身</li>
+      </ul>
+    </div>
+
+    <div id="05-diary-pet" class="clip dy-pet" data-start="7.4" data-duration="3" data-track-index="4">
+      <img src="assets/heterochromia-cat-idle.png" alt="">
+    </div>
+
+    <div id="05-diary-no" class="clip dy-card dy-no" data-start="3.4" data-duration="7" data-track-index="5">
+      <h3>他永远不会</h3>
+      <ul>
+        <li id="05-diary-n1">保存任何一帧画面</li>
+        <li id="05-diary-n2">把画面传出你的电脑</li>
+        <li id="05-diary-n3">偷看你的屏幕内容</li>
+      </ul>
+    </div>
+
+    <div id="05-diary-foot" class="clip dy-foot" data-start="7.6" data-duration="2.8" data-track-index="6">
+      <span id="05-diary-f1">不上传</span><span id="05-diary-f2">·</span><span id="05-diary-f3">不保存</span><span id="05-diary-f4">·</span><span id="05-diary-f5">没有云端</span>
+    </div>
+  </div>
+
+  <script>
+    window.__timelines = window.__timelines || {};
+    (function () {
+      var $ = function (id) { return document.getElementById(id); };
+      var tl = gsap.timeline({ paused: true, defaults: { ease: "power3.out" } });
+
+      // Scene 1 (0.0–1.6s): the lanes panel opens; event dots fall like stars; copy ① lands
+      tl.fromTo($("05-diary-lanes"), { opacity: 0, y: 36 }, { opacity: 1, y: 0, duration: 0.7 }, 0.3);
+      tl.fromTo("#root .dy-lane", { opacity: 0 }, { opacity: 1, duration: 0.4, stagger: 0.09 }, 0.6);
+      tl.fromTo("#root .dy-dot", { opacity: 0, scale: 0.3 }, { opacity: 1, scale: 1, duration: 0.3, stagger: 0.045 }, 0.85);
+      tl.fromTo("#root .dy-copy .l1 .w", { opacity: 0, y: 22 }, { opacity: 1, y: 0, duration: 0.45 }, 0.4);
+
+      // Scene 2 (1.6–3.2s): copy ② swaps in; the lanes condense to a compact plate on the left
+      tl.to("#root .dy-copy .l1 .w", { opacity: 0, duration: 0.2, ease: "power2.in" }, 1.75);
+      tl.set($("05-diary-l2"), { display: "inline" }, 1.98);
+      tl.fromTo("#root .dy-copy .l2 .w", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.42 }, 2.0);
+      tl.to($("05-diary-lanes"), { scale: 0.62, x: -74, y: 120, duration: 0.75, ease: "power2.inOut" }, 2.35);
+
+      // Scene 3 (3.2–7.2s): signature split-tilt — two cards enter from opposite wings, mirrored
+      tl.fromTo($("05-diary-yes"),
+        { opacity: 0, x: -130, rotationY: 24, scale: 0.86 },
+        { opacity: 1, x: 0, rotationY: 0, scale: 1, duration: 0.85 }, 3.3);
+      tl.fromTo($("05-diary-no"),
+        { opacity: 0, x: 130, rotationY: -24, scale: 0.86 },
+        { opacity: 1, x: 0, rotationY: 0, scale: 1, duration: 0.85 }, 3.48);
+      var seq = [
+        ["05-diary-y1", 4.4], ["05-diary-n1", 5.0],
+        ["05-diary-y2", 5.6], ["05-diary-n2", 6.2],
+        ["05-diary-y3", 6.8], ["05-diary-n3", 7.4],
+      ];
+      seq.forEach(function (pair) {
+        tl.fromTo($(pair[0]), { opacity: 0, x: -16 }, { opacity: 1, x: 0, duration: 0.38 }, pair[1]);
+      });
+
+      // Scene 4 (7.6–10.0s): footer lands in three beats; the pet keeps watch beside the cards
+      tl.fromTo($("05-diary-pet"), { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: 0.5 }, 7.5);
+      ["05-diary-f1", "05-diary-f2", "05-diary-f3", "05-diary-f4", "05-diary-f5"].forEach(function (fid, i) {
+        tl.fromTo($(fid), { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.35 }, 7.7 + i * 0.22);
+      });
+
+      window.__timelines["05-diary"] = tl;
+    })();
+  </script>
+</template>

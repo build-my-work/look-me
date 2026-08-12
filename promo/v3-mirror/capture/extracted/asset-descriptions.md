@@ -1,0 +1,28 @@
+# Asset inventory — Look Me
+
+所有素材来自产品官网 `site/assets/`（本地静态站，未做网络抓取）。像素事实以文件为准。
+
+## 主角立绘
+
+- `heterochromia-cat-idle.png` — 猫咪伙伴站姿全身立绘，宽高比 512:640。用途：主角形象、桌面舞台右下角站位、封面收尾。白色长毛猫，异瞳特征清晰。
+- `heterochromia-cat-clap-sprite.png` — 拍手精灵图：8 帧横排（官网 CSS `background-size:800% 100%`，`steps(7,end)` 播放，一轮 3.2s）。用途：待机小剧场「拍手 · 一次 6 连拍」。
+- `heterochromia-cat-sit-sprite.png` — 坐下精灵图：8 帧横排（800%，steps(7)，2.4s 一轮）。用途：小剧场「坐下 · 再站起来」。
+- `heterochromia-cat-spin-sprite.png` — 转圈精灵图：11 帧横排（1100%，steps(10)，2.6s 一轮）。用途：小剧场「原地转圈圈」。
+
+## 表情/事件贴片（叠加在立绘上，官网原始坐标基于 260×325 壳）
+
+- `heterochromia-cat-yawn-sprite.png` — 3 帧全身哈欠精灵图（闭口、张嘴、恢复）。用途：哈欠镜像。
+- `cat-tear.png` — 眼泪贴片（泪流 14px 宽 @ 115,103；泪滴 11px @ 124,115）。用途：注意力轨道掉泪提醒、干眼意象。
+
+## 场景图
+
+- `preview-workspace.webp` — 真实桌面工作区照片（含代码编辑器），官网 hero 舞台背景（cover, center 38%）。用途：桌面场景底图。
+- `horizon-break.webp` — 20-20-20 远眺场景：窗外地平线，暖色调。用途：远眺提醒幕。
+- `look-me-cover-16x9-v2.png` — 官方 16:9 封面图（README 同款）。用途：可作结尾定格或参考，非必需。
+
+## 官网同款 UI 组件（HTML/CSS 重建，非图片）
+
+- 统计胶囊卡：玻璃拟态圆角卡（.capsule），标题「近 1 分钟眨眼」+ 大数字 14 次/分钟 + 副行「有效看屏 12:41 · 坐姿 26 分钟」，绿色 live 脉冲点
+- 远眺提示卡：胶囊卡 + conic-gradient 倒计时环「12s」+ 文案「猫咪喊你远眺 20 秒」
+- Timeline 节点：64px 圆形玻璃节点 + mono 时间字（09:00 / 10:24 / 14:07 / 18:30 / 现在）+ 2px 竖向脊柱线
+- 开关胶囊：眨眼/远眺/久坐三个独立开关（可点击态演示）

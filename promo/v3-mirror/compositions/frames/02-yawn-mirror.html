@@ -1,0 +1,441 @@
+<template data-composition-id="02-yawn-mirror">
+  <div id="root" data-composition-id="02-yawn-mirror" data-width="1920" data-height="1080" data-duration="8.5">
+
+    <style>
+      /* ---- fonts (system-local faces declared for this canvas; no remote fetch) ---- */
+      @font-face { font-family: "PingFang SC"; src: local("PingFang SC"), local("PingFangSC-Regular"); font-weight: 400; font-style: normal; }
+      @font-face { font-family: "SF Mono"; src: local("SF Mono"), local("SFMono-Regular"); font-weight: 400; font-style: normal; }
+
+      #root {
+        position: relative;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        container-type: size;
+        font-family: "PingFang SC", sans-serif;
+        color: #1e3f45;
+      }
+      #root * { box-sizing: border-box; margin: 0; padding: 0; }
+      #root img { display: block; }
+
+      /* ---- track 0 · full-bleed warm cream ground ---- */
+      .f02yawn-bg {
+        position: absolute;
+        inset: 0;
+        background: #eef5f3;
+      }
+
+      /* ---- track 1 · locked chrome (kicker + index) ---- */
+      .f02yawn-chrome { position: absolute; inset: 0; pointer-events: none; }
+      .f02yawn-kicker {
+        position: absolute;
+        left: 80px;
+        top: 56px;
+        font-family: "SF Mono", monospace;
+        font-size: 28px;
+        font-weight: 400;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: #1e3f45;
+      }
+      .f02yawn-kicker .f02yawn-spike { color: #9b563f; margin-right: 14px; }
+      .f02yawn-index {
+        position: absolute;
+        right: 80px;
+        top: 58px;
+        font-size: 27px;
+        color: rgba(30, 63, 69, 0.55);
+        letter-spacing: 0.04em;
+      }
+      .f02yawn-index .f02yawn-mono {
+        font-family: "SF Mono", monospace;
+        font-size: 26px;
+        letter-spacing: 0.08em;
+      }
+
+      /* ---- track 2 · title zone (top third) ---- */
+      .f02yawn-titlewrap { position: absolute; inset: 0; pointer-events: none; }
+      .f02yawn-rule {
+        position: absolute;
+        left: 150px;
+        top: 232px;
+        width: 1620px;
+        height: 1px;
+        background: rgba(30, 63, 69, 0.15);
+      }
+      .f02yawn-lines {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 112px;
+        height: 104px;
+        text-align: center;
+      }
+      .f02yawn-line {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 0;
+        font-size: 88px;
+        font-weight: 400;
+        line-height: 1.06;
+        letter-spacing: -0.014em;
+        color: #1e3f45;
+        white-space: nowrap;
+      }
+      .f02yawn-line3 { font-style: italic; }
+      .f02yawn-ch { display: inline-block; }
+
+      /* ---- track 3 · the stage (one tile floor for both, slow world push-in) ---- */
+      .f02yawn-stage { position: absolute; inset: 0; pointer-events: none; }
+      .f02yawn-world { position: absolute; inset: 0; }
+
+      .f02yawn-panel {
+        position: absolute;
+        left: 150px;
+        top: 250px;
+        width: 1620px;
+        height: 634px;
+        background: #efe9de;
+        border: 1px solid rgba(30, 63, 69, 0.12);
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(30, 63, 69, 0.08), 0 4px 16px rgba(30, 63, 69, 0.04);
+      }
+
+      /* 你 — the abstract user glyph (the "edit" side of the couple) */
+      .f02yawn-you { position: absolute; left: 350px; top: 420px; width: 260px; height: 270px; }
+      .f02yawn-face { position: absolute; inset: 0; }
+      .f02yawn-head {
+        position: absolute;
+        inset: 0;
+        width: 260px;
+        height: 260px;
+        border: 2.5px solid rgba(30, 63, 69, 0.5);
+        border-radius: 50%;
+      }
+      .f02yawn-eye {
+        position: absolute;
+        width: 15px;
+        height: 15px;
+        border-radius: 50%;
+        background: #1e3f45;
+      }
+      .f02yawn-eye-l { left: 66px; top: 97px; }
+      .f02yawn-eye-r { left: 179px; top: 97px; }
+      .f02yawn-you-mouth {
+        position: absolute;
+        left: 75px;
+        top: 121px;
+        width: 110px;
+        height: 130px;
+        border-radius: 50%;
+        background: #1e3f45;
+      }
+
+      /* 猫咪 — the real pet (the mirrored "surface"), official shell geometry ×1.723 */
+      .f02yawn-pet { position: absolute; left: 1148px; top: 260px; width: 448px; height: 560px; }
+      .f02yawn-pet-base { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+      .f02yawn-pet-yawn {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        background: url("assets/heterochromia-cat-yawn-sprite.png") 0 0 / 300% 100% no-repeat;
+      }
+
+      /* station labels — quiet mono index on the shared stage */
+      .f02yawn-lab {
+        position: absolute;
+        top: 838px;
+        width: 300px;
+        text-align: center;
+        font-size: 26px;
+        color: rgba(30, 63, 69, 0.55);
+      }
+      .f02yawn-lab .f02yawn-mono {
+        font-family: "SF Mono", monospace;
+        font-size: 25px;
+        letter-spacing: 0.14em;
+      }
+      .f02yawn-lab-you { left: 330px; }
+      .f02yawn-lab-pet { left: 1222px; }
+
+      /* the live-sync link — the one coral voltage: you → him */
+      .f02yawn-linksvg { position: absolute; inset: 0; width: 1920px; height: 1080px; overflow: visible; }
+      .f02yawn-link {
+        fill: none;
+        stroke: #9b563f;
+        stroke-width: 2.5px;
+        stroke-linecap: round;
+      }
+
+      /* the mirror readout chip (the panel that mirrors his mouth state) */
+      .f02yawn-chip {
+        position: absolute;
+        left: 866px;
+        top: 556px;
+        width: 176px;
+        height: 84px;
+        padding: 10px 16px;
+        background: #eef5f3;
+        border: 1px solid rgba(30, 63, 69, 0.12);
+        border-radius: 6px;
+        text-align: center;
+      }
+      .f02yawn-chip-label {
+        font-family: "SF Mono", monospace;
+        font-size: 22px;
+        color: rgba(30, 63, 69, 0.55);
+        letter-spacing: 0.02em;
+      }
+      .f02yawn-val {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: 40px;
+        font-family: "SF Mono", monospace;
+        font-size: 28px;
+        color: #1e3f45;
+        opacity: 0;
+        visibility: hidden;
+      }
+    </style>
+
+    <!-- track 0 · ground -->
+    <div class="clip f02yawn-bg" data-start="0" data-duration="8.5" data-track-index="0"></div>
+
+    <!-- track 1 · chrome -->
+    <div class="clip f02yawn-chrome" data-start="0" data-duration="8.5" data-track-index="1">
+      <div class="f02yawn-kicker"><span class="f02yawn-spike">&#10033;</span>YAWN MIRROR</div>
+      <div class="f02yawn-index"><span class="f02yawn-mono">02&nbsp;/&nbsp;</span>陪你打哈欠</div>
+    </div>
+
+    <!-- track 2 · titles -->
+    <div class="clip f02yawn-titlewrap" data-start="0" data-duration="8.5" data-track-index="2">
+      <div class="f02yawn-rule"></div>
+      <div class="f02yawn-lines">
+        <div class="f02yawn-line f02yawn-line1"><span class="f02yawn-ch">你</span><span class="f02yawn-ch">打</span><span class="f02yawn-ch">了</span><span class="f02yawn-ch">个</span><span class="f02yawn-ch">哈</span><span class="f02yawn-ch">欠</span></div>
+        <div class="f02yawn-line f02yawn-line2"><span class="f02yawn-ch">他</span><span class="f02yawn-ch">也</span><span class="f02yawn-ch">跟</span><span class="f02yawn-ch">着</span><span class="f02yawn-ch">张</span><span class="f02yawn-ch">嘴</span><span class="f02yawn-ch">打</span><span class="f02yawn-ch">一</span><span class="f02yawn-ch">个</span></div>
+        <div class="f02yawn-line f02yawn-line3"><span class="f02yawn-ch">你</span><span class="f02yawn-ch">困</span><span class="f02yawn-ch">的</span><span class="f02yawn-ch">时</span><span class="f02yawn-ch">候</span><span class="f02yawn-ch">，</span><span class="f02yawn-ch">他</span><span class="f02yawn-ch">先</span><span class="f02yawn-ch">困</span><span class="f02yawn-ch">给</span><span class="f02yawn-ch">你</span><span class="f02yawn-ch">看</span></div>
+      </div>
+    </div>
+
+    <!-- track 3 · the stage -->
+    <div class="clip f02yawn-stage" data-start="0" data-duration="8.5" data-track-index="3">
+      <div class="f02yawn-world">
+        <div class="f02yawn-panel"></div>
+
+        <div class="f02yawn-you">
+          <div class="f02yawn-face">
+            <div class="f02yawn-head"></div>
+            <div class="f02yawn-eye f02yawn-eye-l"></div>
+            <div class="f02yawn-eye f02yawn-eye-r"></div>
+            <div class="f02yawn-you-mouth"></div>
+          </div>
+        </div>
+
+        <div class="f02yawn-pet">
+          <img class="f02yawn-pet-base" src="assets/heterochromia-cat-idle.png" alt="">
+          <div class="f02yawn-pet-yawn" aria-hidden="true"></div>
+        </div>
+
+        <svg class="f02yawn-linksvg" viewBox="0 0 1920 1080" aria-hidden="true">
+          <path class="f02yawn-link" d="M 495 608 Q 954 458 1417 517"></path>
+        </svg>
+
+        <div class="f02yawn-chip">
+          <div class="f02yawn-chip-label">yawn.frame</div>
+          <div class="f02yawn-val f02yawn-val-1">01</div>
+          <div class="f02yawn-val f02yawn-val-2">02</div>
+          <div class="f02yawn-val f02yawn-val-3">03</div>
+        </div>
+
+        <div class="f02yawn-lab f02yawn-lab-you">你<span class="f02yawn-mono">&nbsp;&middot;&nbsp;YOU</span></div>
+        <div class="f02yawn-lab f02yawn-lab-pet">猫咪<span class="f02yawn-mono">&nbsp;&middot;&nbsp;CAT</span></div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <script>
+      (function () {
+        var rootEl =
+          (document.currentScript && document.currentScript.closest
+            ? document.currentScript.closest('[data-composition-id="02-yawn-mirror"]')
+            : null) || document.querySelector('[data-composition-id="02-yawn-mirror"]');
+        if (!rootEl || !window.gsap) return;
+        var gsap = window.gsap;
+        var $ = function (s) { return rootEl.querySelector(s); };
+        var $$ = function (s) { return Array.prototype.slice.call(rootEl.querySelectorAll(s)); };
+
+        var world = $(".f02yawn-world");
+        var panel = $(".f02yawn-panel");
+        var kicker = $(".f02yawn-kicker");
+        var index = $(".f02yawn-index");
+        var rule = $(".f02yawn-rule");
+        var line1 = $(".f02yawn-line1");
+        var ch1 = $$(".f02yawn-line1 .f02yawn-ch");
+        var ch2 = $$(".f02yawn-line2 .f02yawn-ch");
+        var ch3 = $$(".f02yawn-line3 .f02yawn-ch");
+        var you = $(".f02yawn-you");
+        var face = $(".f02yawn-face");
+        var eyes = [$(".f02yawn-eye-l"), $(".f02yawn-eye-r")];
+        var youMouth = $(".f02yawn-you-mouth");
+        var pet = $(".f02yawn-pet");
+        var petBase = $(".f02yawn-pet-base");
+        var petYawn = $(".f02yawn-pet-yawn");
+        var link = $(".f02yawn-link");
+        var chip = $(".f02yawn-chip");
+        var vals = $$(".f02yawn-val");
+        var labYou = $(".f02yawn-lab-you");
+        var labPet = $(".f02yawn-lab-pet");
+
+        /* ---- build-time rest states (never CSS transforms on GSAP-driven elements) ---- */
+        gsap.set(youMouth, { scaleX: 0.84, scaleY: 0.08, transformOrigin: "50% 50%" });
+        gsap.set(petYawn, { backgroundPosition: "0% 0%", autoAlpha: 0 });
+        gsap.set(eyes, { scaleY: 1, transformOrigin: "50% 50%" });
+        gsap.set(face, { rotation: 0, y: 0, transformOrigin: "50% 50%" });
+        gsap.set(pet, { y: 0 });
+        gsap.set(ch2, { x: 230, opacity: 0 });
+        gsap.set(ch3, { x: 230, opacity: 0 });
+        gsap.set(vals, { autoAlpha: 0 });
+        gsap.set(vals[0], { autoAlpha: 1 });
+        var linkLen = link.getTotalLength();
+        gsap.set(link, { strokeDasharray: linkLen, strokeDashoffset: linkLen, autoAlpha: 0 });
+
+        var tl = gsap.timeline({ paused: true });
+
+        /* ============ macro camera — one continuous slow push-in, 0 → 8s ============ */
+        tl.fromTo(
+          world,
+          { scale: 1 },
+          { scale: 1.015, duration: 8, ease: "power1.inOut", transformOrigin: "948px 545px" },
+          0
+        );
+
+        /* ============ stage arrives (crossfade-in from frame 01; nothing hides long) ============ */
+        tl.fromTo(panel, { autoAlpha: 0, y: 26 }, { autoAlpha: 1, y: 0, duration: 0.6, ease: "power3.out" }, 0.05);
+        tl.fromTo(pet, { autoAlpha: 0, y: 28 }, { autoAlpha: 1, y: 0, duration: 0.62, ease: "power3.out" }, 0.08);
+        tl.fromTo(you, { autoAlpha: 0, y: 22 }, { autoAlpha: 1, y: 0, duration: 0.58, ease: "power3.out" }, 0.1);
+        tl.fromTo(kicker, { autoAlpha: 0, x: -16 }, { autoAlpha: 1, x: 0, duration: 0.5, ease: "power3.out" }, 0.12);
+        tl.fromTo(index, { autoAlpha: 0, x: 16 }, { autoAlpha: 1, x: 0, duration: 0.5, ease: "power3.out" }, 0.16);
+        tl.fromTo(line1, { autoAlpha: 0, y: -34 }, { autoAlpha: 1, y: 0, duration: 0.7, ease: "power3.out" }, 0.2);
+        tl.fromTo(rule, { scaleX: 0 }, { scaleX: 1, duration: 0.55, ease: "power3.out", transformOrigin: "0% 50%" }, 0.3);
+        tl.fromTo(labYou, { autoAlpha: 0, y: 10 }, { autoAlpha: 0.55, y: 0, duration: 0.45, ease: "power3.out" }, 0.34);
+
+        /* ============ Scene 1 (0.0–1.6) — 你的哈欠：the edit gesture ============ */
+        tl.fromTo(
+          youMouth,
+          { scaleX: 0.84, scaleY: 0.08 },
+          { scaleX: 0.94, scaleY: 0.4, duration: 0.18, ease: "power2.out", transformOrigin: "50% 50%" },
+          0.45
+        );
+        tl.fromTo(
+          youMouth,
+          { scaleX: 0.94, scaleY: 0.4 },
+          { scaleX: 1, scaleY: 1, duration: 0.42, ease: "power3.out", transformOrigin: "50% 50%", immediateRender: false },
+          0.63
+        );
+        tl.fromTo(
+          face,
+          { rotation: 0, y: 0 },
+          { rotation: -5, y: -10, duration: 0.6, ease: "power2.inOut", transformOrigin: "50% 50%" },
+          0.45
+        );
+        tl.fromTo(eyes, { scaleY: 1 }, { scaleY: 0.18, duration: 0.5, ease: "power3.out", transformOrigin: "50% 50%" }, 0.55);
+
+        /* ============ Scene 2 (1.6–4.0) — 猫咪同拍回应：the mirrored surface ============ */
+        tl.fromTo(link, { autoAlpha: 0 }, { autoAlpha: 0.9, duration: 0.3, ease: "power1.out" }, 1.62);
+        tl.fromTo(
+          link,
+          { strokeDashoffset: linkLen },
+          { strokeDashoffset: 0, duration: 0.55, ease: "power2.inOut", immediateRender: false },
+          1.62
+        );
+        tl.fromTo(chip, { autoAlpha: 0, scale: 0.85 }, { autoAlpha: 1, scale: 1, duration: 0.38, ease: "power3.out", transformOrigin: "50% 50%" }, 1.65);
+        tl.fromTo(petBase, { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.2, ease: "power1.out" }, 1.68);
+        tl.fromTo(petYawn, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.2, ease: "power1.out" }, 1.68);
+        tl.fromTo(
+          petYawn,
+          { backgroundPosition: "0% 0%" },
+          { backgroundPosition: "100% 0%", duration: 0.8, ease: "steps(2)", immediateRender: false },
+          1.68
+        );
+        tl.fromTo(labPet, { autoAlpha: 0, y: 10 }, { autoAlpha: 0.55, y: 0, duration: 0.45, ease: "power3.out" }, 1.7);
+        /* the readout mirrors his mouth state, discrete and seek-safe */
+        function setVal(i, t) {
+          tl.set(vals, { autoAlpha: 0 }, t - 0.001);
+          tl.set(vals[i], { autoAlpha: 1 }, t);
+        }
+        setVal(1, 1.88);
+        setVal(2, 2.3);
+        /* a small lift while the yawn holds */
+        tl.fromTo(pet, { y: 0 }, { y: -5, duration: 0.95, ease: "power1.inOut", immediateRender: false }, 2.35);
+
+        /* ============ Scene 3 (4.0–6.0) — 双双回正 + title ①→② word-swap ============ */
+        tl.fromTo(
+          youMouth,
+          { scaleX: 1, scaleY: 1 },
+          { scaleX: 0.94, scaleY: 0.4, duration: 0.28, ease: "power2.inOut", transformOrigin: "50% 50%", immediateRender: false },
+          4.02
+        );
+        tl.fromTo(
+          youMouth,
+          { scaleX: 0.94, scaleY: 0.4 },
+          { scaleX: 0.84, scaleY: 0.08, duration: 0.45, ease: "power3.inOut", transformOrigin: "50% 50%", immediateRender: false },
+          4.3
+        );
+        tl.fromTo(
+          face,
+          { rotation: -5, y: -10 },
+          { rotation: 0, y: 0, duration: 0.55, ease: "power2.inOut", transformOrigin: "50% 50%", immediateRender: false },
+          4.02
+        );
+        tl.fromTo(eyes, { scaleY: 0.18 }, { scaleY: 1, duration: 0.5, ease: "power2.inOut", transformOrigin: "50% 50%", immediateRender: false }, 4.05);
+        tl.fromTo(
+          petYawn,
+          { backgroundPosition: "100% 0%" },
+          { backgroundPosition: "0% 0%", duration: 0.75, ease: "steps(2)", immediateRender: false },
+          4.15
+        );
+        tl.fromTo(petYawn, { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.25, ease: "power1.in", immediateRender: false }, 4.65);
+        tl.fromTo(petBase, { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.25, ease: "power1.in", immediateRender: false }, 4.65);
+        tl.fromTo(pet, { y: -5 }, { y: 0, duration: 0.6, ease: "power2.inOut", immediateRender: false }, 4.25);
+        tl.fromTo(
+          link,
+          { strokeDashoffset: 0 },
+          { strokeDashoffset: linkLen, duration: 0.5, ease: "power2.inOut", immediateRender: false },
+          4.3
+        );
+        tl.fromTo(link, { autoAlpha: 0.9 }, { autoAlpha: 0, duration: 0.25, ease: "power1.in", immediateRender: false }, 4.55);
+        setVal(1, 4.45);
+        setVal(0, 4.9);
+        tl.fromTo(chip, { autoAlpha: 1 }, { autoAlpha: 0, duration: 0.3, ease: "power1.in", immediateRender: false }, 4.9);
+
+        /* waterfall word-swap (cut catalog): per-char exit ramp, matched per-char entry cascade */
+        function swapChars(outChars, inChars, tExit, exitStag, tCut, entryGap0) {
+          outChars.forEach(function (ch, i) {
+            var t = tExit + i * exitStag;
+            tl.fromTo(ch, { x: 0 }, { x: -230, duration: 0.34, ease: "power4.in", immediateRender: false }, t);
+            tl.fromTo(ch, { opacity: 1 }, { opacity: 0, duration: 0.18, ease: "power1.in", immediateRender: false }, t);
+          });
+          var g = entryGap0;
+          var acc = 0;
+          inChars.forEach(function (ch) {
+            var t = tCut + acc;
+            tl.fromTo(ch, { x: 230 }, { x: 0, duration: 0.32, ease: "power4.out", immediateRender: false }, t);
+            tl.fromTo(ch, { opacity: 0 }, { opacity: 1, duration: 0.16, ease: "power1.out", immediateRender: false }, t);
+            acc += g;
+            g *= 0.84;
+          });
+        }
+        swapChars(ch1, ch2, 4.1, 0.03, 4.43, 0.05); /* ① 你打了个哈欠 → ② 他也跟着张嘴打一个 */
+
+        /* ============ Scene 4 (6.0–8.0) — 字幕③ 落，hold 静读 ============ */
+        swapChars(ch2, ch3, 6.02, 0.026, 6.42, 0.042); /* ② → ③ 你困的时候，他先困给你看 */
+
+        window.__timelines = window.__timelines || {};
+        window.__timelines["02-yawn-mirror"] = tl;
+      })();
+    </script>
+  </div>
+</template>

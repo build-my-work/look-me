@@ -1,0 +1,107 @@
+name: Desktop release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: npm run test:sites
+      - name: Verify release version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: test "v$(node -p 'require("./package.json").version')" = "$GITHUB_REF_NAME"
+
+  package:
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos
+            arch: arm64
+            runner: macos-latest
+            script: desktop:mac
+          - platform: macos
+            arch: x64
+            runner: macos-15-intel
+            script: desktop:mac
+          - platform: windows
+            arch: x64
+            runner: windows-latest
+            script: desktop:win
+          - platform: linux
+            arch: x64
+            runner: ubuntu-latest
+            script: desktop:linux
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+      - name: Build ${{ matrix.platform }} ${{ matrix.arch }} package
+        run: npm run ${{ matrix.script }} -- --${{ matrix.arch }} --publish never
+      - name: Upload ${{ matrix.platform }} ${{ matrix.arch }} package
+        uses: actions/upload-artifact@v4
+        with:
+          name: look-me-${{ matrix.platform }}-${{ matrix.arch }}
+          path: |
+            app/release/*.dmg
+            app/release/*.exe
+            app/release/*.AppImage
+            app/release/*.deb
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v5
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Generate checksums
+        run: cd artifacts && sha256sum * > SHA256SUMS.txt
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" artifacts/* --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" artifacts/* \
+              --verify-tag \
+              --generate-notes \
+              --title "Look Me $GITHUB_REF_NAME"
+          fi

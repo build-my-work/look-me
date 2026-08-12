@@ -1,0 +1,305 @@
+<template>
+  <style>
+    /* Fonts ship with the host machine (macOS render); local() keeps the
+       font_family_without_font_face contract honest — same convention as sibling frames. */
+    @font-face { font-family: "PingFang SC"; src: local("PingFang SC"); }
+    @font-face { font-family: "SF Mono"; src: local("SF Mono"), local("Menlo"), local("monospace"); }
+
+    #root {
+      position: absolute; inset: 0; width: 1920px; height: 1080px; overflow: hidden;
+      font-family: "PingFang SC", sans-serif; font-weight: 400; color: #1e3f45;
+    }
+
+    /* ---- track 0 · warm sand ground (骤静回暖) ---- */
+    #root .k4s-ground {
+      position: absolute; inset: 0; background: #efe9de;
+      will-change: clip-path, opacity;
+    }
+    /* faint warm half-step center so the ground breathes without a gradient on content */
+    #root .k4s-ground::after {
+      content: ""; position: absolute; inset: 0;
+      background: radial-gradient(1200px 640px at 46% 40%, rgba(238, 245, 243, .75) 0%, rgba(238, 245, 243, 0) 70%);
+    }
+
+    /* ---- track 1 · attention track + blink waveform (SVG) ---- */
+    #root .k4s-deco { position: absolute; inset: 0; }
+    #root .k4s-deco svg { position: absolute; inset: 0; width: 1920px; height: 1080px; }
+    #root .k4s-wavelabel {
+      position: absolute; left: 160px; top: 838px;
+      display: flex; align-items: center; gap: 18px;
+      font-family: "SF Mono", "PingFang SC", monospace;
+      font-size: 26px; letter-spacing: .12em; color: rgba(30, 63, 69, .58);
+      opacity: 0;
+    }
+    #root .k4s-chip {
+      font-family: "SF Mono", monospace; font-variant-numeric: tabular-nums;
+      font-size: 26px; letter-spacing: .02em; color: #1e3f45;
+      border: 1px solid rgba(30, 63, 69, .2); border-radius: 9999px;
+      padding: 3px 16px; background: rgba(238, 245, 243, .8);
+    }
+
+    /* ---- track 2 · kicker + caption line ---- */
+    #root .k4s-kicker {
+      position: absolute; left: 160px; top: 118px;
+      font-family: "SF Mono", "PingFang SC", monospace;
+      font-size: 28px; font-weight: 500; letter-spacing: .16em;
+      color: rgba(30, 63, 69, .62); opacity: 0;
+    }
+    #root .k4s-kicker .spike { color: #9b563f; }
+    #root .k4s-cap {
+      position: absolute; left: 160px; top: 222px; width: 1500px;
+      font-size: 84px; line-height: 1.08; letter-spacing: -0.018em;
+      color: #1e3f45; white-space: nowrap;
+    }
+    #root .k4s-cap .cline { position: absolute; left: 0; top: 0; }
+    #root .k4s-cap .w { display: inline-block; margin-right: .26em; will-change: transform, opacity; }
+    #root .k4s-cap .w:last-child { margin-right: 0; }
+
+    /* ---- track 3 · cat (focal) + his sign ---- */
+    #root .k4s-pet {
+      position: absolute; left: 0; top: 0; width: 400px; height: 500px;
+      will-change: transform, opacity;
+    }
+    #root .k4s-pet .base {
+      position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain;
+      filter: drop-shadow(0 16px 20px rgba(30, 63, 69, .18));
+    }
+    /* tear overlays — official site proportions on the 260×325 pet shell:
+       stream 14px @ (115,103) · drop 11px @ (124,115), scaled to our 400px-wide pet */
+    #root .k4s-pet .tstream {
+      position: absolute; left: 44.23%; top: 31.69%; width: 5.38%; height: auto;
+      opacity: .95; transform-origin: 50% 0%; will-change: transform, opacity;
+    }
+    #root .k4s-pet .tdrop {
+      position: absolute; left: 47.69%; top: 35.38%; width: 4.23%; height: auto;
+      opacity: 0; will-change: transform, opacity;
+    }
+    #root .k4s-sign {
+      position: absolute; left: 262px; top: 452px;
+      padding: 26px 40px;
+      background: #eef5f3; border: 1px solid rgba(30, 63, 69, .12); border-left: 4px solid #9b563f;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(30, 63, 69, .08), 0 4px 16px rgba(30, 63, 69, .04);
+      font-size: 46px; letter-spacing: -0.005em; color: #1e3f45;
+      transform-origin: 100% 78%;
+      opacity: 0; will-change: transform, opacity;
+    }
+  </style>
+
+  <div id="root" data-composition-id="04-cat-steps" data-width="1920" data-height="1080" data-duration="10.5">
+
+    <!-- track 0 · warm sand ground -->
+    <div class="clip k4s-ground" data-start="0" data-duration="10.5" data-track-index="0" id="04-cat-steps-ground"></div>
+
+    <!-- track 1 · attention track + blink waveform -->
+    <div class="clip k4s-deco" data-start="0" data-duration="10.5" data-track-index="1">
+      <svg viewBox="0 0 1920 1080" fill="none" aria-hidden="true">
+        <mask id="k4s-trackmask">
+          <path id="04-cat-steps-maskpath"
+            d="M 1640 74 C 1545 245 1400 300 1230 390 C 1092 462 1002 502 960 545"
+            stroke="#fff" stroke-width="30" stroke-linecap="round" fill="none" />
+        </mask>
+        <!-- the held surface: the dashed attention track, top-right → center -->
+        <path id="04-cat-steps-track"
+          d="M 1640 74 C 1545 245 1400 300 1230 390 C 1092 462 1002 502 960 545"
+          stroke="rgba(30,63,69,.32)" stroke-width="6"
+          stroke-dasharray="0.1 16" stroke-linecap="round" fill="none"
+          mask="url(#k4s-trackmask)" />
+        <!-- blink waveform: flatlined through the stare, two blips recover it -->
+        <g id="04-cat-steps-wave" opacity="0.45">
+          <path d="M 160 820 H 1760" stroke="#1e3f45" stroke-opacity=".3" stroke-width="2" />
+          <path id="04-cat-steps-spike1"
+            d="M 830 820 L 854 820 L 863 791 L 872 820 L 896 820"
+            stroke="#1e3f45" stroke-opacity=".82" stroke-width="3"
+            stroke-linecap="round" stroke-linejoin="round" />
+          <path id="04-cat-steps-spike2"
+            d="M 984 820 L 1008 820 L 1017 791 L 1026 820 L 1050 820"
+            stroke="#1e3f45" stroke-opacity=".82" stroke-width="3"
+            stroke-linecap="round" stroke-linejoin="round" />
+        </g>
+      </svg>
+      <div class="k4s-wavelabel" id="04-cat-steps-wavelabel">
+        <span>眨眼波形</span><span class="k4s-chip" id="04-cat-steps-chip">0 / 2</span>
+      </div>
+    </div>
+
+    <!-- track 2 · kicker + caption line -->
+    <div class="clip" data-start="0" data-duration="10.5" data-track-index="2">
+      <div class="k4s-kicker" id="04-cat-steps-kicker"><span class="spike">✱</span> 注意力轨道</div>
+      <div class="k4s-cap" id="04-cat-steps-cap">
+        <div class="cline" id="04-cat-steps-cap1">
+          <span class="w">25 秒</span><span class="w">·</span><span class="w">猫咪</span><span class="w">出手</span><span class="w">的</span><span class="w">时机</span>
+        </div>
+        <div class="cline" id="04-cat-steps-cap2">
+          <span class="w">眨一次眼，</span><span class="w">就是</span><span class="w">重新</span><span class="w">镀上</span><span class="w">一层</span><span class="w">保护膜</span>
+        </div>
+        <div class="cline" id="04-cat-steps-cap3">
+          <span class="w">眨满 2 下，</span><span class="w">他才</span><span class="w">安心</span><span class="w">走开</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- track 3 · cat + sign -->
+    <div class="clip" data-start="0" data-duration="10.5" data-track-index="3">
+      <div class="k4s-pet" id="04-cat-steps-pet">
+        <img class="base" src="assets/heterochromia-cat-idle.png" alt="">
+        <img class="tstream" id="04-cat-steps-tstream" src="assets/cat-tear.png" alt="">
+        <img class="tdrop" id="04-cat-steps-tdrop" src="assets/cat-tear.png" alt="">
+      </div>
+      <div class="k4s-sign" id="04-cat-steps-sign">陪我慢慢眨 2 下</div>
+    </div>
+  </div>
+
+  <script>
+    window.__timelines = window.__timelines || {};
+    (function () {
+      var $ = function (id) { return document.getElementById(id); };
+      var tl = gsap.timeline({ paused: true, defaults: { ease: "power3.out" } });
+
+      var pet = $("04-cat-steps-pet"),
+          tstream = $("04-cat-steps-tstream"),
+          tdrop = $("04-cat-steps-tdrop"),
+          sign = $("04-cat-steps-sign");
+
+      /* ================= Scene 1 (0.0–1.6s) — 骤静回暖，轨道 self-draw，猫咪带泪落位 ================= */
+
+      // warm sand floods the frame back in after the dark stare beat
+      tl.fromTo($("04-cat-steps-ground"),
+        { clipPath: "inset(15%)", opacity: 0 },
+        { clipPath: "inset(0%)", opacity: 1, duration: 1.05, ease: "power3.out" }, 0);
+
+      // kicker
+      tl.fromTo($("04-cat-steps-kicker"),
+        { opacity: 0, x: -16 }, { opacity: 1, x: 0, duration: 0.5 }, 0.1);
+
+      // the attention track draws itself, top-right → center (svg-path-draw on a mask so the DASH survives)
+      var maskPath = $("04-cat-steps-maskpath"),
+          trackLen = maskPath.getTotalLength();
+      maskPath.style.strokeDasharray = String(trackLen);
+      maskPath.style.strokeDashoffset = String(trackLen);
+      tl.to(maskPath, { strokeDashoffset: 0, duration: 0.95, ease: "power2.out" }, 0.3);
+
+      // blink waveform lies quiet (flatlined continuity from the previous frame)
+      tl.to($("04-cat-steps-wavelabel"), { opacity: 0.9, duration: 0.45, ease: "power2.out" }, 0.9);
+
+      // cat pops in at the top of the track, tears already on (spring-pop, smooth settle)
+      gsap.set(pet, { x: 1360, y: -40 }); // wrapper top-left → pet center at (1560, 210)
+      tl.fromTo(pet,
+        { scale: 0, opacity: 0 },
+        { scale: 0.72, opacity: 1, duration: 0.6, ease: "power3.out" }, 0.45);
+
+      /* ================= Scene 2 (1.6–4.6s) — 沿轨道缓缓降落，泪滴两坠，字幕① per-word 落 ================= */
+
+      // caption ① words land one by one (25 秒 · 猫咪出手的时机)
+      var cap1 = Array.prototype.slice.call($("04-cat-steps-cap1").children);
+      cap1.forEach(function (w, i) {
+        tl.fromTo(w,
+          { y: -26, opacity: 0 },
+          { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" }, 2.05 + i * 0.13);
+      });
+
+      // multi-segment descent down the track, long-tail landing (power3.out finish)
+      tl.to(pet, { x: 1110, y: 80,  scale: 0.82, duration: 1.1, ease: "power2.inOut" }, 1.65);
+      tl.to(pet, { x: 880,  y: 220, scale: 0.94, duration: 1.0, ease: "power2.inOut" }, 2.8);
+      tl.to(pet, { x: 760,  y: 295, scale: 1,    duration: 0.6, ease: "power3.out"  }, 3.85);
+
+      // the tear drop falls twice, finite (fall 1)
+      tl.fromTo(tdrop, { opacity: 0 }, { opacity: 1, duration: 0.1 }, 2.3);
+      tl.fromTo(tdrop, { y: 0 }, { y: 58, duration: 0.5, ease: "power1.in" }, 2.38);
+      tl.to(tdrop, { opacity: 0, duration: 0.12, ease: "power1.in" }, 2.82);
+      // (fall 2)
+      tl.set(tdrop, { y: 0 }, 3.34);
+      tl.fromTo(tdrop, { opacity: 0 }, { opacity: 1, duration: 0.1 }, 3.42);
+      tl.fromTo(tdrop, { y: 0 }, { y: 58, duration: 0.5, ease: "power1.in" }, 3.5);
+      tl.to(tdrop, { opacity: 0, duration: 0.12, ease: "power1.in" }, 4.0);
+
+      /* ================= Scene 3 (4.6–6.8s) — 举牌「陪我慢慢眨 2 下」，字幕② word-swap 接替 ================= */
+
+      // the sign rises from his paw side (origin-anchored spring-pop)
+      tl.fromTo(sign,
+        { scale: 0, opacity: 0, y: 20 },
+        { scale: 1, opacity: 1, y: 0, duration: 0.6, ease: "power3.out" }, 4.7);
+
+      // waterfall cut ① → ② (cut-catalog: per-word cut-the-curve, shrinking-gap cascade)
+      function waterfallOut(words, start) {
+        words.forEach(function (w, i) {
+          tl.to(w, { x: -230, duration: 0.34, ease: "power4.in" }, start + i * 0.022);
+          tl.to(w, { opacity: 0, duration: 0.18, ease: "power1.in" }, start + i * 0.022);
+        });
+        return start + words.length * 0.022 + 0.18; // the hard cut
+      }
+      function waterfallIn(words, start) {
+        // cumulative shrinking-gap cascade: gaps 0.05, ×0.84 per word (cut-catalog)
+        var at = start;
+        words.forEach(function (w, i) {
+          gsap.set(w, { x: 230, opacity: 0 });
+          tl.fromTo(w,
+            { x: 230, opacity: 0.35 },
+            { x: 0, opacity: 1, duration: 0.3, ease: "power4.out", immediateRender: false },
+            at);
+          if (i === 0) at += 0.05; else at += 0.05 * Math.pow(0.84, i);
+        });
+      }
+      var cap2 = Array.prototype.slice.call($("04-cat-steps-cap2").children);
+      waterfallIn(cap2, waterfallOut(cap1, 4.85));
+
+      /* ================= Scene 4 (6.8–8.6s) — 回应拍：波形一记跳动，擦泪，沿轨道回升 ================= */
+
+      // the flatline wakes: baseline strengthens, blink 1 blips on, chip counts 1 / 2
+      tl.to($("04-cat-steps-wave"), { opacity: 1, duration: 0.4, ease: "power2.out" }, 6.9);
+      var spike1 = $("04-cat-steps-spike1"),
+          s1len = spike1.getTotalLength();
+      spike1.style.strokeDasharray = String(s1len);
+      spike1.style.strokeDashoffset = String(s1len);
+      tl.to(spike1, { strokeDashoffset: 0, duration: 0.25, ease: "power2.out" }, 6.92);
+      var spike2 = $("04-cat-steps-spike2"),
+          s2len = spike2.getTotalLength();
+      spike2.style.strokeDasharray = String(s2len);
+      spike2.style.strokeDashoffset = String(s2len);
+      tl.fromTo($("04-cat-steps-chip"),
+        { scale: 1.18 }, { scale: 1, duration: 0.22, ease: "power3.out", immediateRender: false }, 7.0);
+
+      // he wipes the tears away
+      tl.to(tstream, { scaleY: 0.2, opacity: 0, duration: 0.45, ease: "power2.inOut" }, 7.12);
+
+      // the sign is set down as the response lands, and he climbs back up the track
+      tl.to(sign, { y: 44, opacity: 0, scale: 0.96, duration: 0.45, ease: "power2.inOut" }, 7.42);
+      tl.to(pet, { x: 990,  y: 180, scale: 0.88, duration: 0.6, ease: "power2.inOut" }, 7.45);
+      tl.to(pet, { x: 1185, y: 80,  scale: 0.78, duration: 0.5, ease: "power3.out"  }, 8.1);
+
+      /* ================= Scene 5 (8.6–10.0s) — 字幕③ 落，第二眨，settle hold ================= */
+
+      // blink 2 — 眨满 2 下
+      tl.to(spike2, { strokeDashoffset: 0, duration: 0.25, ease: "power2.out" }, 8.9);
+      tl.fromTo($("04-cat-steps-chip"),
+        { scale: 1.18 }, { scale: 1, duration: 0.22, ease: "power3.out", immediateRender: false }, 8.98);
+
+      // waterfall cut ② → ③ (眨满 2 下，他才安心走开)
+      var cap3 = Array.prototype.slice.call($("04-cat-steps-cap3").children);
+      waterfallIn(cap3, waterfallOut(cap2, 8.7));
+
+      // quiet finite settle — he eases to rest on the upper track, hold
+      tl.to(pet, { y: 74, duration: 0.35, ease: "sine.inOut" }, 9.3);
+      tl.to(pet, { y: 80, duration: 0.35, ease: "sine.inOut" }, 9.65);
+
+      // chip 0/2 → 1/2 → 2/2 as discrete states (seek-safe reverse-search, no tl.call)
+      var chip = $("04-cat-steps-chip"),
+          CHIP_SEQ = [
+            { t: 0.0, text: "0 / 2" },
+            { t: 7.0, text: "1 / 2" },
+            { t: 8.98, text: "2 / 2" },
+          ];
+      var chipDriver = { t: 0 };
+      tl.to(chipDriver, {
+        t: 10, duration: 10, ease: "none",
+        onUpdate: function () {
+          for (var i = CHIP_SEQ.length - 1; i >= 0; i--) {
+            if (chipDriver.t >= CHIP_SEQ[i].t) { chip.textContent = CHIP_SEQ[i].text; break; }
+          }
+        },
+      }, 0);
+
+      window.__timelines["04-cat-steps"] = tl;
+    })();
+  </script>
+</template>

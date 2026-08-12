@@ -1,0 +1,56 @@
+<template>
+  <style>
+    @font-face { font-family: "PingFang SC"; src: local("PingFang SC"); }
+    @font-face { font-family: "SF Mono"; src: local("SF Mono"), local("Menlo"); }
+    @font-face { font-family: "IBM Plex Mono"; src: local("IBM Plex Mono"), local("SF Mono"), local("Menlo"); }
+    @font-face { font-family: "Playfair Display"; src: local("Playfair Display"), local("Georgia"); }
+    @font-face { font-family: "Georgia"; src: local("Georgia"); }
+    @font-face { font-family: "Arial Black"; src: local("Arial Black"), local("Arial"); }
+    #root { position:absolute; inset:0; width:1920px; height:1080px; overflow:hidden;
+      font-family:"Helvetica Neue",Arial,sans-serif; color:#24243b; background:#f6efdd; }
+    #root .bg { position:absolute; inset:0; background:#f6efdd; }
+    #root .bloom { position:absolute; left:50%; top:44%; width:900px; height:560px;
+      transform:translate(-50%,-50%); border-radius:50%;
+      background:radial-gradient(closest-side, #f2c94c55 0%, transparent 72%); opacity:0; }
+    #root .kicker { position:absolute; left:0; right:0; top:170px; text-align:center;
+      font-family:"SF Mono",Menlo,monospace; font-size:26px; letter-spacing:.34em; opacity:0; color:#24243b; }
+    #root .h1 { position:absolute; left:0; right:0; top:300px; text-align:center;
+      font-family:"Georgia","Times New Roman",serif; font-size:150px; line-height:1.04; font-weight:400; letter-spacing:-.01em; }
+    #root .h1 .num { color:#24243b; }
+    #root .h1 .w { display:inline-block; opacity:0; }
+    #root .h2 { position:absolute; left:0; right:0; top:660px; text-align:center;
+      font-family:"Georgia","Times New Roman",serif; font-size:64px; font-weight:400; letter-spacing:-.01em; opacity:0; }
+    #root .pet { position:absolute; left:50%; bottom:120px; width:190px; height:238px;
+      transform:translateX(-50%); opacity:0; }
+    #root .pet img { width:100%; height:100%; object-fit:contain; object-position:bottom; }
+    #root .tag { position:absolute; right:150px; bottom:150px; font-size:22px; opacity:0;
+      font-family:"SF Mono",Menlo,monospace; background:#f2c94c; color:#24243b; padding:2px 10px; }
+  </style>
+  <div id="root" data-composition-id="01-hook" data-width="1920" data-height="1080" data-duration="10">
+    <div id="01-hook-bg" class="clip bg" data-start="0" data-duration="10" data-track-index="0"></div>
+    <div id="01-hook-bloom" class="clip bloom" data-start="0.3" data-duration="9.7" data-track-index="1"></div>
+    <div id="01-hook-kicker" class="clip kicker" data-start="0.2" data-duration="9.8" data-track-index="2">LOOK ME · 看看我</div>
+    <div id="01-hook-h1" class="clip h1" data-start="0.4" data-duration="9.6" data-track-index="3">
+      <span class="w">泪膜只能撑</span><span class="w num">10 秒</span>
+    </div>
+    <div id="01-hook-h2" class="clip h2" data-start="4.6" data-duration="5.4" data-track-index="4">别等眼睛干掉</div>
+    <div id="01-hook-pet" class="clip pet" data-start="5.6" data-duration="4.4" data-track-index="5">
+      <img src="assets/heterochromia-cat-idle.png" alt="">
+    </div>
+    <div id="01-hook-tag" class="clip tag" data-start="8.4" data-duration="1.6" data-track-index="6">他替你记着</div>
+  </div>
+  <script>
+    window.__timelines = window.__timelines || {};
+    (function () {
+      var $ = function (id) { return document.getElementById(id); };
+      var tl = gsap.timeline({ paused: true, defaults: { ease: "power3.out" } });
+      tl.fromTo($("01-hook-kicker"), {opacity:0, y:14}, {opacity:.85, y:0, duration:.5}, 0.2);
+      tl.to($("01-hook-bloom"), {opacity:1, duration:.9}, 0.4);
+      tl.fromTo("#root .h1 .w", {opacity:0, y:60}, {opacity:1, y:0, duration:.7, stagger:.55}, 0.5);
+      tl.fromTo($("01-hook-h2"), {opacity:0, y:26}, {opacity:1, y:0, duration:.55}, 4.7);
+      tl.fromTo($("01-hook-pet"), {opacity:0, y:40}, {opacity:1, y:0, duration:.65}, 5.7);
+      tl.fromTo($("01-hook-tag"), {opacity:0, scale:.86}, {opacity:1, scale:1, duration:.4}, 8.5);
+      window.__timelines["01-hook"] = tl;
+    })();
+  </script>
+</template>

@@ -1,0 +1,297 @@
+<template>
+  <style>
+    @font-face { font-family: "PingFang SC"; src: local("PingFang SC"); }
+    @font-face { font-family: "SF Mono"; src: local("SF Mono"), local("Menlo"), local("monospace"); }
+
+    #root {
+      position: absolute; inset: 0; width: 1920px; height: 1080px; overflow: hidden;
+      font-family: "PingFang SC", sans-serif; color: #1e3f45;
+    }
+
+    /* ---- ground: warm cream paper ---- */
+    #root .fs-bg { position: absolute; inset: 0; background: #eef5f3; }
+
+    /* ---- chrome: kicker-spike + index ---- */
+    #root .fs-kicker {
+      position: absolute; left: 84px; top: 76px;
+      font-family: "SF Mono", "PingFang SC", monospace;
+      font-size: 27px; font-weight: 500; letter-spacing: 0.16em;
+      color: rgba(30, 63, 69, 0.78); opacity: 0;
+    }
+    #root .fs-kicker .fs-spike { color: #9b563f; margin-right: 14px; }
+    #root .fs-index {
+      position: absolute; right: 84px; top: 80px;
+      font-family: "SF Mono", "PingFang SC", monospace;
+      font-size: 24px; font-weight: 500; letter-spacing: 0.14em;
+      color: rgba(30, 63, 69, 0.45); opacity: 0;
+    }
+
+    /* ---- kinetic type lines (upper third) ---- */
+    #root .fs-linezone { position: absolute; left: 0; right: 0; top: 168px; height: 180px; }
+    #root .fs-line {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      gap: 0.3em; white-space: nowrap;
+      font-weight: 400; letter-spacing: -0.018em; line-height: 1;
+    }
+    #root .fs-l1 { font-size: 140px; letter-spacing: -0.022em; }
+    #root .fs-l2 { font-size: 88px; letter-spacing: -0.014em; }
+    #root .fs-l3 { font-size: 118px; letter-spacing: -0.02em; }
+    #root .fs-line .w { display: inline-block; opacity: 0; }
+    #root .fs-l2 .w { transform: translateX(230px); }
+    #root .fs-l3 .w-last { position: relative; }
+    #root .fs-ul {
+      position: absolute; left: 2%; right: 2%; bottom: -20px; height: 3px;
+      background: rgba(30, 63, 69, 0.38);
+      transform: scaleX(0); transform-origin: left center; border-radius: 2px;
+    }
+
+    /* ---- instrument card (tile surface, hairline elevation) ---- */
+    #root .fs-card {
+      position: absolute; left: 180px; top: 396px; width: 1560px; height: 396px;
+      background: #efe9de; border: 1px solid rgba(30, 63, 69, 0.12); border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(30, 63, 69, 0.08), 0 4px 16px rgba(30, 63, 69, 0.04);
+      opacity: 0;
+    }
+    #root .fs-cardlabel {
+      position: absolute; left: 44px; top: 34px;
+      font-family: "SF Mono", "PingFang SC", monospace;
+      font-size: 24px; font-weight: 500; letter-spacing: 0.06em;
+      color: rgba(30, 63, 69, 0.55); opacity: 0;
+    }
+    #root .fs-cardlabel-r {
+      left: auto; right: 44px; text-align: right;
+      font-family: "SF Mono", "PingFang SC", monospace;
+    }
+    #root .fs-wave { position: absolute; left: 44px; top: 88px; width: 1472px; height: 190px; }
+    #root .fs-wave path, #root .fs-wave line { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    #root .fs-axis { stroke: rgba(30, 63, 69, 0.34); stroke-width: 1.5; }
+    #root .fs-blip { stroke: #1e3f45; stroke-width: 3; }
+    #root .fs-tick line { stroke: rgba(30, 63, 69, 0.45); stroke-width: 1.5; }
+    #root .fs-tick text {
+      font-family: "SF Mono", "PingFang SC", monospace;
+      font-size: 26px; font-weight: 500; fill: #1e3f45;
+      text-anchor: middle; opacity: 0.5;
+    }
+    #root .fs-dot { fill: #1e3f45; opacity: 0; }
+
+    /* ---- tear-film refill bar ---- */
+    #root .fs-barlabel {
+      position: absolute; left: 44px; top: 296px;
+      font-family: "SF Mono", "PingFang SC", monospace;
+      font-size: 24px; font-weight: 500; letter-spacing: 0.06em;
+      color: rgba(30, 63, 69, 0.55); opacity: 0;
+    }
+    #root .fs-bar { position: absolute; left: 44px; top: 330px; width: 1472px; height: 16px; opacity: 0; }
+    #root .fs-track {
+      position: absolute; inset: 0; border-radius: 8px; overflow: hidden;
+      background: rgba(30, 63, 69, 0.07); border: 1px solid rgba(30, 63, 69, 0.1);
+    }
+    #root .fs-fill {
+      width: 100%; height: 100%; border-radius: 8px;
+      background: #9b563f;
+      transform: scaleX(0); transform-origin: left center;
+    }
+    /* rupture threshold marker at 18% — the line the film must not recede past */
+    #root .fs-th { position: absolute; left: 18%; top: -6px; width: 0; opacity: 0; }
+    #root .fs-th i {
+      position: absolute; left: -1px; top: 0; width: 2px; height: 28px;
+      background: rgba(30, 63, 69, 0.4); border-radius: 1px;
+    }
+    #root .fs-th span {
+      position: absolute; left: 0; top: 30px; transform: translateX(-50%);
+      font-family: "SF Mono", "PingFang SC", monospace;
+      font-size: 20px; font-weight: 500; letter-spacing: 0.08em;
+      color: rgba(30, 63, 69, 0.55); white-space: nowrap;
+    }
+  </style>
+
+  <div id="root" data-composition-id="02-four-seconds" data-width="1920" data-height="1080" data-duration="8.4">
+    <div id="02-four-seconds-bg" class="clip fs-bg" data-start="0" data-duration="8.4" data-track-index="0"></div>
+
+    <div id="02-four-seconds-kicker" class="clip fs-kicker" data-start="0.05" data-duration="8.35" data-track-index="1">
+      <span class="fs-spike">&#10033;</span>眨眼节律
+    </div>
+    <div id="02-four-seconds-index" class="clip fs-index" data-start="0.3" data-duration="8.1" data-track-index="2">
+      LOOK ME &middot; TEAR FILM
+    </div>
+
+    <!-- kinetic type lines — one on screen at a time, relayed on the blink beats -->
+    <div id="02-four-seconds-line1" class="clip fs-linezone" data-start="1.5" data-duration="3" data-track-index="4">
+      <div class="fs-line fs-l1">
+        <span class="w">每</span><span class="w">4 秒</span><span class="w">一次</span>
+      </div>
+    </div>
+    <div id="02-four-seconds-line2" class="clip fs-linezone" data-start="4.2" data-duration="4.2" data-track-index="5">
+      <div class="fs-line fs-l2">
+        <span class="w">每眨一次，</span><span class="w">泪膜</span><span class="w">重新铺满</span><span class="w">眼球表面</span>
+      </div>
+    </div>
+    <div id="02-four-seconds-line3" class="clip fs-linezone" data-start="6.2" data-duration="2.2" data-track-index="6">
+      <div class="fs-line fs-l3">
+        <span class="w">刚好</span><span class="w">赶在</span><span class="w">它破裂前</span><span class="w w-last">续上<i class="fs-ul"></i></span>
+      </div>
+    </div>
+
+    <!-- the instrument: blink waveform on a 4s-ticked timeline + tear-film refill bar -->
+    <div id="02-four-seconds-card" class="clip fs-card" data-start="0.25" data-duration="8.15" data-track-index="3">
+      <div class="fs-cardlabel" id="02-four-seconds-cl1">眨眼波形 BLINK WAVE</div>
+      <div class="fs-cardlabel fs-cardlabel-r" id="02-four-seconds-cl2">眨眼间隔 &middot; 4S</div>
+
+      <svg class="fs-wave" viewBox="0 0 1472 190" xmlns="http://www.w3.org/2000/svg">
+        <path id="02-four-seconds-axis" class="fs-axis" d="M 8 120 L 1464 120" />
+        <g class="fs-tick" transform="translate(160,0)">
+          <line x1="0" y1="120" x2="0" y2="142" /><text x="0" y="172">4s</text>
+        </g>
+        <g class="fs-tick" transform="translate(416,0)">
+          <line x1="0" y1="120" x2="0" y2="142" /><text x="0" y="172">8s</text>
+        </g>
+        <g class="fs-tick" transform="translate(672,0)">
+          <line x1="0" y1="120" x2="0" y2="142" /><text x="0" y="172">12s</text>
+        </g>
+        <path class="fs-blip" d="M 138 120 L 160 34 L 182 120" />
+        <path class="fs-blip" d="M 394 120 L 416 34 L 438 120" />
+        <path class="fs-blip" d="M 650 120 L 672 34 L 694 120" />
+        <path class="fs-blip" d="M 906 120 L 928 34 L 950 120" />
+        <path class="fs-blip" d="M 1162 120 L 1184 34 L 1206 120" />
+        <path class="fs-blip" d="M 1418 120 L 1440 34 L 1462 120" />
+        <circle class="fs-dot" cx="160" cy="34" r="5" />
+        <circle class="fs-dot" cx="416" cy="34" r="5" />
+        <circle class="fs-dot" cx="672" cy="34" r="5" />
+        <circle class="fs-dot" cx="928" cy="34" r="5" />
+        <circle class="fs-dot" cx="1184" cy="34" r="5" />
+        <circle class="fs-dot" cx="1440" cy="34" r="5" />
+      </svg>
+
+      <div class="fs-barlabel" id="02-four-seconds-bl">泪膜铺满 TEAR FILM</div>
+      <div class="fs-bar" id="02-four-seconds-bar">
+        <div class="fs-track"><div class="fs-fill" id="02-four-seconds-fill"></div></div>
+        <div class="fs-th" id="02-four-seconds-th"><i></i><span>破裂线</span></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    window.__timelines = window.__timelines || {};
+    (function () {
+      var byId = function (id) { return document.getElementById(id); };
+      // queries scoped INSIDE this frame's own elements — sibling frames cannot collide
+      var in$ = function (id, sel) { return Array.prototype.slice.call(byId(id).querySelectorAll(sel)); };
+
+      var tl = gsap.timeline({ paused: true, defaults: { ease: "power3.out" } });
+
+      /* ============================================================
+         Scene 1 (0.0–1.6s) — cream paper; chrome lands; the timeline
+         hairline self-draws left→right (svg-path-draw); 4s/8s/12s
+         tick labels stagger into place.
+         ============================================================ */
+      tl.fromTo(byId("02-four-seconds-kicker"), { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.5 }, 0.1);
+      tl.fromTo(byId("02-four-seconds-card"), { opacity: 0, y: 28 }, { opacity: 1, y: 0, duration: 0.65 }, 0.3);
+      tl.fromTo(byId("02-four-seconds-index"), { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "power2.out" }, 0.35);
+      tl.fromTo(byId("02-four-seconds-cl1"), { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.4 }, 0.75);
+      tl.fromTo(byId("02-four-seconds-cl2"), { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.4 }, 0.85);
+
+      // axis self-draw — measured length, never guessed
+      var axis = byId("02-four-seconds-axis");
+      var axisLen = axis.getTotalLength();
+      axis.style.strokeDasharray = String(axisLen);
+      axis.style.strokeDashoffset = String(axisLen);
+      tl.to(axis, { strokeDashoffset: 0, duration: 0.85, ease: "power2.out" }, 0.7);
+
+      // tick groups land in a stagger
+      tl.fromTo(in$("02-four-seconds-card", ".fs-tick"), { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.3, stagger: 0.18 }, 1.0);
+
+      /* ============================================================
+         Beat grid — one array drives everything (word-beat = wave-beat):
+         blips pop, peak dots pop, tick labels darken, film bar refills.
+         ============================================================ */
+      var BEATS = [2.05, 2.85, 3.65, 4.35, 6.55, 7.35];
+      var blips = in$("02-four-seconds-card", ".fs-blip");
+      var dots = in$("02-four-seconds-card", ".fs-dot");
+      var tickTexts = in$("02-four-seconds-card", ".fs-tick text");
+
+      blips.forEach(function (p) {
+        var len = p.getTotalLength() * 1.05; // slight overestimate — invisible at start, never clips the end
+        p.style.strokeDasharray = String(len);
+        p.style.strokeDashoffset = String(len);
+      });
+
+      BEATS.forEach(function (t, i) {
+        // the blink: a discrete beat — spike draws fast, peak dot pops
+        tl.to(blips[i], { strokeDashoffset: 0, duration: 0.18, ease: "power2.out" }, t);
+        tl.fromTo(dots[i],
+          { scale: 0, opacity: 0, transformOrigin: "50% 50%" },
+          { scale: 1, opacity: 1, duration: 0.22, ease: "power3.out" }, t);
+        // labeled ticks wake as their blip lands (4s / 8s / 12s)
+        if (i < 3) tl.to(tickTexts[i], { opacity: 0.95, duration: 0.3, ease: "power2.out" }, t);
+      });
+
+      /* ============================================================
+         Scene 2 (1.6–4.0s) — line ① drops per-word; first blink pops
+         with a full refill, then two more repeat the same beat
+         (waveform = metronome).
+         Scene 3 (4.0–6.0s) — word-swap relay into line ②; fourth
+         blink + refill answer on the same beat.
+         Scene 4 (6.0–8.0s) — line ③ lands; after the long drain the
+         film kisses the rupture line and refills just in time; steady
+         alternation, then hold.
+         ============================================================ */
+
+      // --- tear-film bar: track appears, then refill/drain cycles on the beat grid
+      var fill = byId("02-four-seconds-fill");
+      tl.fromTo(byId("02-four-seconds-bar"), { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.45 }, 1.85);
+      tl.fromTo(byId("02-four-seconds-bl"), { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.4 }, 1.95);
+
+      var REFILL = 0.55;
+      // drain targets per beat — the long Scene-4 drain sinks to just shy of the rupture line
+      var drains = [0.45, 0.45, 0.5, 0.2, 0.45];
+      BEATS.forEach(function (t, i) {
+        tl.to(fill, { scaleX: 1, duration: REFILL, ease: "power2.out" }, t); // refill full
+        if (i < BEATS.length - 1) {
+          var drainDur = BEATS[i + 1] - (t + REFILL); // thin until the next blink
+          tl.to(fill, { scaleX: drains[i], duration: drainDur, ease: "power1.inOut" }, t + REFILL);
+        }
+      });
+
+      // --- line ① 「每 4 秒一次」 per-word drop (upper third)
+      tl.fromTo(in$("02-four-seconds-line1", ".w"),
+        { opacity: 0, y: -46, filter: "blur(6px)" },
+        { opacity: 1, y: 0, filter: "blur(0px)", duration: 0.5, stagger: 0.12 }, 1.6);
+
+      // --- line ① → line ② : waterfall cut (cut-the-curve at word granularity)
+      // exit: per word rips left on power4.in; fade completes ~25% into travel
+      var l1w = in$("02-four-seconds-line1", ".w");
+      l1w.forEach(function (w, k) {
+        tl.to(w, { x: -230, duration: 0.34, ease: "power4.in" }, 4.0 + 0.022 * k);
+        tl.to(w, { opacity: 0, duration: 0.18, ease: "power1.in" }, 4.0 + 0.022 * k);
+      });
+      // entry: cascades in already moving, shrinking gaps so the cascade accelerates
+      var l2w = in$("02-four-seconds-line2", ".w");
+      // shrinking gaps (0.05 × ~0.84^k) so the cascade accelerates across the line
+      var l2at = [4.26, 4.31, 4.352, 4.387];
+      l2w.forEach(function (w, k) {
+        tl.fromTo(w,
+          { x: 230, opacity: 0.35 },
+          { x: 0, opacity: 1, duration: 0.3, ease: "power4.out", immediateRender: false },
+          l2at[k]);
+      });
+
+      // --- line ② → line ③ : waterfall out, slam-drop in (a distinct entrance)
+      var l2exit = 6.0;
+      l2w.forEach(function (w, k) {
+        tl.to(w, { x: -230, duration: 0.34, ease: "power4.in" }, l2exit + 0.022 * k);
+        tl.to(w, { opacity: 0, duration: 0.18, ease: "power1.in" }, l2exit + 0.022 * k);
+      });
+      tl.fromTo(in$("02-four-seconds-line3", ".w"),
+        { opacity: 0, y: -34, scale: 0.94 },
+        { opacity: 1, y: 0, scale: 1, duration: 0.42, ease: "power4.out", stagger: 0.055 }, 6.3);
+
+      // rupture-line marker fades in as 「它破裂前」 is being read
+      tl.fromTo(byId("02-four-seconds-th"), { opacity: 0, y: 6 }, { opacity: 1, y: 0, duration: 0.35, ease: "power2.out" }, 6.05);
+
+      // final beat dressing: a hairline draws under 「续上」 as the film refills just in time
+      tl.fromTo(in$("02-four-seconds-line3", ".fs-ul")[0], { scaleX: 0 }, { scaleX: 1, duration: 0.35, ease: "power2.out" }, 6.95);
+
+      window.__timelines["02-four-seconds"] = tl;
+    })();
+  </script>
+</template>

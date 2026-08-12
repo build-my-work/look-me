@@ -1,0 +1,61 @@
+<template>
+  <style>
+    @font-face { font-family: "PingFang SC"; src: local("PingFang SC"); }
+    @font-face { font-family: "SF Mono"; src: local("SF Mono"), local("Menlo"); }
+    @font-face { font-family: "IBM Plex Mono"; src: local("IBM Plex Mono"), local("SF Mono"), local("Menlo"); }
+    @font-face { font-family: "Playfair Display"; src: local("Playfair Display"), local("Georgia"); }
+    @font-face { font-family: "Georgia"; src: local("Georgia"); }
+    @font-face { font-family: "Arial Black"; src: local("Arial Black"), local("Arial"); }
+    #root { position:absolute; inset:0; width:1920px; height:1080px; overflow:hidden;
+      font-family:"Helvetica Neue",Arial,sans-serif; color:#141414; background:#f4ede2; }
+    #root .bg { position:absolute; inset:0; background:#f4ede2; }
+    #root .pet { position:absolute; left:50%; top:180px; width:250px; height:312px;
+      transform:translateX(-50%); opacity:0; }
+    #root .pet img { width:100%; height:100%; object-fit:contain; object-position:bottom; }
+    #root .mark { position:absolute; left:0; right:0; top:560px; text-align:center;
+      font-family:"Arial Black",Arial,sans-serif; font-size:100px; font-weight:900; letter-spacing:.02em; text-transform:uppercase; }
+    #root .mark .w { display:inline-block; opacity:0; margin:0 .12em; }
+    #root .cn { position:absolute; left:0; right:0; top:726px; text-align:center;
+      font-size:44px; opacity:0; font-family:"Arial Black",Arial,sans-serif; }
+    #root .sub { position:absolute; left:0; right:0; top:800px; text-align:center;
+      font-size:29px; opacity:0; }
+    #root .btns { position:absolute; left:0; right:0; top:866px; display:flex; justify-content:center; gap:24px; }
+    #root .btn { padding:14px 36px; font-size:24px; font-weight:600; opacity:0;
+      border:2px solid #141414; color:#141414; border-radius:0px; }
+    #root .fine { position:absolute; left:0; right:0; top:946px; text-align:center;
+      font-size:19px; opacity:0; font-family:"SF Mono",Menlo,monospace; }
+  </style>
+  <div id="root" data-composition-id="03-cta" data-width="1920" data-height="1080" data-duration="11">
+    <div id="03-cta-bg" class="clip bg" data-start="0" data-duration="11" data-track-index="0"></div>
+    <div id="03-cta-pet" class="clip pet" data-start="0.15" data-duration="10.85" data-track-index="1">
+      <img src="assets/heterochromia-cat-idle.png" alt="">
+    </div>
+    <div id="03-cta-mark" class="clip mark" data-start="0.9" data-duration="10.1" data-track-index="2">
+      <span class="w">LOOK</span><span class="w">ME</span>
+    </div>
+    <div id="03-cta-cn" class="clip cn" data-start="1.9" data-duration="9.1" data-track-index="3">· 看看我 ·</div>
+    <div id="03-cta-sub" class="clip sub" data-start="2.7" data-duration="8.3" data-track-index="4">猫咪伙伴住进你的桌面：提醒眨眼、远眺、起身</div>
+    <div id="03-cta-btns" class="clip btns" data-start="3.6" data-duration="7.4" data-track-index="5">
+      <span class="btn" id="03-cta-b0">macOS</span>
+      <span class="btn" id="03-cta-b1">Windows</span>
+      <span class="btn" id="03-cta-b2">Linux</span>
+    </div>
+    <div id="03-cta-fine" class="clip fine" data-start="7.4" data-duration="3.6" data-track-index="6">v0.1.1 · 个人健康习惯工具 · 不用于诊断或治疗干眼症</div>
+  </div>
+  <script>
+    window.__timelines = window.__timelines || {};
+    (function () {
+      var $ = function (id) { return document.getElementById(id); };
+      var tl = gsap.timeline({ paused: true, defaults: { ease: "power3.out" } });
+      tl.fromTo($("03-cta-pet"), {opacity:0, y:46}, {opacity:1, y:0, duration:.75}, 0.2);
+      tl.fromTo("#root .mark .w", {opacity:0, y:40}, {opacity:1, y:0, duration:.55, stagger:.22}, 1.0);
+      tl.fromTo($("03-cta-cn"), {opacity:0}, {opacity:1, duration:.45}, 2.0);
+      tl.fromTo($("03-cta-sub"), {opacity:0, y:16}, {opacity:.9, y:0, duration:.45}, 2.8);
+      ["03-cta-b0","03-cta-b1","03-cta-b2"].forEach(function (b, i) {
+        tl.fromTo($(b), {opacity:0, y:26}, {opacity:1, y:0, duration:.42}, 3.8 + i * .3);
+      });
+      tl.fromTo($("03-cta-fine"), {opacity:0}, {opacity:.8, duration:.4}, 7.5);
+      window.__timelines["03-cta"] = tl;
+    })();
+  </script>
+</template>

@@ -1,0 +1,134 @@
+<template>
+  <style>
+    @font-face { font-family: "PingFang SC"; src: local("PingFang SC"); }
+    @font-face { font-family: "SF Mono"; src: local("SF Mono"), local("Menlo"), local("monospace"); }
+    #root {
+      position: absolute; inset: 0; width: 1920px; height: 1080px; overflow: hidden;
+      font-family: "PingFang SC", sans-serif; color: #1e3f45;
+    }
+    #root .bm-bg {
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(900px 430px at 50% -8%, rgba(255, 252, 246, .92) 0%, transparent 62%),
+        #efe9de;
+    }
+    /* the abstract "your eye" glyph, upper third */
+    #root .bm-eye {
+      position: absolute; left: 50%; top: 158px; width: 460px; height: 190px;
+      transform: translateX(-50%);
+    }
+    #root .bm-eyelabel {
+      position: absolute; left: 50%; top: 96px; transform: translateX(-50%);
+      font-family: "SF Mono", monospace; font-size: 24px; letter-spacing: .28em; color: #b69a63;
+      opacity: 0;
+    }
+    /* the pet, centered */
+    #root .bm-petshell {
+      position: absolute; left: 50%; top: 430px; width: 390px; height: 488px;
+      transform: translateX(-50%);
+    }
+    #root .bm-petshell .base {
+      position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: bottom;
+      filter: drop-shadow(0 18px 22px rgba(36, 77, 83, .25));
+    }
+    /* eyelid overlay — official-site coordinates on a 260×325 shell: (112,88) 17×19 */
+    #root .bm-eyelid {
+      position: absolute; left: 43.08%; top: 27.08%; width: 6.54%; height: 5.85%;
+      border-radius: 50%; background: #f4f4f1;
+      box-shadow: 0 0 3px 2px rgba(244, 244, 241, .92);
+      transform: scaleY(0.35); transform-origin: center; opacity: 0;
+    }
+    #root .bm-himlabel {
+      position: absolute; left: 50%; top: 368px; transform: translateX(-50%);
+      font-family: "SF Mono", monospace; font-size: 24px; letter-spacing: .28em; color: #6e5a3c;
+      opacity: 0;
+    }
+    #root .bm-copy {
+      position: absolute; left: 0; right: 0; top: 828px; text-align: center;
+      font-size: 44px; font-weight: 400; color: #1e3f45;
+    }
+    #root .bm-copy .w { display: inline-block; margin: 0 .14em; opacity: 0; }
+    #root .bm-l2 .w, #root .bm-l3 .w { display: none; }
+  </style>
+
+  <div id="root" data-composition-id="01-blink-mirror" data-width="1920" data-height="1080" data-duration="9.5">
+    <div id="01-blink-mirror-bg" class="clip bm-bg" data-start="0" data-duration="9.5" data-track-index="0"></div>
+
+    <div id="01-blink-mirror-eyelabel" class="clip bm-eyelabel" data-start="0.6" data-duration="8.9" data-track-index="1">YOU · 你</div>
+    <div id="01-blink-mirror-eye" class="clip bm-eye" data-start="0.3" data-duration="9.2" data-track-index="2">
+      <svg width="460" height="190" viewBox="0 0 460 190" fill="none">
+        <path id="01-blink-mirror-lidt" d="M 30 95 C 120 18, 340 18, 430 95" stroke="#315f66" stroke-width="7" stroke-linecap="round"/>
+        <path id="01-blink-mirror-lidb" d="M 30 95 C 120 172, 340 172, 430 95" stroke="#315f66" stroke-width="7" stroke-linecap="round"/>
+        <ellipse id="01-blink-mirror-iris" cx="230" cy="96" rx="52" ry="46" fill="#315f66" opacity="0"/>
+      </svg>
+    </div>
+
+    <div id="01-blink-mirror-himlabel" class="clip bm-himlabel" data-start="1.0" data-duration="8.5" data-track-index="3">HIM · 他</div>
+    <div id="01-blink-mirror-pet" class="clip bm-petshell" data-start="0.1" data-duration="9.4" data-track-index="4">
+      <img class="base" src="assets/heterochromia-cat-idle.png" alt="">
+      <span class="bm-eyelid" id="01-blink-mirror-eyelid"></span>
+    </div>
+
+    <div id="01-blink-mirror-copy" class="clip bm-copy" data-start="4.2" data-duration="5.3" data-track-index="5">
+      <span class="bm-l1" id="01-blink-mirror-l1">
+        <span class="w">你看不见</span><span class="w">自己的眼睛</span>
+      </span>
+      <span class="bm-l2" id="01-blink-mirror-l2">
+        <span class="w">他替你看着</span>
+      </span>
+      <span class="bm-l3" id="01-blink-mirror-l3">
+        <span class="w">他眨了，</span><span class="w">就说明你刚才真的眨了</span>
+      </span>
+    </div>
+  </div>
+
+  <script>
+    window.__timelines = window.__timelines || {};
+    (function () {
+      var $ = function (id) { return document.getElementById(id); };
+      var tl = gsap.timeline({ paused: true, defaults: { ease: "power3.out" } });
+
+      // Scene 1 (0.0–1.4s): warm field; the pet springs in; the eye glyph draws itself
+      tl.fromTo($("01-blink-mirror-pet"), { opacity: 0, y: 54 }, { opacity: 1, y: 0, duration: 0.8 }, 0.1);
+      var lids = [$("01-blink-mirror-lidt"), $("01-blink-mirror-lidb")];
+      lids.forEach(function (p) { var L = p.getTotalLength(); p.style.strokeDasharray = String(L); p.style.strokeDashoffset = String(L); });
+      tl.to($("01-blink-mirror-lidt"), { strokeDashoffset: 0, duration: 0.8, ease: "power2.out" }, 0.35);
+      tl.to($("01-blink-mirror-lidb"), { strokeDashoffset: 0, duration: 0.8, ease: "power2.out" }, 0.5);
+      tl.to($("01-blink-mirror-iris"), { opacity: 0.9, duration: 0.4 }, 0.9);
+      tl.fromTo($("01-blink-mirror-eyelabel"), { opacity: 0 }, { opacity: 0.95, duration: 0.4 }, 0.6);
+      tl.fromTo($("01-blink-mirror-himlabel"), { opacity: 0 }, { opacity: 0.95, duration: 0.4 }, 1.0);
+
+      // a blink beat on the "your eye" glyph: lid lines squeeze down and open, iris dips
+      function yourBlink(t) {
+        tl.to($("01-blink-mirror-eye"), { scaleY: 0.32, duration: 0.13, ease: "power2.in" }, t);
+        tl.to($("01-blink-mirror-eye"), { scaleY: 1, duration: 0.16, ease: "power2.out" }, t + 0.13);
+      }
+      // the pet's answering blink, 0.4s later — the live-sync couple
+      function hisBlink(t) {
+        tl.set($("01-blink-mirror-eyelid"), { opacity: 1 }, t - 0.02);
+        tl.to($("01-blink-mirror-eyelid"), { scaleY: 1, duration: 0.1, ease: "power2.in" }, t);
+        tl.to($("01-blink-mirror-eyelid"), { scaleY: 0.35, duration: 0.16, ease: "power2.out" }, t + 0.12);
+      }
+
+      // Scene 2 (1.4–4.2s): first mirror round — you blink, he answers 0.4s later
+      yourBlink(1.7); hisBlink(2.1);
+      yourBlink(2.9); hisBlink(3.3);
+
+      // Scene 3 (4.2–6.6s): copy ① per-word, then ② swaps in place
+      tl.set("#root .bm-l2 .w", { display: "none" }, 0);
+      tl.set("#root .bm-l3 .w", { display: "none" }, 0);
+      tl.fromTo("#root .bm-l1 .w", { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.45, stagger: 0.24 }, 4.3);
+      tl.to("#root .bm-l1 .w", { opacity: 0, duration: 0.22, ease: "power2.in" }, 5.5);
+      tl.set("#root .bm-l2 .w", { display: "inline-block" }, 5.75);
+      tl.fromTo("#root .bm-l2 .w", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.42 }, 5.78);
+
+      // Scene 4 (6.6–9.0s): second mirror round, slightly quicker; closing line; settle hold
+      yourBlink(6.7); hisBlink(7.05);
+      tl.to("#root .bm-l2 .w", { opacity: 0, duration: 0.2, ease: "power2.in" }, 7.3);
+      tl.set("#root .bm-l3 .w", { display: "inline-block" }, 7.52);
+      tl.fromTo("#root .bm-l3 .w", { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.42, stagger: 0.2 }, 7.55);
+
+      window.__timelines["01-blink-mirror"] = tl;
+    })();
+  </script>
+</template>

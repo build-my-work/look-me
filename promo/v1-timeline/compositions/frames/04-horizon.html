@@ -1,0 +1,122 @@
+<template>
+  <style>
+    @font-face { font-family: "PingFang SC"; src: local("PingFang SC"); }
+    @font-face { font-family: "SF Mono"; src: local("SF Mono"), local("Menlo"), local("monospace"); }
+    #root {
+      position: absolute; inset: 0; width: 1920px; height: 1080px; overflow: hidden;
+      font-family: "PingFang SC", sans-serif; color: #1e3f45;
+    }
+    /* dark room behind the window */
+    #root .hz-dark {
+      position: absolute; inset: 0;
+      background: radial-gradient(1200px 700px at 50% 55%, #232c2b 0%, #141a1a 70%);
+    }
+    /* the window itself: a clip-anchored plane that opens from the center */
+    #root .hz-win {
+      position: absolute; left: 50%; top: 50%; width: 1420px; height: 860px;
+      transform: translate(-50%, -50%);
+      border-radius: 26px; overflow: hidden;
+      box-shadow: 0 46px 90px -34px rgba(0, 0, 0, .6), 0 0 0 10px rgba(246, 250, 248, .9), 0 0 0 12px rgba(30, 63, 69, .25);
+      will-change: clipPath, filter;
+    }
+    #root .hz-win img.hz-view {
+      position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+      transform: scale(1.06);
+    }
+    #root .hz-veil {
+      position: absolute; inset: 0;
+      background: linear-gradient(180deg, rgba(255, 251, 240, .22) 0%, transparent 42%);
+    }
+    /* copy */
+    #root .hz-line1 {
+      position: absolute; left: 0; right: 0; top: 150px; text-align: center;
+      font-size: 54px; font-weight: 400; letter-spacing: .02em; color: #fbf6ee;
+      text-shadow: 0 2px 18px rgba(20, 26, 26, .45); opacity: 0;
+    }
+    #root .hz-line2 {
+      position: absolute; left: 0; right: 0; top: 796px; text-align: center;
+      font-size: 38px; font-weight: 400; color: #fbf6ee;
+      text-shadow: 0 2px 16px rgba(20, 26, 26, .5); opacity: 0;
+    }
+    /* glass tip card with the countdown ring */
+    #root .hz-card {
+      position: absolute; left: 50%; top: 372px; transform: translate(-50%, 0);
+      display: flex; align-items: center; gap: 26px;
+      background: rgba(247, 251, 248, .92);
+      border: 1px solid rgba(255, 255, 255, .85); border-radius: 22px;
+      padding: 26px 40px;
+      box-shadow: 0 20px 46px -18px rgba(20, 26, 26, .55);
+      opacity: 0;
+    }
+    #root .hz-ring { width: 108px; height: 108px; }
+    #root .hz-ring text { font-family: "SF Mono", monospace; }
+    #root .hz-card-copy .c1 { font-size: 26px; color: #78908d; letter-spacing: .06em; }
+    #root .hz-card-copy .c2 { font-size: 36px; color: #1e3f45; font-weight: 500; margin-top: 6px; }
+    #root .hz-card-copy .c2 b { font-family: "SF Mono", monospace; color: #9b563f; font-weight: 600; }
+  </style>
+
+  <div id="root" data-composition-id="04-horizon" data-width="1920" data-height="1080" data-duration="9.5">
+    <div id="04-horizon-dark" class="clip hz-dark" data-start="0" data-duration="9.5" data-track-index="0"></div>
+
+    <div id="04-horizon-win" class="clip hz-win" data-start="0" data-duration="9.5" data-track-index="1">
+      <img class="hz-view" id="04-horizon-view" src="assets/horizon-break.webp" alt="">
+      <div class="hz-veil"></div>
+    </div>
+
+    <div id="04-horizon-line1" class="clip hz-line1" data-start="1.4" data-duration="8.1" data-track-index="2">
+      20-20-20：放松睫状肌最好的动作
+    </div>
+
+    <div id="04-horizon-card" class="clip hz-card" data-start="3.4" data-duration="6.1" data-track-index="3">
+      <svg class="hz-ring" viewBox="0 0 108 108">
+        <circle cx="54" cy="54" r="46" fill="none" stroke="#e2ded2" stroke-width="9"/>
+        <circle id="04-horizon-ringfill" cx="54" cy="54" r="46" fill="none" stroke="#b69a63"
+          stroke-width="9" stroke-linecap="round"
+          transform="rotate(-90 54 54)"/>
+        <text id="04-horizon-ringnum" x="54" y="63" text-anchor="middle" font-size="34" fill="#1e3f45">20</text>
+      </svg>
+      <div class="hz-card-copy">
+        <div class="c1">远眺小窗 · 20 英尺（约 6 米）外</div>
+        <div class="c2">坚持 <b>20 秒</b>，睫状肌真正松开</div>
+      </div>
+    </div>
+
+    <div id="04-horizon-line2" class="clip hz-line2" data-start="6.2" data-duration="3.3" data-track-index="4">
+      满 20 分钟，他为你展开一扇 20 秒的远眺小窗
+    </div>
+  </div>
+
+  <script>
+    window.__timelines = window.__timelines || {};
+    (function () {
+      var $ = function (id) { return document.getElementById(id); };
+      var tl = gsap.timeline({ paused: true, defaults: { ease: "power3.out" } });
+
+      // Scene 1 (0.0–1.4s): the window opens from the center — the one big move
+      tl.fromTo($("04-horizon-win"),
+        { clipPath: "inset(46% 48% 46% 48% round 26px)", filter: "blur(14px)" },
+        { clipPath: "inset(0% 0% 0% 0% round 26px)", filter: "blur(0px)", duration: 1.35, ease: "power3.inOut" }, 0.05);
+      tl.fromTo($("04-horizon-view"), { scale: 1.14 }, { scale: 1.0, duration: 2.6, ease: "power2.out" }, 0.2);
+
+      // Scene 2 (1.4–3.4s): calm two-part slide-up for the rule line
+      tl.fromTo($("04-horizon-line1"), { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: 0.6 }, 1.5);
+
+      // Scene 3 (3.4–6.2s): glass card rises; conic countdown ring sweeps 20→0, mono number synced
+      tl.fromTo($("04-horizon-card"), { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.6 }, 3.45);
+      var ring = $("04-horizon-ringfill"), LEN = ring.getTotalLength();
+      ring.style.strokeDasharray = String(LEN);
+      ring.style.strokeDashoffset = String(LEN);
+      tl.to(ring, { strokeDashoffset: 0, duration: 2.5, ease: "none" }, 3.6);
+      var num = { v: 20 }, numEl = $("04-horizon-ringnum");
+      tl.to(num, {
+        v: 0, duration: 2.5, ease: "none",
+        onUpdate: function () { numEl.textContent = String(Math.round(num.v)); },
+      }, 3.6);
+
+      // Scene 4 (6.2–9.0s): closing line lands; the ring rests at zero — stillness is the payload
+      tl.fromTo($("04-horizon-line2"), { opacity: 0, y: 22 }, { opacity: 1, y: 0, duration: 0.55 }, 6.3);
+
+      window.__timelines["04-horizon"] = tl;
+    })();
+  </script>
+</template>

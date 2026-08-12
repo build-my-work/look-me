@@ -1,0 +1,142 @@
+<template>
+  <style>
+    @font-face { font-family: "PingFang SC"; src: local("PingFang SC"); }
+    @font-face { font-family: "SF Mono"; src: local("SF Mono"), local("Menlo"), local("monospace"); }
+    #root {
+      position: absolute; inset: 0; width: 1920px; height: 1080px; overflow: hidden;
+      font-family: "PingFang SC", sans-serif; color: #1e3f45;
+    }
+    #root .pv-bg {
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(950px 440px at 50% -10%, rgba(255, 255, 255, .8) 0%, transparent 60%),
+        #eef5f3;
+    }
+    #root .pv-title {
+      position: absolute; left: 0; right: 0; top: 118px; text-align: center;
+      font-size: 58px; font-weight: 400; letter-spacing: .01em;
+    }
+    #root .pv-title .t1, #root .pv-title .t2 { display: block; opacity: 0; }
+    #root .pv-title .hl { color: #315f66; font-weight: 600; }
+    /* split-tilt cards */
+    #root .pv-card {
+      position: absolute; top: 320px; width: 620px; padding: 30px 36px 28px;
+      border-radius: 20px; background: rgba(255, 255, 255, .92);
+      border: 1px solid rgba(201, 218, 214, .8);
+      box-shadow: 0 16px 40px -20px rgba(36, 77, 83, .35);
+      will-change: transform, opacity;
+    }
+    #root .pv-yes { left: 300px; }
+    #root .pv-no { right: 300px; }
+    #root .pv-card h3 {
+      display: flex; align-items: center; gap: 12px;
+      font-size: 32px; font-weight: 600; margin-bottom: 14px;
+    }
+    #root .pv-yes h3 { color: #3f7d54; }
+    #root .pv-no h3 { color: #9b563f; }
+    #root .pv-card ul { list-style: none; }
+    #root .pv-card li {
+      position: relative; padding: 16px 0 16px 44px;
+      font-size: 27px; color: #4c6663;
+      border-bottom: 1px dashed rgba(201, 218, 214, .7);
+      opacity: 0;
+    }
+    #root .pv-card li:last-child { border-bottom: none; }
+    #root .pv-yes li::before, #root .pv-no li::before {
+      content: ""; position: absolute; left: 0; top: 14px; width: 30px; height: 30px; border-radius: 50%;
+      background-position: center; background-repeat: no-repeat; background-size: 18px;
+    }
+    #root .pv-yes li::before {
+      background-color: #e0efe7;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233f7d54' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E");
+    }
+    #root .pv-no li::before {
+      background-color: #f6e3dc;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239b563f' stroke-width='3.4' stroke-linecap='round'%3E%3Cline x1='5' y1='5' x2='19' y2='19'/%3E%3Cline x1='19' y1='5' x2='5' y2='19'/%3E%3C/svg%3E");
+    }
+    #root .pv-pet {
+      position: absolute; left: 50%; top: 420px; width: 210px; height: 262px;
+      transform: translateX(-50%); opacity: 0;
+      filter: drop-shadow(0 14px 20px rgba(36, 77, 83, .25));
+    }
+    #root .pv-pet img { width: 100%; height: 100%; object-fit: contain; object-position: bottom; }
+    #root .pv-foot {
+      position: absolute; left: 0; right: 0; top: 846px; text-align: center;
+      font-size: 34px; color: #315f66; opacity: 0;
+    }
+    #root .pv-foot b { font-weight: 600; }
+  </style>
+
+  <div id="root" data-composition-id="05-privacy" data-width="1920" data-height="1080" data-duration="10.4">
+    <div id="05-privacy-bg" class="clip pv-bg" data-start="0" data-duration="10.4" data-track-index="0"></div>
+
+    <div id="05-privacy-title" class="clip pv-title" data-start="0.2" data-duration="10.2" data-track-index="1">
+      <span class="t1" id="05-privacy-t1">他看得见你，</span>
+      <span class="t2" id="05-privacy-t2">但<span class="hl">守口如瓶</span></span>
+    </div>
+
+    <div id="05-privacy-yes" class="clip pv-card pv-yes" data-start="1.4" data-duration="9" data-track-index="2">
+      <h3>他在本机看的</h3>
+      <ul>
+        <li id="05-privacy-y1">你的脸在不在画面里</li>
+        <li id="05-privacy-y2">眼睛有没有闭上</li>
+        <li id="05-privacy-y3">你有没有起身</li>
+      </ul>
+    </div>
+
+    <div id="05-privacy-pet" class="clip pv-pet" data-start="6.2" data-duration="4.2" data-track-index="3">
+      <img src="assets/heterochromia-cat-idle.png" alt="">
+    </div>
+
+    <div id="05-privacy-no" class="clip pv-card pv-no" data-start="1.6" data-duration="8.8" data-track-index="4">
+      <h3>他永远不会</h3>
+      <ul>
+        <li id="05-privacy-n1">保存任何一帧画面</li>
+        <li id="05-privacy-n2">把画面传出你的电脑</li>
+        <li id="05-privacy-n3">偷看你的屏幕内容</li>
+      </ul>
+    </div>
+
+    <div id="05-privacy-foot" class="clip pv-foot" data-start="8.2" data-duration="2.2" data-track-index="5">
+      所有检测都在<b>本机</b>完成——不上传、不保存
+    </div>
+  </div>
+
+  <script>
+    window.__timelines = window.__timelines || {};
+    (function () {
+      var $ = function (id) { return document.getElementById(id); };
+      var tl = gsap.timeline({ paused: true, defaults: { ease: "power3.out" } });
+
+      // Scene 1 (0.0–1.4s): two-line title relay
+      tl.fromTo($("05-privacy-t1"), { opacity: 0, y: 22 }, { opacity: 1, y: 0, duration: 0.5 }, 0.25);
+      tl.fromTo($("05-privacy-t2"), { opacity: 0, y: 22 }, { opacity: 1, y: 0, duration: 0.5 }, 0.7);
+
+      // Scene 2 (1.4–2.6s): signature split-tilt — mirrored book-open entry from opposite wings
+      tl.fromTo($("05-privacy-yes"),
+        { opacity: 0, x: -140, rotationY: 26, scale: 0.86 },
+        { opacity: 1, x: 0, rotationY: 0, scale: 1, duration: 0.85 }, 1.45);
+      tl.fromTo($("05-privacy-no"),
+        { opacity: 0, x: 140, rotationY: -26, scale: 0.86 },
+        { opacity: 1, x: 0, rotationY: 0, scale: 1, duration: 0.85 }, 1.62);
+
+      // Scene 3 (2.6–6.6s): alternating check/cross reveals — the two columns converse
+      var seq = [
+        ["05-privacy-y1", 2.7], ["05-privacy-n1", 3.3],
+        ["05-privacy-y2", 3.9], ["05-privacy-n2", 4.5],
+        ["05-privacy-y3", 5.1], ["05-privacy-n3", 5.7],
+      ];
+      seq.forEach(function (pair) {
+        tl.fromTo($(pair[0]), { opacity: 0, x: -18 }, { opacity: 1, x: 0, duration: 0.4 }, pair[1]);
+      });
+
+      // Scene 4 (6.6–8.2s): the pet steps into the gap between the columns, keeping watch
+      tl.fromTo($("05-privacy-pet"), { opacity: 0, y: 34 }, { opacity: 1, y: 0, duration: 0.6 }, 6.3);
+
+      // Scene 5 (8.2–10.0s): footer line; still hold
+      tl.fromTo($("05-privacy-foot"), { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.5 }, 8.25);
+
+      window.__timelines["05-privacy"] = tl;
+    })();
+  </script>
+</template>
