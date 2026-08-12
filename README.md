@@ -1,93 +1,64 @@
-# look-me
+# Look Me
 
+Look Me 是一个 macOS 护眼陪伴应用：刘看山以透明、置顶的小宠物形态常驻桌面，在本机检测完整眨眼，并在持续近距离工作后提示 20 秒远眺。
 
+它是个人健康习惯工具，不用于诊断或治疗干眼症。摄像头画面只在内存中交给 MediaPipe Face Landmarker 处理，不上传、不保存；无法可靠看到人脸时会自动退化为计时提醒。应用只在本机保留最近 30 天的每分钟眨眼次数和有效观察时长，不保存精确眨眼时间。
 
-## Getting started
+## MVP 能力
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+- 用户主动授权后，在本机检测“睁眼 → 闭眼 → 睁眼”的完整眨眼
+- 展示近 1 分钟频率估算、当前连续检测段平均和本次累计次数
+- 展示按日期切换的全天每分钟频率曲线；未观察或观察不足的分钟显示为空白
+- 双眼 blendshape + 眼部关键点 EAR 的时序确认，过滤单眼眨和长时间闭眼
+- 每次确认完整眨眼后，刘看山会同步眨一次眼；计时降级和手动确认不会伪造这一反馈
+- 低置信度、遮挡或摄像头不可用时使用非指责性的计时提醒
+- 20 分钟工作后提示 20 秒远眺，可跳过或暂停 25 分钟
+- 透明、置顶、点击穿透的 760 × 300 Electron 常驻窗口与托盘入口
+- 按住刘看山即可拖动原生窗口；拖到屏幕边缘时会保留完整拖拽区域，按钮仍可点击，其余透明区域继续穿透
+- 可从菜单栏把刘看山切换为小、标准或大；只缩放 pet 和它的眨眼/拖拽区域，统计卡片与按钮保持原尺寸
+- 可从菜单栏勾选或取消“显示统计图表”；隐藏曲线不会停止本地统计
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+## 调整刘看山大小
 
-## Add your files
+点击 macOS 菜单栏中的 Look Me 图标，选择“看山大小”，再选择“小”“标准”或“大”。小档约为标准档的 41%；选择会保存在本机，下次启动自动恢复。
 
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
+## 显示或隐藏统计图表
 
+点击 macOS 菜单栏中的 Look Me 图标，再勾选或取消“显示统计图表”。图表内的关闭按钮会同步取消勾选，选择会保存在本机；隐藏仅影响界面，最近 30 天的分钟级统计仍会继续记录。
+
+## 本地开发
+
+```bash
+cd app
+npm install
+npm run dev:desktop
 ```
-cd existing_repo
-git remote add origin https://git.in.zhihu.com/tianfawei/look-me.git
-git branch -M master
-git push -uf origin master
+
+仅预览浏览器界面：
+
+```bash
+cd app
+npm run dev
 ```
 
-## Integrate with your tools
+## 验证与打包
 
-- [ ] [Set up project integrations](https://git.in.zhihu.com/tianfawei/look-me/-/settings/integrations)
+```bash
+cd app
+npm run typecheck
+npm test
+npm run build
+npm run test:sites
+npm run desktop:dir
+```
 
-## Collaborate with your team
+macOS arm64 开发包会生成在 `app/release/mac-arm64/Look Me.app`。该本地开发包未签名，第一次打开时需由用户确认系统安全与摄像头权限。
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
+## 检测实现
 
-## Test and Deploy
-
-Use the built-in continuous integration in GitLab.
-
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
-
-***
-
-# Editing this README
-
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
-
-## Suggestions for a good README
-
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
-
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
-
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
-
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
-
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
-
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
-
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
-
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
-
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
-
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
-
-## License
-For open source projects, say how it is licensed.
-
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+- 模型：Google MediaPipe Face Landmarker（本地 `face_landmarker.task`）
+- 信号：`eyeBlinkLeft`、`eyeBlinkRight` 和双眼 EAR
+- 采集：优先请求 1280 × 720 / 24 FPS；推理约 20 FPS，页面不可见时暂停
+- 远距离：较弱的双眼闭合系数必须同时得到强 EAR 下降确认，不会单独放宽为眨眼
+- 原则：模型只输出感知信号；提醒、降级和冷却由独立状态机决定
+- 历史：每个本地自然日按分钟稀疏聚合，至少有效观察 15 秒才展示该分钟频率，自动保留 30 天

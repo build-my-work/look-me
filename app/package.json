@@ -1,0 +1,66 @@
+{
+  "name": "look-me",
+  "version": "0.1.0",
+  "description": "A local-first blink and distance-break desktop companion.",
+  "private": true,
+  "type": "module",
+  "main": "electron/main.mjs",
+  "scripts": {
+    "dev": "vite",
+    "dev:desktop": "concurrently --kill-others-on-fail \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && LOOK_ME_DEV_URL=http://127.0.0.1:5173 electron electron/main.mjs\"",
+    "build": "vite build && node scripts/prepare-sites-build.mjs",
+    "build:renderer": "vite build",
+    "desktop:dir": "npm run build:renderer && electron-builder --mac dir",
+    "preview": "vite preview",
+    "start": "electron electron/main.mjs",
+    "test": "vitest run src",
+    "typecheck": "tsc --noEmit",
+    "test:sites": "node --test tests/sites-worker.test.mjs"
+  },
+  "dependencies": {
+    "@fontsource-variable/inter": "5.3.0",
+    "@mediapipe/tasks-vision": "1.0.1",
+    "@phosphor-icons/react": "2.1.10",
+    "@vitejs/plugin-react": "5.0.4",
+    "react": "19.2.0",
+    "react-circular-progressbar": "2.2.0",
+    "react-dom": "19.2.0",
+    "recharts": "3.10.1",
+    "vite": "6.4.2"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
+    "concurrently": "10.0.4",
+    "electron": "43.4.0",
+    "electron-builder": "26.15.3",
+    "typescript": "7.0.2",
+    "vitest": "4.1.10",
+    "wait-on": "9.1.0"
+  },
+  "build": {
+    "appId": "com.lookme.coach",
+    "productName": "Look Me",
+    "electronDist": "node_modules/electron/dist",
+    "asar": true,
+    "files": [
+      "dist/client/**",
+      "electron/**",
+      "package.json",
+      "!node_modules/**"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "mac": {
+      "category": "public.app-category.healthcare-fitness",
+      "minimumSystemVersion": "12.0",
+      "target": [
+        "dir"
+      ],
+      "extendInfo": {
+        "NSCameraUsageDescription": "Look Me 使用摄像头在本机识别眨眼；画面不会上传或保存。"
+      }
+    }
+  }
+}
