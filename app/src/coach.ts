@@ -1,17 +1,13 @@
 export const DISTANCE_INTERVAL_MS = 20 * 60 * 1_000;
 export const DISTANCE_DURATION_MS = 20 * 1_000;
 export const NO_BLINK_REMINDER_MS = 25 * 1_000;
-export const FALLBACK_BLINK_REMINDER_MS = 45 * 1_000;
 export const BLINK_PROMPT_COOLDOWN_MS = 90 * 1_000;
-export const BLINK_PROMPT_AUTO_DISMISS_MS = 6 * 1_000;
-export const PAUSE_DURATION_MS = 25 * 60 * 1_000;
 
 export type CoachMode =
   | "permission"
   | "idle"
   | "blink"
-  | "distance"
-  | "paused";
+  | "distance";
 
 export type SensingMode = "unknown" | "camera" | "timer";
 
@@ -20,35 +16,39 @@ export interface CoachState {
   now: number;
   sensingMode: SensingMode;
   lastBlinkAt: number;
-  lastBlinkPromptAt: number;
+  lastBlinkPromptAt: number | null;
   nextDistanceAt: number;
   distanceStartedAt: number | null;
-  pausedUntil: number | null;
   guidedBlinks: number;
 }
 
 export type CoachEvent =
   | { type: "START"; now: number; sensingMode: Exclude<SensingMode, "unknown"> }
-  | { type: "TICK"; now: number; sensingAvailable: boolean }
+  | { type: "SET_SENSING_MODE"; sensingMode: Exclude<SensingMode, "unknown"> }
+  | {
+      type: "TICK";
+      now: number;
+      sensingAvailable: boolean;
+      coachingEnabled: boolean;
+      blinkReminderEnabled: boolean;
+      distanceReminderEnabled: boolean;
+    }
   | { type: "BLINK"; now: number }
-  | { type: "START_DISTANCE"; now: number }
-  | { type: "SKIP"; now: number }
-  | { type: "PAUSE"; now: number }
-  | { type: "RESUME"; now: number };
+  | { type: "SKIP"; now: number };
 
 export function createCoachState(
   now: number,
   mode: CoachMode = "permission",
+  sensingMode: Exclude<SensingMode, "unknown"> = "timer",
 ): CoachState {
   return {
     mode,
     now,
-    sensingMode: mode === "permission" ? "unknown" : "timer",
+    sensingMode: mode === "permission" ? "unknown" : sensingMode,
     lastBlinkAt: now,
-    lastBlinkPromptAt: now,
+    lastBlinkPromptAt: null,
     nextDistanceAt: now + DISTANCE_INTERVAL_MS,
     distanceStartedAt: mode === "distance" ? now : null,
-    pausedUntil: mode === "paused" ? now + PAUSE_DURATION_MS : null,
     guidedBlinks: 0,
   };
 }
@@ -65,35 +65,53 @@ export function coachReducer(
         now: event.now,
         sensingMode: event.sensingMode,
         lastBlinkAt: event.now,
-        lastBlinkPromptAt: event.now,
+        lastBlinkPromptAt: null,
         nextDistanceAt: event.now + DISTANCE_INTERVAL_MS,
         distanceStartedAt: null,
-        pausedUntil: null,
         guidedBlinks: 0,
       };
 
+    case "SET_SENSING_MODE":
+      return {
+        ...state,
+        sensingMode: event.sensingMode,
+      };
+
     case "TICK": {
-      const ticked = { ...state, now: event.now };
+      const ticked = {
+        ...state,
+        now: event.now,
+        nextDistanceAt: event.distanceReminderEnabled
+          ? state.nextDistanceAt
+          : event.now + DISTANCE_INTERVAL_MS,
+      };
 
       if (state.mode === "permission") {
         return ticked;
       }
 
-      if (state.mode === "paused") {
-        if (state.pausedUntil !== null && event.now >= state.pausedUntil) {
-          return {
-            ...ticked,
-            mode: "idle",
-            pausedUntil: null,
-            lastBlinkAt: event.now,
-            lastBlinkPromptAt: event.now,
-            nextDistanceAt: event.now + DISTANCE_INTERVAL_MS,
-          };
-        }
-        return ticked;
+      if (!event.coachingEnabled) {
+        return {
+          ...ticked,
+          mode: "idle",
+          lastBlinkAt: event.now,
+          lastBlinkPromptAt: null,
+          nextDistanceAt: event.now + DISTANCE_INTERVAL_MS,
+          distanceStartedAt: null,
+          guidedBlinks: 0,
+        };
       }
 
       if (state.mode === "distance") {
+        if (!event.distanceReminderEnabled) {
+          return {
+            ...ticked,
+            mode: "idle",
+            distanceStartedAt: null,
+            lastBlinkAt: event.now,
+            guidedBlinks: 0,
+          };
+        }
         if (
           state.distanceStartedAt !== null &&
           event.now - state.distanceStartedAt >= DISTANCE_DURATION_MS
@@ -110,21 +128,24 @@ export function coachReducer(
       }
 
       if (state.mode === "blink") {
-        if (
-          !event.sensingAvailable &&
-          event.now - state.lastBlinkPromptAt >= BLINK_PROMPT_AUTO_DISMISS_MS
-        ) {
+        if (!event.blinkReminderEnabled || !event.sensingAvailable) {
           return {
             ...ticked,
             mode: "idle",
             lastBlinkAt: event.now,
+            lastBlinkPromptAt: event.blinkReminderEnabled
+              ? state.lastBlinkPromptAt
+              : null,
             guidedBlinks: 0,
           };
         }
         return ticked;
       }
 
-      if (event.now >= state.nextDistanceAt) {
+      if (
+        event.distanceReminderEnabled &&
+        event.now >= ticked.nextDistanceAt
+      ) {
         return {
           ...ticked,
           mode: "distance",
@@ -133,12 +154,29 @@ export function coachReducer(
         };
       }
 
+      if (!event.blinkReminderEnabled) {
+        return {
+          ...ticked,
+          lastBlinkAt: event.now,
+          lastBlinkPromptAt: null,
+          guidedBlinks: 0,
+        };
+      }
+
+      if (!event.sensingAvailable) {
+        return {
+          ...ticked,
+          lastBlinkAt: event.now,
+          guidedBlinks: 0,
+        };
+      }
+
       const blinkSilence = event.now - state.lastBlinkAt;
-      const promptSilence = event.now - state.lastBlinkPromptAt;
-      const promptDue = event.sensingAvailable
-        ? blinkSilence >= NO_BLINK_REMINDER_MS &&
-          promptSilence >= BLINK_PROMPT_COOLDOWN_MS
-        : promptSilence >= FALLBACK_BLINK_REMINDER_MS;
+      const promptCooldownElapsed =
+        state.lastBlinkPromptAt === null ||
+        event.now - state.lastBlinkPromptAt >= BLINK_PROMPT_COOLDOWN_MS;
+      const promptDue =
+        blinkSilence >= NO_BLINK_REMINDER_MS && promptCooldownElapsed;
 
       if (promptDue) {
         return {
@@ -154,24 +192,17 @@ export function coachReducer(
 
     case "BLINK": {
       const guidedBlinks =
-        state.mode === "blink" ? Math.min(3, state.guidedBlinks + 1) : 0;
+        state.mode === "blink" ? Math.min(2, state.guidedBlinks + 1) : 0;
+      const completedPrompt = state.mode === "blink" && guidedBlinks >= 2;
       return {
         ...state,
-        mode: guidedBlinks >= 3 ? "idle" : state.mode,
+        mode: completedPrompt ? "idle" : state.mode,
         now: event.now,
         lastBlinkAt: event.now,
+        lastBlinkPromptAt: completedPrompt ? event.now : state.lastBlinkPromptAt,
         guidedBlinks,
       };
     }
-
-    case "START_DISTANCE":
-      return {
-        ...state,
-        mode: "distance",
-        now: event.now,
-        distanceStartedAt: event.now,
-        guidedBlinks: 0,
-      };
 
     case "SKIP":
       return {
@@ -185,27 +216,6 @@ export function coachReducer(
         guidedBlinks: 0,
       };
 
-    case "PAUSE":
-      return {
-        ...state,
-        mode: "paused",
-        now: event.now,
-        pausedUntil: event.now + PAUSE_DURATION_MS,
-        distanceStartedAt: null,
-        nextDistanceAt: event.now + PAUSE_DURATION_MS + DISTANCE_INTERVAL_MS,
-        guidedBlinks: 0,
-      };
-
-    case "RESUME":
-      return {
-        ...state,
-        mode: "idle",
-        now: event.now,
-        pausedUntil: null,
-        lastBlinkAt: event.now,
-        lastBlinkPromptAt: event.now,
-        nextDistanceAt: event.now + DISTANCE_INTERVAL_MS,
-      };
   }
 }
 

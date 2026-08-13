@@ -1,16 +1,24 @@
 import { describe, expect, it } from "vitest";
 import {
-  BLINK_PROMPT_AUTO_DISMISS_MS,
   BLINK_PROMPT_COOLDOWN_MS,
   DISTANCE_DURATION_MS,
   DISTANCE_INTERVAL_MS,
-  FALLBACK_BLINK_REMINDER_MS,
   NO_BLINK_REMINDER_MS,
   coachReducer,
   createCoachState,
 } from "./coach";
 
 describe("coachReducer", () => {
+  it("changes sensing preference without resetting reminder timing", () => {
+    const initial = createCoachState(1_000, "idle", "timer");
+    const next = coachReducer(initial, {
+      type: "SET_SENSING_MODE",
+      sensingMode: "camera",
+    });
+
+    expect(next).toEqual({ ...initial, sensingMode: "camera" });
+  });
+
   it("starts a distance break when the 20-minute interval is due", () => {
     const initial = coachReducer(createCoachState(0), {
       type: "START",
@@ -21,86 +29,343 @@ describe("coachReducer", () => {
       type: "TICK",
       now: DISTANCE_INTERVAL_MS,
       sensingAvailable: true,
+      coachingEnabled: true,
+      blinkReminderEnabled: true,
+      distanceReminderEnabled: true,
     });
 
     expect(next.mode).toBe("distance");
     expect(next.distanceStartedAt).toBe(DISTANCE_INTERVAL_MS);
   });
 
+  it("restarts the distance interval while automatic reminders are off", () => {
+    const initial = coachReducer(createCoachState(0), {
+      type: "START",
+      now: 0,
+      sensingMode: "camera",
+    });
+    const disabledAt = DISTANCE_INTERVAL_MS;
+    const disabled = coachReducer({
+      ...initial,
+      lastBlinkAt: disabledAt,
+      lastBlinkPromptAt: disabledAt,
+    }, {
+      type: "TICK",
+      now: disabledAt,
+      sensingAvailable: true,
+      coachingEnabled: true,
+      blinkReminderEnabled: true,
+      distanceReminderEnabled: false,
+    });
+
+    expect(disabled).toMatchObject({
+      mode: "idle",
+      nextDistanceAt: disabledAt + DISTANCE_INTERVAL_MS,
+    });
+
+    const beforeNextInterval = coachReducer({
+      ...disabled,
+      lastBlinkAt: disabled.nextDistanceAt - 1,
+      lastBlinkPromptAt: disabled.nextDistanceAt - 1,
+    }, {
+      type: "TICK",
+      now: disabled.nextDistanceAt - 1,
+      sensingAvailable: true,
+      coachingEnabled: true,
+      blinkReminderEnabled: true,
+      distanceReminderEnabled: true,
+    });
+    expect(beforeNextInterval.mode).toBe("idle");
+
+    const nextInterval = coachReducer(beforeNextInterval, {
+      type: "TICK",
+      now: disabled.nextDistanceAt,
+      sensingAvailable: true,
+      coachingEnabled: true,
+      blinkReminderEnabled: true,
+      distanceReminderEnabled: true,
+    });
+    expect(nextInterval.mode).toBe("distance");
+  });
+
   it("ends a completed 20-second distance break", () => {
     const distance = coachReducer(createCoachState(0, "idle"), {
-      type: "START_DISTANCE",
-      now: 10,
+      type: "TICK",
+      now: DISTANCE_INTERVAL_MS,
+      sensingAvailable: true,
+      coachingEnabled: true,
+      blinkReminderEnabled: true,
+      distanceReminderEnabled: true,
     });
     const next = coachReducer(distance, {
       type: "TICK",
-      now: 10 + DISTANCE_DURATION_MS,
+      now: DISTANCE_INTERVAL_MS + DISTANCE_DURATION_MS,
       sensingAvailable: true,
+      coachingEnabled: true,
+      blinkReminderEnabled: true,
+      distanceReminderEnabled: true,
     });
 
     expect(next.mode).toBe("idle");
-    expect(next.nextDistanceAt).toBe(10 + DISTANCE_DURATION_MS + DISTANCE_INTERVAL_MS);
+    expect(next.nextDistanceAt).toBe(
+      DISTANCE_INTERVAL_MS + DISTANCE_DURATION_MS + DISTANCE_INTERVAL_MS,
+    );
   });
 
-  it("uses blink silence only after the prompt cooldown", () => {
-    const initial = {
-      ...createCoachState(0, "idle"),
-      sensingMode: "camera" as const,
-      lastBlinkPromptAt: -BLINK_PROMPT_COOLDOWN_MS,
-    };
-    const next = coachReducer(initial, {
+  it("dismisses an active automatic distance reminder when it is turned off", () => {
+    const distance = coachReducer(createCoachState(0, "idle"), {
+      type: "TICK",
+      now: DISTANCE_INTERVAL_MS,
+      sensingAvailable: true,
+      coachingEnabled: true,
+      blinkReminderEnabled: true,
+      distanceReminderEnabled: true,
+    });
+    const disabledAt = DISTANCE_INTERVAL_MS + 1_000;
+    const next = coachReducer(distance, {
+      type: "TICK",
+      now: disabledAt,
+      sensingAvailable: true,
+      coachingEnabled: true,
+      blinkReminderEnabled: true,
+      distanceReminderEnabled: false,
+    });
+
+    expect(next).toMatchObject({
+      mode: "idle",
+      distanceStartedAt: null,
+      nextDistanceAt: disabledAt + DISTANCE_INTERVAL_MS,
+    });
+  });
+
+  it("keeps distance reminders active when blink reminders are off", () => {
+    const next = coachReducer(createCoachState(0, "idle", "camera"), {
+      type: "TICK",
+      now: DISTANCE_INTERVAL_MS,
+      sensingAvailable: true,
+      coachingEnabled: true,
+      blinkReminderEnabled: false,
+      distanceReminderEnabled: true,
+    });
+
+    expect(next.mode).toBe("distance");
+  });
+
+  it("starts the first blink prompt after 25 seconds without a blink", () => {
+    const initial = createCoachState(0, "idle", "camera");
+    const beforeThreshold = coachReducer(initial, {
+      type: "TICK",
+      now: NO_BLINK_REMINDER_MS - 1,
+      sensingAvailable: true,
+      coachingEnabled: true,
+      blinkReminderEnabled: true,
+      distanceReminderEnabled: true,
+    });
+    const atThreshold = coachReducer(beforeThreshold, {
       type: "TICK",
       now: NO_BLINK_REMINDER_MS,
       sensingAvailable: true,
+      coachingEnabled: true,
+      blinkReminderEnabled: true,
+      distanceReminderEnabled: true,
     });
 
-    expect(next.mode).toBe("blink");
+    expect(beforeThreshold.mode).toBe("idle");
+    expect(atThreshold.mode).toBe("blink");
   });
 
-  it("falls back to a timer prompt when sensing is unavailable", () => {
-    const initial = createCoachState(0, "idle");
-    const next = coachReducer(initial, {
+  it("keeps later blink prompts behind the 90-second cooldown", () => {
+    const initial = {
+      ...createCoachState(0, "idle", "camera"),
+      lastBlinkPromptAt: 0,
+    };
+    const duringCooldown = coachReducer(initial, {
       type: "TICK",
-      now: FALLBACK_BLINK_REMINDER_MS,
-      sensingAvailable: false,
+      now: NO_BLINK_REMINDER_MS,
+      sensingAvailable: true,
+      coachingEnabled: true,
+      blinkReminderEnabled: true,
+      distanceReminderEnabled: true,
+    });
+    const afterCooldown = coachReducer(duringCooldown, {
+      type: "TICK",
+      now: BLINK_PROMPT_COOLDOWN_MS,
+      sensingAvailable: true,
+      coachingEnabled: true,
+      blinkReminderEnabled: true,
+      distanceReminderEnabled: true,
     });
 
-    expect(next.mode).toBe("blink");
+    expect(duringCooldown.mode).toBe("idle");
+    expect(afterCooldown.mode).toBe("blink");
   });
 
-  it("auto-dismisses a fallback blink prompt without a manual completion button", () => {
-    const prompt = createCoachState(0, "blink");
+  it("restarts blink timing after blink reminders are re-enabled", () => {
+    const disabledAt = NO_BLINK_REMINDER_MS;
+    const disabled = coachReducer(
+      createCoachState(0, "idle", "camera"),
+      {
+        type: "TICK",
+        now: disabledAt,
+        sensingAvailable: true,
+        coachingEnabled: true,
+        blinkReminderEnabled: false,
+        distanceReminderEnabled: true,
+      },
+    );
+    const beforeThreshold = coachReducer(disabled, {
+      type: "TICK",
+      now: disabledAt + NO_BLINK_REMINDER_MS - 1,
+      sensingAvailable: true,
+      coachingEnabled: true,
+      blinkReminderEnabled: true,
+      distanceReminderEnabled: true,
+    });
+    const atThreshold = coachReducer(beforeThreshold, {
+      type: "TICK",
+      now: disabledAt + NO_BLINK_REMINDER_MS,
+      sensingAvailable: true,
+      coachingEnabled: true,
+      blinkReminderEnabled: true,
+      distanceReminderEnabled: true,
+    });
 
-    expect(coachReducer(prompt, {
-      type: "TICK",
-      now: BLINK_PROMPT_AUTO_DISMISS_MS - 1,
-      sensingAvailable: false,
-    }).mode).toBe("blink");
-    expect(coachReducer(prompt, {
-      type: "TICK",
-      now: BLINK_PROMPT_AUTO_DISMISS_MS,
-      sensingAvailable: false,
-    }).mode).toBe("idle");
+    expect(disabled).toMatchObject({
+      mode: "idle",
+      lastBlinkAt: disabledAt,
+      lastBlinkPromptAt: null,
+    });
+    expect(beforeThreshold.mode).toBe("idle");
+    expect(atThreshold.mode).toBe("blink");
   });
 
-  it("keeps waiting for confirmed blinks while sensing remains available", () => {
-    const prompt = createCoachState(0, "blink");
+  it("dismisses an active blink prompt when blink reminders are turned off", () => {
+    const next = coachReducer(
+      {
+        ...createCoachState(0, "blink", "camera"),
+        lastBlinkPromptAt: NO_BLINK_REMINDER_MS,
+        guidedBlinks: 1,
+      },
+      {
+        type: "TICK",
+        now: NO_BLINK_REMINDER_MS + 1_000,
+        sensingAvailable: true,
+        coachingEnabled: true,
+        blinkReminderEnabled: false,
+        distanceReminderEnabled: true,
+      },
+    );
+
+    expect(next).toMatchObject({
+      mode: "idle",
+      lastBlinkPromptAt: null,
+      guidedBlinks: 0,
+    });
+  });
+
+  it("pauses blink timing while sensing is unavailable and restarts from zero", () => {
+    const initial = createCoachState(0, "idle", "camera");
+    const unavailableAt = 60_000;
+    const unavailable = coachReducer(initial, {
+      type: "TICK",
+      now: unavailableAt,
+      sensingAvailable: false,
+      coachingEnabled: true,
+      blinkReminderEnabled: true,
+      distanceReminderEnabled: true,
+    });
+    const beforeThreshold = coachReducer(unavailable, {
+      type: "TICK",
+      now: unavailableAt + NO_BLINK_REMINDER_MS - 1,
+      sensingAvailable: true,
+      coachingEnabled: true,
+      blinkReminderEnabled: true,
+      distanceReminderEnabled: true,
+    });
+    const atThreshold = coachReducer(beforeThreshold, {
+      type: "TICK",
+      now: unavailableAt + NO_BLINK_REMINDER_MS,
+      sensingAvailable: true,
+      coachingEnabled: true,
+      blinkReminderEnabled: true,
+      distanceReminderEnabled: true,
+    });
+
+    expect(unavailable).toMatchObject({
+      mode: "idle",
+      lastBlinkAt: unavailableAt,
+    });
+    expect(beforeThreshold.mode).toBe("idle");
+    expect(atThreshold.mode).toBe("blink");
+  });
+
+  it("dismisses an active blink prompt as soon as sensing is unavailable", () => {
+    const prompt = {
+      ...createCoachState(0, "blink", "camera"),
+      lastBlinkPromptAt: 0,
+      guidedBlinks: 1,
+    };
     const next = coachReducer(prompt, {
       type: "TICK",
-      now: BLINK_PROMPT_AUTO_DISMISS_MS,
-      sensingAvailable: true,
+      now: 1_000,
+      sensingAvailable: false,
+      coachingEnabled: true,
+      blinkReminderEnabled: true,
+      distanceReminderEnabled: true,
     });
 
-    expect(next.mode).toBe("blink");
+    expect(next).toMatchObject({
+      mode: "idle",
+      lastBlinkAt: 1_000,
+      guidedBlinks: 0,
+    });
   });
 
-  it("completes guided blinking after three detected blinks", () => {
-    let state = createCoachState(0, "blink");
+  it("completes guided blinking after two detected blinks", () => {
+    let state: ReturnType<typeof createCoachState> = {
+      ...createCoachState(0, "blink", "camera"),
+      lastBlinkPromptAt: 0,
+    };
     state = coachReducer(state, { type: "BLINK", now: 100 });
+    expect(state.mode).toBe("blink");
+    expect(state.guidedBlinks).toBe(1);
+
     state = coachReducer(state, { type: "BLINK", now: 200 });
-    state = coachReducer(state, { type: "BLINK", now: 300 });
 
     expect(state.mode).toBe("idle");
-    expect(state.guidedBlinks).toBe(3);
+    expect(state.guidedBlinks).toBe(2);
+    expect(state.lastBlinkPromptAt).toBe(200);
+  });
+
+  it("stops active coaching and restarts reminder timing while disabled", () => {
+    const prompt = createCoachState(0, "blink", "camera");
+    const disabledAt = BLINK_PROMPT_COOLDOWN_MS;
+    const disabled = coachReducer(prompt, {
+      type: "TICK",
+      now: disabledAt,
+      sensingAvailable: false,
+      coachingEnabled: false,
+      blinkReminderEnabled: true,
+      distanceReminderEnabled: true,
+    });
+
+    expect(disabled).toMatchObject({
+      mode: "idle",
+      lastBlinkAt: disabledAt,
+      lastBlinkPromptAt: null,
+      nextDistanceAt: disabledAt + DISTANCE_INTERVAL_MS,
+      distanceStartedAt: null,
+      guidedBlinks: 0,
+    });
+
+    const resumed = coachReducer(disabled, {
+      type: "TICK",
+      now: disabledAt + NO_BLINK_REMINDER_MS,
+      sensingAvailable: true,
+      coachingEnabled: true,
+      blinkReminderEnabled: true,
+      distanceReminderEnabled: true,
+    });
+    expect(resumed.mode).toBe("blink");
   });
 });

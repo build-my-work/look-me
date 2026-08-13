@@ -13,8 +13,14 @@ contextBridge.exposeInMainWorld("lookMe", {
       handleBounds,
     });
   },
+  openSettings() {
+    ipcRenderer.send("look-me:open-settings");
+  },
   syncPetSize(size) {
     ipcRenderer.send("look-me:pet-size", size);
+  },
+  syncMonitoringEnabled(enabled) {
+    ipcRenderer.send("look-me:monitoring-enabled", enabled);
   },
   syncPetPersistence(enabled) {
     ipcRenderer.send("look-me:pet-persistence", enabled);
@@ -22,8 +28,17 @@ contextBridge.exposeInMainWorld("lookMe", {
   syncPetAttention(attention) {
     ipcRenderer.send("look-me:pet-attention", attention);
   },
-  syncHistoryVisibility(visible) {
-    ipcRenderer.send("look-me:history-visibility", visible);
+  syncPanelVisibility(visible) {
+    ipcRenderer.send("look-me:panel-visibility", visible);
+  },
+  getSystemAvailability() {
+    return ipcRenderer.invoke("look-me:get-system-availability");
+  },
+  onSystemAvailability(listener) {
+    const handler = (_event, availability) => listener(availability);
+    ipcRenderer.on("look-me:system-availability", handler);
+    return () =>
+      ipcRenderer.removeListener("look-me:system-availability", handler);
   },
   quit() {
     ipcRenderer.send("look-me:quit");

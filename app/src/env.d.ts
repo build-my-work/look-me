@@ -2,11 +2,14 @@
 
 type LookMePetSize = "small" | "standard" | "large";
 type LookMeCommand =
-  | "pause"
   | "distance"
-  | "history:show"
-  | "history:hide"
-  | "attention:reveal"
+  | "panel:show"
+  | "panel:show:left"
+  | "panel:show:right"
+  | "panel:hide"
+  | "camera-settings:show"
+  | "monitoring:on"
+  | "monitoring:off"
   | "pet-persistent:on"
   | "pet-persistent:off"
   | `pet-size:${LookMePetSize}`;
@@ -32,6 +35,11 @@ interface LookMeDragHandleBounds {
   height: number;
 }
 
+interface LookMeSystemAvailability {
+  screenLocked: boolean;
+  systemSuspended: boolean;
+}
+
 interface LookMeBridge {
   isDesktop: true;
   setPointerEvents: (enabled: boolean) => void;
@@ -41,10 +49,16 @@ interface LookMeBridge {
     screenY: number,
     handleBounds?: LookMeDragHandleBounds,
   ) => void;
+  openSettings: () => void;
   syncPetSize: (size: LookMePetSize) => void;
+  syncMonitoringEnabled: (enabled: boolean) => void;
   syncPetPersistence: (enabled: boolean) => void;
   syncPetAttention: (attention: LookMePetAttention) => void;
-  syncHistoryVisibility: (visible: boolean) => void;
+  syncPanelVisibility: (visible: boolean) => void;
+  getSystemAvailability: () => Promise<LookMeSystemAvailability>;
+  onSystemAvailability: (
+    listener: (availability: LookMeSystemAvailability) => void,
+  ) => () => void;
   quit: () => void;
   onCommand: (listener: (command: LookMeCommand) => void) => () => void;
 }

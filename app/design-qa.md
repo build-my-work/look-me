@@ -58,7 +58,7 @@ Resolution: made Skip a direct portal child and adjusted the selected preview st
 
 ## Mirrored pet blink extension
 
-- Trigger: one detector-confirmed complete blink; timer fallback and manual completion do not trigger it.
+- Trigger: one detector-confirmed complete blink; unavailable sensing does not trigger it.
 - The existing image and a fog-white eyelid share one breathing wrapper, so the eyelid stays registered while the character moves.
 - The animation was paused at its closed midpoint for native-pixel inspection: the dot eye becomes one short ink line without covering the nose or shifting the body.
 - The response lasts 220 ms, remains silent, and adds no bounce, copy, or new product state.
@@ -92,7 +92,7 @@ Resolution: made Skip a direct portal child and adjusted the selected preview st
 
 ## Whole-display attention rail extension
 
-- The existing pet and cards remain unchanged in parked/manual states; automatic attention states right-align only the pet and hide the idle capsule.
+- The existing pet and cards remain unchanged in parked/manual states. When “显示眨眼次数” is enabled, quiet rail states mirror the capsule beside the right-edge Pet; active descent, crying, rampage, and recovery states hide it.
 - A generated pale-blue raster tear sits directly below the visible dot eye. One attached drop and one falling repeat provide crying motion without altering the mascot source art.
 - Standard-size crying pixels show a clear tear with no nose/body overlap. The 41% preset raises the tear's source width so its transformed width remains roughly 10 px.
 - Healthy and cooldown phases hide both the pet and its drag hit region while the transparent native window stays shown, preserving local camera processing and desktop click-through.
@@ -102,19 +102,28 @@ Resolution: made Skip a direct portal child and adjusted the selected preview st
 
 ## Passive blink-prompt correction
 
-- Removed the fallback “眨好了” button and its interactive card hit area; the card now contains only the eyebrow, three-blink instruction, and progress dots.
+- Removed the fallback “眨好了” button and its interactive card hit area; the card now contains only the eyebrow, two-blink instruction, and progress dots.
 - The existing `475 × 168` card geometry remains unchanged, so character overlap and visual hierarchy do not shift.
 - Browser pixels show no residual button spacing or control artifact. DOM inspection reports zero buttons in the frozen blink state.
-- Low-confidence/timer-only prompts return to idle after 6 seconds; camera-available prompts still wait for three confirmed blinks.
+- Low-confidence or unavailable sensing dismisses the prompt and pauses blink timing; camera-available prompts wait for two confirmed blinks.
 - P0: none. P1: none. P2: none.
 
 ## Optional persistent-pet setting
 
-- “看山常驻” lives in the tray, defaults off, and does not add controls to the compact companion surface.
+- “始终显示看山” lives in the tray, defaults off, and does not add controls to the compact companion surface. The redundant one-shot “显示看山” entry has been removed.
 - When enabled, healthy and post-blink cooldown states show the existing pet without tears at the upper-right; the window footprint, pet size, and drag target are unchanged.
 - The setting changes presentation only, so descent, crying, rampage, blink recovery, Reduce Motion, and manual cards retain their approved behavior.
-- Browser regression inspection and packaged renderer, rail-position, history, and small-pet drag smokes passed without layout changes.
+- Browser regression inspection and packaged renderer, rail-position, history, and small-pet drag smokes passed without layout changes. The packaged native-menu smoke also confirmed that “始终显示看山” is present and “显示看山” is absent.
+- Showing an existing window no longer recenters it on the display under the pointer; the native-menu smoke verifies that a dragged window keeps the same coordinates after another show request.
+- Leaving the automatic attention rail no longer recenters the native window. Packaged attention and settings smokes verify identical coordinates before and after a rail-to-parked transition, covering camera/settings and other presentation-only state changes.
 - P0: none. P1: none. P2: none.
+
+## Persistent quick panel
+
+- The former “显示统计图表” tray setting is now “显示眨眼次数” and is subordinate to “始终显示看山”. Turning the persistent pet off also turns and persists the capsule off; the panel item stays disabled until the persistent pet is enabled again.
+- The capsule remains visible during quiet parked, hidden, resting, and cooldown phases, mirrors to the left of a right-edge Pet, and stays out of descending, crying, rampage, and recovery motion.
+- Its size-aware anchor follows the artwork's visible alpha edge instead of the fixed transparent image box. Small, standard, and large presets keep a measured `9.1–10.1 px` visual gap in both parked and mirrored rail layouts.
+- Its statistics button opens the compact statistics and then the daily history; its distance button starts the existing 20-second break. Hiding the capsule does not stop camera sensing or local history collection.
 
 ## Secondary-display small-pet drag correction
 
@@ -147,6 +156,33 @@ Resolution: made Skip a direct portal child and adjusted the selected preview st
 - Track titles and short unit captions form a compact left rail, making the two units distinguishable without adding a floating legend or enlarging the `620 × 284` card.
 - Populated-date pixels show both curves clearly; empty-date pixels keep both track frames and center one shared empty message. No horizontal or vertical overflow was observed.
 - Packaged native QA found both track labels and both SVG curve paths; tray show/hide synchronization remained intact.
+- P0: none. P1: none. P2: none.
+
+## Pet-body settings shortcut
+
+- Clicking the Pet body now opens the existing native settings menu at the pointer, avoiding a trip to the macOS menu bar without adding permanent visual chrome.
+- The same silhouette-shaped hit region remains the drag handle. A short click keeps the window fixed; movement beyond 6 px becomes a drag and suppresses the menu.
+- The Pet menu reuses the tray menu object, so size radio items, persistence and panel checkboxes, the settings entry, and quit stay synchronized.
+- Native input QA verified one click opening, no click-position movement, successful subsequent dragging, and no drag-triggered menu.
+- P0: none. P1: none. P2: none.
+
+## Stable size and repeated-settings correction
+
+- Size selection now changes only the Pet scale and hit geometry; it no longer invokes the window-reveal path that recenters the native surface.
+- The shared native settings menu is not replaced while its popup is active. Checked-state refresh is applied after close, allowing the next Pet click to open settings reliably.
+- Native QA moved the window to a non-default coordinate, changed size, retained the exact coordinate, reopened settings on a second click, and dragged successfully afterward.
+- P0: none. P1: none. P2: none.
+
+final result: passed
+
+## Camera monitoring controls
+
+- Added one visually dominant monitoring master switch, plus subordinate distance-break reminder and daily-window controls that become quiet and disabled when the master switch is off.
+- The master switch gates all active coaching. The separate distance-break switch suppresses only automatic distance breaks, dismisses an active break, and resets its baseline so re-enabling cannot produce a catch-up prompt.
+- Native 760 × 300 Electron pixel QA verified that 刘看山 remains clear of the controls, the panel stays inside the transparent surface, and macOS-localized AM/PM time values remain fully visible.
+- Accessibility QA verified labeled master, distance-reminder, and schedule checkboxes; labeled start/end time selects; disabled-state semantics; keyboard focus treatment; and an inline invalid-window message.
+- Local preview QA verified that the new reminder row and footer fit the fixed `620 × 276` settings card without overflow, and that the independent preference survives reload.
+- Native tray/Pet-menu smoke QA verified the shell-only menu, repeated Pet-menu opening, dragging, and the intentional absence of duplicate camera and manual distance actions.
 - P0: none. P1: none. P2: none.
 
 final result: passed

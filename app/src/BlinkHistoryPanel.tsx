@@ -24,9 +24,14 @@ import {
   shiftLocalDateKey,
   summarizeDay,
 } from "./blink-history";
+import {
+  type PostureHistory,
+  summarizePostureDay,
+} from "./posture-history";
 
 interface BlinkHistoryPanelProps {
   history: BlinkHistory;
+  postureHistory: PostureHistory;
   selectedDate: string;
   firstDate: string;
   todayDate: string;
@@ -36,6 +41,7 @@ interface BlinkHistoryPanelProps {
 
 export default function BlinkHistoryPanel({
   history,
+  postureHistory,
   selectedDate,
   firstDate,
   todayDate,
@@ -49,6 +55,10 @@ export default function BlinkHistoryPanel({
   const summary = useMemo(
     () => summarizeDay(history, selectedDate),
     [history, selectedDate],
+  );
+  const postureSummary = useMemo(
+    () => summarizePostureDay(postureHistory, selectedDate),
+    [postureHistory, selectedDate],
   );
   const availableDates = useMemo(() => {
     const dates: string[] = [];
@@ -65,6 +75,8 @@ export default function BlinkHistoryPanel({
     weekday: "short",
   }).format(new Date(`${selectedDate}T12:00:00`));
   const observedDuration = formatObservedDuration(summary.observedMs);
+  const seatedDuration = formatObservedDuration(postureSummary.seatedMs);
+  const awayDuration = formatObservedDuration(postureSummary.awayMs);
   const hasObservedData = series.some(
     (point) => point.observedMs > 0 || point.blinkCount !== null,
   );
@@ -73,7 +85,7 @@ export default function BlinkHistoryPanel({
     <article
       className="history-panel"
       data-interactive
-      aria-label={`${selectedDateLabel}每分钟眨眼次数与有效看屏时长`}
+      aria-label={`${selectedDateLabel}眨眼、有效看屏与离座统计`}
     >
       <header className="history-header">
         <div className="history-heading">
@@ -311,9 +323,18 @@ export default function BlinkHistoryPanel({
         )}
       </div>
 
-      <p className="history-footnote">
-        看屏时长按本地人脸可见估算 · 数据仅存本机 30 天
-      </p>
+      <footer className="history-footer">
+        <p className="history-posture-summary">
+          坐姿 {seatedDuration.value} {seatedDuration.unit}
+          <span aria-hidden>·</span>
+          离座 {awayDuration.value} {awayDuration.unit}
+          <span aria-hidden>·</span>
+          起身 {postureSummary.standUps} 次
+        </p>
+        <p className="history-footnote">
+          均为本地人脸位置估算 · 仅存本机 30 天
+        </p>
+      </footer>
     </article>
   );
 }
