@@ -549,7 +549,7 @@ button:focus-visible {
   z-index: 2;
   left: 164px;
   bottom: 58px;
-  width: 472px;
+  width: 540px;
   min-height: 150px;
   padding: 19px 24px 16px 96px;
   border: 1px solid rgba(255, 255, 255, 0.78);
@@ -616,7 +616,7 @@ button:focus-visible {
 
 .stats-metrics {
   display: grid;
-  grid-template-columns: 1.2fr 1fr 0.8fr;
+  grid-template-columns: 1.1fr 1fr 0.75fr 1.1fr;
   margin: 14px 0 0;
 }
 
@@ -855,16 +855,76 @@ button:focus-visible {
   letter-spacing: 0;
 }
 
-.history-chart {
+.history-charts {
   position: relative;
+  display: grid;
   width: 100%;
   height: 136px;
-  border-radius: 16px;
+  grid-template-rows: 1fr 1fr;
+  gap: 3px;
+}
+
+.history-track {
+  display: grid;
+  min-height: 0;
+  grid-template-columns: 72px minmax(0, 1fr);
+  border-radius: 12px;
   background: linear-gradient(
-    180deg,
-    rgba(220, 236, 232, 0.34),
-    rgba(247, 251, 248, 0.08)
+    90deg,
+    rgba(220, 236, 232, 0.42),
+    rgba(247, 251, 248, 0.1)
   );
+}
+
+.history-track + .history-track {
+  background: linear-gradient(
+    90deg,
+    rgba(222, 232, 239, 0.46),
+    rgba(247, 251, 248, 0.1)
+  );
+}
+
+.history-track-label {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
+  padding-left: 10px;
+  border-right: 1px solid rgba(73, 106, 107, 0.08);
+}
+
+.history-track-label strong {
+  color: #315f66;
+  font-size: 8px;
+  font-weight: 760;
+  letter-spacing: 0.01em;
+}
+
+.history-track-label span {
+  margin-top: 2px;
+  color: #829895;
+  font-size: 6px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.history-track-label--blink::before,
+.history-track-label--screen::before {
+  width: 14px;
+  height: 2px;
+  margin-bottom: 4px;
+  border-radius: 2px;
+  background: #3f7d83;
+  content: "";
+}
+
+.history-track-label--screen::before {
+  background: #7697ad;
+}
+
+.history-track-chart {
+  min-width: 0;
+  min-height: 0;
 }
 
 .history-tooltip {
@@ -900,7 +960,7 @@ button:focus-visible {
 
 .history-empty {
   position: absolute;
-  inset: 16px 18px 22px 34px;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;

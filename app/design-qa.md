@@ -132,4 +132,21 @@ Resolution: made Skip a direct portal child and adjusted the selected preview st
 - The packaged secondary-display test retained `X=-940` through both release and a later rampage-position update; regular parked dragging and edge recovery also remain green.
 - P0: none. P1: none. P2: none.
 
+## Effective screen-facing duration extension
+
+- The expanded statistics card now presents four evenly spaced metrics, including “今日有效看屏”, without changing the persistent pet or reminder controls.
+- The selected-day history summary presents “有效看屏” from the same minute aggregates, while date switching correctly shows `0 秒` for an unobserved day.
+- Browser pixels verified both the `7:50 小时` long-value case and the empty-date case with no horizontal or vertical overflow.
+- The label states that the value is estimated from local face visibility; no gaze claim, camera frames, or additional sensitive history were introduced.
+- P0: none. P1: none. P2: none.
+
+## Synchronized daily-curve correction
+
+- The original single curve normalized partial observations to a 60-second blink rate, which visually exaggerated short samples. The upper track now shows discrete per-minute blink counts without extrapolation or smoothed interpolation.
+- A second, cool-blue track directly below shows effective screen-facing seconds on a stable 0–60 scale. Both tracks share the same horizontal time positions and reserve the bottom axis for labels.
+- Track titles and short unit captions form a compact left rail, making the two units distinguishable without adding a floating legend or enlarging the `620 × 284` card.
+- Populated-date pixels show both curves clearly; empty-date pixels keep both track frames and center one shared empty message. No horizontal or vertical overflow was observed.
+- Packaged native QA found both track labels and both SVG curve paths; tray show/hide synchronization remained intact.
+- P0: none. P1: none. P2: none.
+
 final result: passed

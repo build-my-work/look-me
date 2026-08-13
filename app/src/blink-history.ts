@@ -18,16 +18,21 @@ export interface BlinkHistory {
 export interface BlinkHistoryPoint {
   minuteIndex: number;
   label: string;
-  rate: number | null;
-  blinkCount: number;
+  blinkCount: number | null;
+  screenSeconds: number | null;
   observedMs: number;
 }
 
 export interface BlinkHistorySummary {
   totalBlinks: number;
-  observedMinutes: number;
+  observedMs: number;
   validMinuteCount: number;
   averageRate: number | null;
+}
+
+export interface ObservedDurationDisplay {
+  value: string;
+  unit: "秒" | "分钟" | "小时";
 }
 
 export function createBlinkHistory(): BlinkHistory {
@@ -122,6 +127,29 @@ export function formatMinuteLabel(minuteIndex: number): string {
   const hours = Math.floor(minuteIndex / 60);
   const minutes = minuteIndex % 60;
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+export function formatObservedDuration(
+  observedMs: number,
+): ObservedDurationDisplay {
+  const totalSeconds = Number.isFinite(observedMs)
+    ? Math.max(0, Math.floor(observedMs / 1_000))
+    : 0;
+  if (totalSeconds < 60) {
+    return { value: String(totalSeconds), unit: "秒" };
+  }
+
+  const totalMinutes = Math.floor(totalSeconds / 60);
+  if (totalMinutes < 60) {
+    return { value: String(totalMinutes), unit: "分钟" };
+  }
+
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return {
+    value: `${hours}:${String(minutes).padStart(2, "0")}`,
+    unit: "小时",
+  };
 }
 
 export function shiftLocalDateKey(dateKey: string, days: number): string {
@@ -234,11 +262,12 @@ export function getDaySeries(
     return {
       minuteIndex,
       label: formatMinuteLabel(minuteIndex),
-      rate:
-        bucket.observedMs >= MIN_MINUTE_OBSERVATION_MS
-          ? Math.round((bucket.blinks * MINUTE_MS) / bucket.observedMs)
+      blinkCount:
+        bucket.observedMs > 0 || bucket.blinks > 0 ? bucket.blinks : null,
+      screenSeconds:
+        bucket.observedMs > 0
+          ? Math.round(bucket.observedMs / 1_000)
           : null,
-      blinkCount: bucket.blinks,
       observedMs: bucket.observedMs,
     };
   });
@@ -267,7 +296,7 @@ export function summarizeDay(
 
   return {
     totalBlinks,
-    observedMinutes: Math.round(totalObservedMs / MINUTE_MS),
+    observedMs: totalObservedMs,
     validMinuteCount,
     averageRate:
       validObservedMs > 0

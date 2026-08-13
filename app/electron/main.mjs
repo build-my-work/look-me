@@ -448,11 +448,13 @@ async function runAttentionSmoke(window) {
 }
 
 async function loadRenderer(window) {
-  const demoQuery = process.env.LOOK_ME_RAIL_DRAG_SMOKE === "1"
-    ? "?state=idle&freeze=1&petCry=1"
-    : process.env.LOOK_ME_DEMO === "1"
-      ? "?state=distance&freeze=1"
-      : "";
+  const demoQuery = process.env.LOOK_ME_HISTORY_SMOKE === "1"
+    ? "?state=idle&freeze=1&historyData=1"
+    : process.env.LOOK_ME_RAIL_DRAG_SMOKE === "1"
+      ? "?state=idle&freeze=1&petCry=1"
+      : process.env.LOOK_ME_DEMO === "1"
+        ? "?state=distance&freeze=1"
+        : "";
   if (process.env.LOOK_ME_DEV_URL) {
     const url = new URL(process.env.LOOK_ME_DEV_URL);
     if (demoQuery) {
@@ -517,6 +519,20 @@ function createWindow() {
       const shown = await window.webContents.executeJavaScript(
         "Boolean(document.querySelector('.history-panel'))",
       );
+      const effectiveScreenTime = await window.webContents.executeJavaScript(`(() => {
+        const term = Array.from(document.querySelectorAll(".history-summary dt"))
+          .find((element) => element.textContent?.trim() === "有效看屏");
+        return {
+          label: term?.textContent?.trim() ?? null,
+          value: term?.parentElement?.querySelector("dd")?.textContent?.trim() ?? null,
+        };
+      })()`);
+      const historyTracks = await window.webContents.executeJavaScript(`(() => ({
+        count: document.querySelectorAll(".history-track").length,
+        labels: Array.from(document.querySelectorAll(".history-track-label strong"))
+          .map((element) => element.textContent?.trim()),
+        lines: document.querySelectorAll(".history-track .recharts-line-curve").length,
+      }))()`);
       const trayShown = historyVisible;
       const storedShown = await window.webContents.executeJavaScript(
         "window.localStorage.getItem('look-me:history-visible:v1') === 'true'",
@@ -533,9 +549,21 @@ function createWindow() {
         "window.localStorage.getItem('look-me:history-visible:v1') === 'false'",
       );
       const passed =
-        shown && trayShown && storedShown && hidden && trayHidden && storedHidden;
+        shown &&
+        effectiveScreenTime.label === "有效看屏" &&
+        Boolean(effectiveScreenTime.value) &&
+        historyTracks.count === 2 &&
+        historyTracks.labels.join(",") === "眨眼次数,有效看屏" &&
+        historyTracks.lines === 2 &&
+        trayShown &&
+        storedShown &&
+        hidden &&
+        trayHidden &&
+        storedHidden;
       console.log(`LOOK_ME_HISTORY ${JSON.stringify({
         shown,
+        effectiveScreenTime,
+        historyTracks,
         trayShown,
         storedShown,
         hidden,

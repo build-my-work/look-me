@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   createBlinkHistory,
+  formatObservedDuration,
   formatLocalDateKey,
   getDaySeries,
   getLocalMinuteIndex,
@@ -13,7 +14,7 @@ import {
 } from "./blink-history";
 
 describe("blink history", () => {
-  it("normalizes a partially observed minute into blinks per minute", () => {
+  it("keeps actual blink counts separate from observed screen-facing seconds", () => {
     const startedAt = new Date(2026, 7, 12, 9, 30, 0).getTime();
     let history = recordObservedInterval(
       createBlinkHistory(),
@@ -26,12 +27,13 @@ describe("blink history", () => {
     const point = getDaySeries(history, formatLocalDateKey(startedAt))[
       getLocalMinuteIndex(startedAt)
     ];
-    expect(point.rate).toBe(4);
     expect(point.blinkCount).toBe(2);
     expect(point.observedMs).toBe(30_000);
+    expect(point.screenSeconds).toBe(30);
+    expect(point).not.toHaveProperty("rate");
   });
 
-  it("keeps unobserved and under-observed minutes as gaps", () => {
+  it("keeps unobserved minutes as gaps and retains short observations", () => {
     const startedAt = new Date(2026, 7, 12, 9, 30, 0).getTime();
     const history = recordObservedInterval(
       createBlinkHistory(),
@@ -40,8 +42,10 @@ describe("blink history", () => {
     );
     const series = getDaySeries(history, formatLocalDateKey(startedAt));
 
-    expect(series[getLocalMinuteIndex(startedAt)].rate).toBeNull();
-    expect(series[getLocalMinuteIndex(startedAt) + 1].rate).toBeNull();
+    expect(series[getLocalMinuteIndex(startedAt)].blinkCount).toBe(0);
+    expect(series[getLocalMinuteIndex(startedAt)].screenSeconds).toBe(10);
+    expect(series[getLocalMinuteIndex(startedAt) + 1].blinkCount).toBeNull();
+    expect(series[getLocalMinuteIndex(startedAt) + 1].screenSeconds).toBeNull();
   });
 
   it("splits observation duration at a minute boundary", () => {
@@ -83,9 +87,21 @@ describe("blink history", () => {
 
     expect(summarizeDay(history, formatLocalDateKey(startedAt))).toEqual({
       totalBlinks: 6,
-      observedMinutes: 1,
+      observedMs: 30_000,
       validMinuteCount: 1,
       averageRate: 12,
+    });
+  });
+
+  it("formats effective screen-facing duration without overstating precision", () => {
+    expect(formatObservedDuration(30_000)).toEqual({ value: "30", unit: "秒" });
+    expect(formatObservedDuration(45 * 60_000)).toEqual({
+      value: "45",
+      unit: "分钟",
+    });
+    expect(formatObservedDuration(65 * 60_000)).toEqual({
+      value: "1:05",
+      unit: "小时",
     });
   });
 

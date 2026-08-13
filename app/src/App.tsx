@@ -32,7 +32,9 @@ import {
   BLINK_HISTORY_RETENTION_DAYS,
   type BlinkHistory,
   formatLocalDateKey,
+  formatObservedDuration,
   shiftLocalDateKey,
+  summarizeDay,
 } from "./blink-history";
 import { calculateBlinkStatistics } from "./blink-stats";
 import {
@@ -74,6 +76,8 @@ export function App() {
   const freezeDemo = new URLSearchParams(window.location.search).get("freeze") === "1";
   const statsDemo = new URLSearchParams(window.location.search).get("stats") === "1";
   const historyDemo = new URLSearchParams(window.location.search).get("history") === "1";
+  const historyDataDemo =
+    new URLSearchParams(window.location.search).get("historyData") === "1";
   const petBlinkDemo = new URLSearchParams(window.location.search).get("petBlink") === "1";
   const petCryDemo = new URLSearchParams(window.location.search).get("petCry") === "1";
   const initialMode = useMemo(() => getInitialMode(isDesktop), [isDesktop]);
@@ -343,7 +347,10 @@ export function App() {
   const distanceProgress = getDistanceProgress(state);
   const history = useBlinkHistory(
     detector.blinkTimestamps,
-    detector.status === "ready" && detector.faceVisible && state.mode !== "paused",
+    detector.status === "ready" &&
+      detector.faceVisible &&
+      state.mode !== "paused" &&
+      state.mode !== "distance",
     state.now,
   );
   const todayDate = formatLocalDateKey(Date.now());
@@ -352,7 +359,7 @@ export function App() {
     -(BLINK_HISTORY_RETENTION_DAYS - 1),
   );
   const displayedHistory = useMemo<BlinkHistory>(() => {
-    if (!historyDemo) {
+    if (!historyDemo && !historyDataDemo) {
       return history;
     }
 
@@ -375,7 +382,7 @@ export function App() {
       version: 1,
       days: { ...history.days, [todayDate]: demoDay },
     };
-  }, [history, historyDemo, todayDate]);
+  }, [history, historyDataDemo, historyDemo, todayDate]);
   const measuredStats = calculateBlinkStatistics(
     detector.blinkTimestamps,
     detector.sessionStartedAt,
@@ -391,6 +398,9 @@ export function App() {
         collectingSecondsRemaining: 0,
       }
     : measuredStats;
+  const todayObservedDuration = formatObservedDuration(
+    summarizeDay(displayedHistory, todayDate).observedMs,
+  );
   const hasCameraSession = statsDemo || detector.sessionStartedAt !== null;
   const hasVisibleFace =
     statsDemo || (detector.status === "ready" && detector.faceVisible);
@@ -604,13 +614,13 @@ export function App() {
         {!historyOpen && state.mode === "idle" && (
           <>
             {statsOpen && (
-              <article className="stats-panel" data-interactive aria-label="眨眼频率统计">
+              <article className="stats-panel" data-interactive aria-label="眨眼与看屏统计">
                 <header className="stats-header">
                   <span className="stats-mark" aria-hidden>
                     <ChartLineUp size={19} weight="bold" />
                   </span>
                   <div>
-                    <h2>眨眼节奏</h2>
+                    <h2>眨眼与看屏</h2>
                     <p>
                       {hasVisibleFace
                         ? "当前连续检测段"
@@ -652,6 +662,13 @@ export function App() {
                         <span>次</span>
                       </dd>
                     </div>
+                    <div>
+                      <dt>今日有效看屏</dt>
+                      <dd>
+                        <strong>{todayObservedDuration.value}</strong>
+                        <span>{todayObservedDuration.unit}</span>
+                      </dd>
+                    </div>
                   </dl>
                 ) : (
                   <p className="stats-empty">
@@ -659,7 +676,7 @@ export function App() {
                   </p>
                 )}
                 <div className="stats-footer">
-                  <p className="stats-footnote">仅作习惯观察，不代表医学评估</p>
+                  <p className="stats-footnote">看屏时长按人脸可见估算</p>
                   <button
                     className="stats-history-button"
                     type="button"
