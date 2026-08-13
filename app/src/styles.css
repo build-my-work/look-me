@@ -592,20 +592,30 @@ button:focus-visible {
 }
 
 .coach-card--blink {
-  width: 475px;
-  min-height: 168px;
-  padding-left: 78px;
-  border-radius: 52px;
+  width: 320px;
+  min-height: 156px;
+  padding: 25px 28px 25px 78px;
+  border-radius: 48px;
+}
+
+.coach-card--blink h1 {
+  white-space: nowrap;
+}
+
+.coach-card--blink .blink-copy {
+  width: max-content;
 }
 
 .blink-dots {
-  display: flex;
+  display: grid;
+  width: 100%;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 9px;
   margin-top: 17px;
 }
 
 .blink-dot {
-  width: 27px;
+  width: 100%;
   height: 8px;
   border-radius: 4px;
   background: #d8ddda;
