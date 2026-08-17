@@ -32,7 +32,7 @@ export type CoachEvent =
       coachingEnabled: boolean;
       blinkReminderEnabled: boolean;
       distanceReminderEnabled: boolean;
-      distanceObservedMs?: number;
+      screenObserving: boolean;
     }
   | { type: "BLINK"; now: number }
   | { type: "SKIP"; now: number };
@@ -79,11 +79,12 @@ export function coachReducer(
       };
 
     case "TICK": {
+      const elapsedMs = Math.max(0, event.now - state.now);
       const ticked = {
         ...state,
         now: event.now,
         distanceObservedMs: event.distanceReminderEnabled
-          ? Math.max(0, event.distanceObservedMs ?? 0)
+          ? state.distanceObservedMs + (event.screenObserving ? elapsedMs : 0)
           : 0,
       };
 
@@ -97,7 +98,9 @@ export function coachReducer(
           mode: "idle",
           lastBlinkAt: event.now,
           lastBlinkPromptAt: null,
-          distanceObservedMs: 0,
+          distanceObservedMs: event.screenObserving
+            ? ticked.distanceObservedMs
+            : 0,
           distanceStartedAt: null,
           guidedBlinks: 0,
         };

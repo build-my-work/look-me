@@ -7,16 +7,25 @@ import {
   type TimelineRange,
   type TimelineSession,
   mergeTimelineEvents,
+  mergeTimelineSessions,
 } from "./timeline";
 
-const DATABASE_NAME = "look-me:timeline:v1";
+const DATABASE_NAME = "look-me:timeline:v2";
+const LEGACY_DATABASE_NAME = "look-me:timeline:v1";
 const DATABASE_VERSION = 1;
 const EVENT_STORE = "events";
 const SESSION_STORE = "sessions";
 const SESSION_HEARTBEAT_MS = 3_000;
 const DAY_MS = 24 * 60 * 60 * 1_000;
+const RETENTION_PRUNE_INTERVAL_MS = 60 * 60 * 1_000;
 
 type TimelineListener = () => void;
+
+export interface TimelineSnapshot {
+  events: readonly TimelineEvent[];
+  sessions: readonly TimelineSession[];
+  activeSessionId: string | null;
+}
 
 function requestResult<T>(request: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -33,13 +42,13 @@ function transactionDone(transaction: IDBTransaction): Promise<void> {
   });
 }
 
-function createSessionId(): string {
+function createSessionId(at: number): string {
   const randomPart = globalThis.crypto?.randomUUID?.() ??
     Math.random().toString(36).slice(2);
-  return `${Date.now()}-${randomPart}`;
+  return `${Math.round(at)}-${randomPart}`;
 }
 
-function selectMemoryEvents(
+function selectEvents(
   events: readonly TimelineEvent[],
   from: number,
   to: number,
@@ -63,20 +72,52 @@ function selectMemoryEvents(
   return mergeTimelineEvents(selected);
 }
 
-export class TimelineRepository {
-  readonly currentSessionId = createSessionId();
+function selectSessions(
+  sessions: readonly TimelineSession[],
+  activeSessionId: string | null,
+  from: number,
+  to: number,
+  events: readonly TimelineEvent[],
+): TimelineSession[] {
+  const referencedSessionIds = new Set(events.map((event) => event.sessionId));
+  return sessions.filter((session) => {
+    const endAt =
+      session.id === activeSessionId
+        ? to
+        : (session.endedAt ?? session.lastSeenAt);
+    return (
+      referencedSessionIds.has(session.id) ||
+      (session.startedAt < to && endAt >= from)
+    );
+  });
+}
 
-  private readonly sessionStartedAt = Date.now();
-  private currentEvents: TimelineEvent[] = [];
+function deleteDatabase(name: string): Promise<void> {
+  return new Promise((resolve) => {
+    const request = indexedDB.deleteDatabase(name);
+    request.onsuccess = () => resolve();
+    request.onerror = () => resolve();
+    request.onblocked = () => resolve();
+  });
+}
+
+export class TimelineRepository {
+  private snapshot: TimelineSnapshot = {
+    events: [],
+    sessions: [],
+    activeSessionId: null,
+  };
   private listeners = new Set<TimelineListener>();
   private databasePromise: Promise<IDBDatabase | null> | null = null;
   private heartbeatTimer: number | null = null;
   private sequence = 0;
+  private lastPrunedAt = 0;
+  private latestObservedAt: number | null = null;
 
   constructor() {
     if (typeof window !== "undefined") {
       window.addEventListener("beforeunload", () => {
-        void this.persistSession(Date.now(), true);
+        this.endSession(this.latestObservedAt ?? Date.now());
       });
     }
   }
@@ -86,7 +127,72 @@ export class TimelineRepository {
     return () => this.listeners.delete(listener);
   };
 
-  getCurrentEvents = (): readonly TimelineEvent[] => this.currentEvents;
+  getSnapshot = (): TimelineSnapshot => this.snapshot;
+
+  startSession(at: number): string {
+    const startedAt = Math.round(at);
+    this.pruneIfDue(startedAt);
+    if (this.snapshot.activeSessionId) {
+      this.latestObservedAt = Math.max(
+        this.latestObservedAt ?? startedAt,
+        startedAt,
+      );
+      return this.snapshot.activeSessionId;
+    }
+
+    const session: TimelineSession = {
+      id: createSessionId(startedAt),
+      startedAt,
+      lastSeenAt: startedAt,
+    };
+    this.snapshot = {
+      ...this.snapshot,
+      sessions: [...this.snapshot.sessions, session],
+      activeSessionId: session.id,
+    };
+    this.latestObservedAt = startedAt;
+    this.emit();
+    this.ensureHeartbeat();
+    void this.persistSession(session);
+    return session.id;
+  }
+
+  endSession(at: number): void {
+    const activeSessionId = this.snapshot.activeSessionId;
+    if (!activeSessionId) {
+      return;
+    }
+
+    const latestEventAt = this.snapshot.events.reduce(
+      (latestAt, event) =>
+        event.sessionId === activeSessionId
+          ? Math.max(latestAt, event.at)
+          : latestAt,
+      Number.NEGATIVE_INFINITY,
+    );
+    let endedSession: TimelineSession | undefined;
+    const sessions = this.snapshot.sessions.map((session) => {
+      if (session.id !== activeSessionId) {
+        return session;
+      }
+      const endedAt = Math.max(
+        session.startedAt,
+        session.lastSeenAt,
+        latestEventAt,
+        this.latestObservedAt ?? Number.NEGATIVE_INFINITY,
+        Math.round(at),
+      );
+      endedSession = { ...session, lastSeenAt: endedAt, endedAt };
+      return endedSession;
+    });
+    this.snapshot = { ...this.snapshot, sessions, activeSessionId: null };
+    this.latestObservedAt = null;
+    this.stopHeartbeat();
+    this.emit();
+    if (endedSession) {
+      void this.persistSession(endedSession);
+    }
+  }
 
   record(input: TimelineEventInput): TimelineEvent {
     return this.recordMany([input])[0];
@@ -96,46 +202,49 @@ export class TimelineRepository {
     if (inputs.length === 0) {
       return [];
     }
-
-    const events = inputs.map<TimelineEvent>((input) => ({
-      ...input,
-      id: `${this.currentSessionId}:${this.sequence++}`,
-      sessionId: this.currentSessionId,
-      at: Math.round(input.at),
-    }));
-    this.currentEvents = [...this.currentEvents, ...events];
-    for (const listener of this.listeners) {
-      listener();
+    const sessionId = this.snapshot.activeSessionId;
+    if (!sessionId) {
+      throw new Error("Timeline events require an active collection session");
     }
-    this.ensureHeartbeat();
+
+    const events = inputs.map(
+      (input): TimelineEvent =>
+        ({
+          ...input,
+          id: `${sessionId}:${this.sequence++}`,
+          sessionId,
+          at: Math.round(input.at),
+        }) as TimelineEvent,
+    );
+    this.snapshot = {
+      ...this.snapshot,
+      events: [...this.snapshot.events, ...events],
+    };
+    this.emit();
     void this.persistEvents(events);
     return events;
   }
 
-  findLatestCurrentEvent(type: TimelineEventType): TimelineEvent | undefined {
-    for (let index = this.currentEvents.length - 1; index >= 0; index -= 1) {
-      const event = this.currentEvents[index];
-      if (event.type === type) {
-        return event;
-      }
-    }
-    return undefined;
+  getCurrentRange(from: number, to: number): TimelineRange {
+    const events = selectEvents(this.snapshot.events, from, to);
+    return {
+      events,
+      sessions: selectSessions(
+        this.snapshot.sessions,
+        this.snapshot.activeSessionId,
+        from,
+        to,
+        events,
+      ),
+      activeSessionId: this.snapshot.activeSessionId,
+    };
   }
 
   async queryRange(from: number, to: number): Promise<TimelineRange> {
-    const memoryEvents = selectMemoryEvents(this.currentEvents, from, to);
-    const currentSession: TimelineSession = {
-      id: this.currentSessionId,
-      startedAt: this.sessionStartedAt,
-      lastSeenAt: Date.now(),
-    };
+    const currentRange = this.getCurrentRange(from, to);
     const database = await this.getDatabase();
     if (!database) {
-      return {
-        events: memoryEvents,
-        sessions: [currentSession],
-        currentSessionId: this.currentSessionId,
-      };
+      return currentRange;
     }
 
     try {
@@ -164,24 +273,32 @@ export class TimelineRepository {
         >,
       );
       await sessionTransactionDone;
-      const sessions = new Map(storedSessions.map((session) => [session.id, session]));
-      sessions.set(this.currentSessionId, currentSession);
+      const sessions = mergeTimelineSessions(storedSessions, currentRange.sessions);
 
+      const events = mergeTimelineEvents(
+        storedEvents,
+        predecessors.filter((event): event is TimelineEvent => Boolean(event)),
+        currentRange.events,
+      );
       return {
-        events: mergeTimelineEvents(
-          storedEvents,
-          predecessors.filter((event): event is TimelineEvent => Boolean(event)),
-          memoryEvents,
+        events,
+        sessions: selectSessions(
+          sessions,
+          currentRange.activeSessionId,
+          from,
+          to,
+          events,
         ),
-        sessions: [...sessions.values()],
-        currentSessionId: this.currentSessionId,
+        activeSessionId: currentRange.activeSessionId,
       };
     } catch {
-      return {
-        events: memoryEvents,
-        sessions: [currentSession],
-        currentSessionId: this.currentSessionId,
-      };
+      return currentRange;
+    }
+  }
+
+  private emit(): void {
+    for (const listener of this.listeners) {
+      listener();
     }
   }
 
@@ -207,8 +324,28 @@ export class TimelineRepository {
       return;
     }
     this.heartbeatTimer = window.setInterval(() => {
-      void this.persistSession(Date.now(), false);
+      const now = Date.now();
+      const activeSession = this.snapshot.sessions.find(
+        ({ id }) => id === this.snapshot.activeSessionId,
+      );
+      if (activeSession) {
+        void this.persistSession({
+          ...activeSession,
+          lastSeenAt: Math.max(
+            activeSession.lastSeenAt,
+            this.latestObservedAt ?? activeSession.lastSeenAt,
+          ),
+        });
+      }
+      this.pruneIfDue(now);
     }, SESSION_HEARTBEAT_MS);
+  }
+
+  private stopHeartbeat(): void {
+    if (this.heartbeatTimer !== null && typeof window !== "undefined") {
+      window.clearInterval(this.heartbeatTimer);
+    }
+    this.heartbeatTimer = null;
   }
 
   private async getDatabase(): Promise<IDBDatabase | null> {
@@ -220,30 +357,32 @@ export class TimelineRepository {
       return this.databasePromise;
     }
 
-    this.databasePromise = new Promise<IDBDatabase | null>((resolve) => {
-      const request = indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
-      request.onupgradeneeded = () => {
-        const database = request.result;
-        const eventStore = database.createObjectStore(EVENT_STORE, {
-          keyPath: "id",
-        });
-        eventStore.createIndex("at", "at");
-        eventStore.createIndex("typeAt", ["type", "at"]);
-        eventStore.createIndex("sessionId", "sessionId");
-        const sessionStore = database.createObjectStore(SESSION_STORE, {
-          keyPath: "id",
-        });
-        sessionStore.createIndex("lastSeenAt", "lastSeenAt");
-      };
-      request.onsuccess = () => {
-        const database = request.result;
-        database.onversionchange = () => database.close();
-        resolve(database);
-        void this.prune(database);
-      };
-      request.onerror = () => resolve(null);
-      request.onblocked = () => resolve(null);
-    });
+    this.databasePromise = (async () => {
+      await deleteDatabase(LEGACY_DATABASE_NAME);
+      return new Promise<IDBDatabase | null>((resolve) => {
+        const request = indexedDB.open(DATABASE_NAME, DATABASE_VERSION);
+        request.onupgradeneeded = () => {
+          const database = request.result;
+          const eventStore = database.createObjectStore(EVENT_STORE, {
+            keyPath: "id",
+          });
+          eventStore.createIndex("at", "at");
+          eventStore.createIndex("typeAt", ["type", "at"]);
+          const sessionStore = database.createObjectStore(SESSION_STORE, {
+            keyPath: "id",
+          });
+          sessionStore.createIndex("lastSeenAt", "lastSeenAt");
+        };
+        request.onsuccess = () => {
+          const database = request.result;
+          database.onversionchange = () => database.close();
+          resolve(database);
+          this.pruneIfDue(Date.now());
+        };
+        request.onerror = () => resolve(null);
+        request.onblocked = () => resolve(null);
+      });
+    })();
     return this.databasePromise;
   }
 
@@ -253,27 +392,19 @@ export class TimelineRepository {
       return;
     }
     try {
-      const transaction = database.transaction(
-        [EVENT_STORE, SESSION_STORE],
-        "readwrite",
-      );
+      const transaction = database.transaction(EVENT_STORE, "readwrite");
       const done = transactionDone(transaction);
       const eventStore = transaction.objectStore(EVENT_STORE);
       for (const event of events) {
         eventStore.put(event);
       }
-      transaction.objectStore(SESSION_STORE).put({
-        id: this.currentSessionId,
-        startedAt: this.sessionStartedAt,
-        lastSeenAt: Date.now(),
-      } satisfies TimelineSession);
       await done;
     } catch {
-      // The current session remains queryable in memory if IndexedDB is unavailable.
+      // Current-session data remains queryable in memory when persistence is unavailable.
     }
   }
 
-  private async persistSession(now: number, ended: boolean): Promise<void> {
+  private async persistSession(session: TimelineSession): Promise<void> {
     const database = await this.getDatabase();
     if (!database) {
       return;
@@ -281,53 +412,120 @@ export class TimelineRepository {
     try {
       const transaction = database.transaction(SESSION_STORE, "readwrite");
       const done = transactionDone(transaction);
-      transaction.objectStore(SESSION_STORE).put({
-        id: this.currentSessionId,
-        startedAt: this.sessionStartedAt,
-        lastSeenAt: now,
-        ...(ended ? { endedAt: now } : {}),
-      } satisfies TimelineSession);
+      transaction.objectStore(SESSION_STORE).put(session);
       await done;
     } catch {
       // A missed heartbeat can lose at most one checkpoint interval after a crash.
     }
   }
 
-  private async prune(database: IDBDatabase): Promise<void> {
-    const cutoff = Date.now() - TIMELINE_RETENTION_DAYS * DAY_MS;
+  private pruneIfDue(at: number): void {
+    if (at - this.lastPrunedAt < RETENTION_PRUNE_INTERVAL_MS) {
+      return;
+    }
+    this.lastPrunedAt = at;
+    const cutoff = at - TIMELINE_RETENTION_DAYS * DAY_MS;
+    const retainedEvents = selectEvents(
+      this.snapshot.events,
+      cutoff,
+      Number.POSITIVE_INFINITY,
+    );
+    const referencedSessionIds = new Set(
+      retainedEvents.map((event) => event.sessionId),
+    );
+    const retainedSessions = this.snapshot.sessions.filter(
+      (session) =>
+        session.id === this.snapshot.activeSessionId ||
+        session.lastSeenAt >= cutoff ||
+        referencedSessionIds.has(session.id),
+    );
+    if (
+      retainedSessions.length !== this.snapshot.sessions.length ||
+      retainedEvents.length !== this.snapshot.events.length
+    ) {
+      this.snapshot = {
+        ...this.snapshot,
+        sessions: retainedSessions,
+        events: retainedEvents,
+      };
+      this.emit();
+    }
+    void this.getDatabase().then((database) => {
+      if (database) {
+        void this.prune(database, at);
+      }
+    });
+  }
+
+  private async prune(database: IDBDatabase, at: number): Promise<void> {
+    const cutoff = at - TIMELINE_RETENTION_DAYS * DAY_MS;
     try {
+      const readTransaction = database.transaction(
+        [EVENT_STORE, SESSION_STORE],
+        "readonly",
+      );
+      const readDone = transactionDone(readTransaction);
+      const eventStore = readTransaction.objectStore(EVENT_STORE);
+      const sessionStore = readTransaction.objectStore(SESSION_STORE);
+      const [predecessors, sessions] = await Promise.all([
+        Promise.all(
+          TIMELINE_PREDECESSOR_TYPES.map((type) =>
+            this.getLatestBefore(eventStore.index("typeAt"), type, cutoff),
+          ),
+        ),
+        requestResult(
+          sessionStore.getAll() as IDBRequest<TimelineSession[]>,
+        ),
+      ]);
+      await readDone;
+
+      const retainedPredecessors = predecessors.filter(
+        (event): event is TimelineEvent => Boolean(event),
+      );
+      const retainedEventIds = new Set(
+        retainedPredecessors.map((event) => event.id),
+      );
+      const retainedSessionIds = new Set(
+        sessions
+          .filter((session) => session.lastSeenAt >= cutoff)
+          .map((session) => session.id),
+      );
+      for (const event of retainedPredecessors) {
+        retainedSessionIds.add(event.sessionId);
+      }
+
       const transaction = database.transaction(
         [EVENT_STORE, SESSION_STORE],
         "readwrite",
       );
       const done = transactionDone(transaction);
-      const deleteCursorRange = (
-        index: IDBIndex,
-        range: IDBKeyRange,
-      ): Promise<void> =>
+      const writeEventStore = transaction.objectStore(EVENT_STORE);
+      const writeSessionStore = transaction.objectStore(SESSION_STORE);
+      const deleteOldEvents = (): Promise<void> =>
         new Promise((resolve, reject) => {
-          const request = index.openCursor(range);
+          const request = writeEventStore
+            .index("at")
+            .openCursor(IDBKeyRange.upperBound(cutoff, true));
           request.onsuccess = () => {
             const cursor = request.result;
             if (!cursor) {
               resolve();
               return;
             }
-            cursor.delete();
+            const event = cursor.value as TimelineEvent;
+            if (!retainedEventIds.has(event.id)) {
+              cursor.delete();
+            }
             cursor.continue();
           };
           request.onerror = () => reject(request.error);
         });
-      await Promise.all([
-        deleteCursorRange(
-          transaction.objectStore(EVENT_STORE).index("at"),
-          IDBKeyRange.upperBound(cutoff, true),
-        ),
-        deleteCursorRange(
-          transaction.objectStore(SESSION_STORE).index("lastSeenAt"),
-          IDBKeyRange.upperBound(cutoff, true),
-        ),
-      ]);
+      for (const session of sessions) {
+        if (!retainedSessionIds.has(session.id)) {
+          writeSessionStore.delete(session.id);
+        }
+      }
+      await deleteOldEvents();
       await done;
     } catch {
       // Retention cleanup is best effort and never blocks new event recording.

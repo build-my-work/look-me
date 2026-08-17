@@ -10,49 +10,31 @@ import {
   type PostureState,
 } from "./posture-signal";
 import { MouthSignal } from "./mouth-signal";
-import { YAWN_MIN_OPEN_MS, YawnSignal } from "./yawn-signal";
+import { YawnSignal } from "./yawn-signal";
 
 export type FaceMonitorStatus = "idle" | "starting" | "ready" | "error";
 
 export interface BlinkDetectionEvent {
+  id: number;
   at: number;
-  closedAt: number;
-  openedAt: number;
-  closedDurationMs: number;
-  peakLeftBlend: number;
-  peakRightBlend: number;
-  minimumEar: number | null;
-}
-
-export interface MouthTransitionEvent {
-  at: number;
-  state: "opened" | "closed";
-  jawOpen: number;
-  reason: "detected" | "face-lost";
 }
 
 export interface YawnDetectionEvent {
+  id: number;
   at: number;
-  openedAt: number;
-  openDurationMs: number;
-  thresholdMs: number;
 }
 
 export interface FaceMonitor {
   status: FaceMonitorStatus;
   errorMessage: string | null;
   faceVisible: boolean;
+  lastDetectionAt: number | null;
   blinkCount: number;
-  blinkTimestamps: readonly number[];
   blinkEvents: readonly BlinkDetectionEvent[];
-  yawnCount: number;
   yawnEvents: readonly YawnDetectionEvent[];
-  mouthEvents: readonly MouthTransitionEvent[];
   mouthOpen: boolean;
   postureState: PostureState;
   postureStateSince: number | null;
-  standUpTimestamps: readonly number[];
-  sessionStartedAt: number | null;
   videoRef: React.RefObject<HTMLVideoElement | null>;
   start: () => Promise<boolean>;
   suspend: () => void;
@@ -60,7 +42,9 @@ export interface FaceMonitor {
 }
 
 const DETECTION_INTERVAL_MS = 50;
+const DETECTION_PUBLISH_INTERVAL_MS = 250;
 const FACE_VISIBILITY_GRACE_MS = 1_000;
+const MAX_BUFFERED_DETECTION_EVENTS = 64;
 
 function getBlendshapeScore(
   categories: Array<{ categoryName?: string; score?: number }>,
@@ -88,15 +72,14 @@ export function useFaceMonitor(): FaceMonitor {
   const [status, setStatus] = useState<FaceMonitorStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [faceVisible, setFaceVisible] = useState(false);
+  const [lastDetectionAt, setLastDetectionAt] = useState<number | null>(null);
+  const [blinkCount, setBlinkCount] = useState(0);
   const [blinkEvents, setBlinkEvents] = useState<BlinkDetectionEvent[]>([]);
-  const [mouthEvents, setMouthEvents] = useState<MouthTransitionEvent[]>([]);
   const [mouthOpen, setMouthOpen] = useState(false);
   const [yawnEvents, setYawnEvents] = useState<YawnDetectionEvent[]>([]);
   const [postureState, setPostureState] =
     useState<PostureState>("calibrating");
   const [postureStateSince, setPostureStateSince] = useState<number | null>(null);
-  const [standUpTimestamps, setStandUpTimestamps] = useState<number[]>([]);
-  const [sessionStartedAt, setSessionStartedAt] = useState<number | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const landmarkerRef = useRef<FaceLandmarker | null>(null);
@@ -105,7 +88,11 @@ export function useFaceMonitor(): FaceMonitor {
   const faceVisibleRef = useRef(false);
   const postureStateRef = useRef<PostureState>("calibrating");
   const lastFaceSeenAtRef = useRef(0);
-  const lastDetectionAtRef = useRef(0);
+  const lastInferenceTimestampRef = useRef(0);
+  const lastProcessedVideoTimeRef = useRef(Number.NEGATIVE_INFINITY);
+  const lastPublishedDetectionAtRef = useRef(0);
+  const blinkEventIdRef = useRef(0);
+  const yawnEventIdRef = useRef(0);
   const blinkSignalRef = useRef(new BlinkSignal());
   const mouthSignalRef = useRef(new MouthSignal());
   const yawnSignalRef = useRef(new YawnSignal());
@@ -138,8 +125,11 @@ export function useFaceMonitor(): FaceMonitor {
     resetPostureSignal();
     faceVisibleRef.current = false;
     lastFaceSeenAtRef.current = 0;
-    lastDetectionAtRef.current = 0;
+    lastInferenceTimestampRef.current = 0;
+    lastProcessedVideoTimeRef.current = Number.NEGATIVE_INFINITY;
+    lastPublishedDetectionAtRef.current = 0;
     setFaceVisible(false);
+    setLastDetectionAt(null);
     setMouthOpen(false);
     if (videoRef.current) {
       videoRef.current.srcObject = null;
@@ -155,11 +145,9 @@ export function useFaceMonitor(): FaceMonitor {
 
   const stop = useCallback(() => {
     cleanup();
+    setBlinkCount(0);
     setBlinkEvents([]);
-    setMouthEvents([]);
     setYawnEvents([]);
-    setStandUpTimestamps([]);
-    setSessionStartedAt(null);
     setStatus("idle");
     setErrorMessage(null);
   }, [cleanup]);
@@ -244,7 +232,6 @@ export function useFaceMonitor(): FaceMonitor {
         }
         landmarkerRef.current = landmarker;
         runningRef.current = true;
-        setSessionStartedAt((startedAt) => startedAt ?? Date.now());
         setStatus("ready");
 
         const detect = (timestamp: number) => {
@@ -252,16 +239,40 @@ export function useFaceMonitor(): FaceMonitor {
             return;
           }
 
+          const videoTime = video.currentTime;
           if (
-            timestamp - lastDetectionAtRef.current >= DETECTION_INTERVAL_MS &&
-            video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA
+            timestamp - lastInferenceTimestampRef.current >=
+              DETECTION_INTERVAL_MS &&
+            video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA &&
+            Number.isFinite(videoTime) &&
+            videoTime !== lastProcessedVideoTimeRef.current
           ) {
-            lastDetectionAtRef.current = timestamp;
-            const result = landmarker.detectForVideo(video, timestamp);
+            lastInferenceTimestampRef.current = timestamp;
+            lastProcessedVideoTimeRef.current = videoTime;
+            let result: ReturnType<FaceLandmarker["detectForVideo"]>;
+            try {
+              result = landmarker.detectForVideo(video, timestamp);
+            } catch (error) {
+              if (requestId === startGenerationRef.current) {
+                cleanup();
+                setStatus("error");
+                setErrorMessage(describeCameraError(error));
+              }
+              return;
+            }
             const categories = result.faceBlendshapes[0]?.categories ?? [];
             const landmarks = result.faceLandmarks[0];
             const hasFace = Boolean(landmarks && categories.length > 0);
             const wallClockNow = Date.now();
+            if (
+              lastPublishedDetectionAtRef.current === 0 ||
+              wallClockNow < lastPublishedDetectionAtRef.current ||
+              wallClockNow - lastPublishedDetectionAtRef.current >=
+                DETECTION_PUBLISH_INTERVAL_MS
+            ) {
+              lastPublishedDetectionAtRef.current = wallClockNow;
+              setLastDetectionAt(wallClockNow);
+            }
 
             if (hasFace) {
               lastFaceSeenAtRef.current = timestamp;
@@ -293,12 +304,6 @@ export function useFaceMonitor(): FaceMonitor {
                       Math.max(0, timestamp - postureResult.stateStartedAt),
               );
             }
-            if (postureResult.stoodUp) {
-              const stoodUpAt =
-                wallClockNow - Math.max(0, timestamp - postureResult.stateStartedAt);
-              setStandUpTimestamps((timestamps) => [...timestamps, stoodUpAt]);
-            }
-
             if (hasFace && landmarks) {
               const blinkSample = {
                 timestamp,
@@ -307,21 +312,15 @@ export function useFaceMonitor(): FaceMonitor {
                 ear: calculateAverageEyeAspectRatio(landmarks),
               };
               const didBlink = blinkSignalRef.current.process(blinkSample);
-              const blinkDetection = blinkSignalRef.current.getLastDetection();
-              if (didBlink && blinkDetection) {
+              if (didBlink) {
+                const event = {
+                  id: ++blinkEventIdRef.current,
+                  at: wallClockNow,
+                };
+                setBlinkCount((count) => count + 1);
                 setBlinkEvents((events) => [
-                  ...events,
-                  {
-                    at: wallClockNow,
-                    closedAt:
-                      wallClockNow -
-                      (blinkDetection.openedAt - blinkDetection.closedAt),
-                    openedAt: wallClockNow,
-                    closedDurationMs: blinkDetection.closedDurationMs,
-                    peakLeftBlend: blinkDetection.peakLeftBlend,
-                    peakRightBlend: blinkDetection.peakRightBlend,
-                    minimumEar: blinkDetection.minimumEar,
-                  },
+                  ...events.slice(-(MAX_BUFFERED_DETECTION_EVENTS - 1)),
+                  event,
                 ]);
               }
               const jawOpen = getBlendshapeScore(categories, "jawOpen");
@@ -330,32 +329,18 @@ export function useFaceMonitor(): FaceMonitor {
                 jawOpen,
               });
               setMouthOpen(mouthResult.open);
-              if (mouthResult.transition) {
-                setMouthEvents((events) => [
-                  ...events,
-                  {
-                    at: wallClockNow,
-                    state: mouthResult.transition as "opened" | "closed",
-                    jawOpen,
-                    reason: "detected",
-                  },
-                ]);
-              }
               const yawnDetection = yawnSignalRef.current.process({
                 timestamp,
                 mouthOpen: mouthResult.open,
               });
               if (yawnDetection) {
+                const event = {
+                  id: ++yawnEventIdRef.current,
+                  at: wallClockNow,
+                };
                 setYawnEvents((events) => [
-                  ...events,
-                  {
-                    at: wallClockNow,
-                    openedAt:
-                      wallClockNow -
-                      (yawnDetection.detectedAt - yawnDetection.openedAt),
-                    openDurationMs: yawnDetection.openDurationMs,
-                    thresholdMs: YAWN_MIN_OPEN_MS,
-                  },
+                  ...events.slice(-(MAX_BUFFERED_DETECTION_EVENTS - 1)),
+                  event,
                 ]);
               }
             } else {
@@ -365,17 +350,6 @@ export function useFaceMonitor(): FaceMonitor {
                 jawOpen: 0,
               });
               setMouthOpen(mouthResult.open);
-              if (mouthResult.transition === "closed") {
-                setMouthEvents((events) => [
-                  ...events,
-                  {
-                    at: wallClockNow,
-                    state: "closed",
-                    jawOpen: 0,
-                    reason: "face-lost",
-                  },
-                ]);
-              }
               yawnSignalRef.current.process({ timestamp, mouthOpen: false });
             }
           }
@@ -407,23 +381,17 @@ export function useFaceMonitor(): FaceMonitor {
 
   useEffect(() => cleanup, [cleanup]);
 
-  const blinkTimestamps = blinkEvents.map((event) => event.at);
-
   return {
     status,
     errorMessage,
     faceVisible,
-    blinkCount: blinkEvents.length,
-    blinkTimestamps,
+    lastDetectionAt,
+    blinkCount,
     blinkEvents,
-    yawnCount: yawnEvents.length,
     yawnEvents,
-    mouthEvents,
     mouthOpen,
     postureState,
     postureStateSince,
-    standUpTimestamps,
-    sessionStartedAt,
     videoRef,
     start,
     suspend,

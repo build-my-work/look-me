@@ -2,10 +2,12 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "reac
 import type { PostureState } from "./posture-signal";
 import {
   MAX_CONTIGUOUS_OBSERVATION_GAP_MS,
+  type SeatedEndReason,
   type TimelineEvent,
   type TimelineEventType,
   type TimelineRange,
   mergeTimelineEvents,
+  mergeTimelineSessions,
 } from "./timeline";
 import {
   type TimelineRepository,
@@ -13,141 +15,171 @@ import {
 } from "./timeline-store";
 import type {
   BlinkDetectionEvent,
-  MouthTransitionEvent,
   YawnDetectionEvent,
 } from "./useFaceMonitor";
 
 interface OpenSpan {
   spanId: string;
-  startEventId: string;
+  startedAt: number;
   lastObservedAt: number;
+}
+
+type SpanTimelineEvent = Extract<TimelineEvent, { spanId: string }>;
+
+function hasSpanId(event: TimelineEvent): event is SpanTimelineEvent {
+  return "spanId" in event;
 }
 
 export interface TimelineCaptureInput {
   now: number;
-  monitoring: boolean;
-  sensingReady: boolean;
-  distanceReminderEnabled: boolean;
+  observedAt: number | null;
+  collecting: boolean;
   screenObserving: boolean;
-  screenEndReason: string;
   blinkEvents: readonly BlinkDetectionEvent[];
-  mouthEvents: readonly MouthTransitionEvent[];
   yawnEvents: readonly YawnDetectionEvent[];
   postureState: PostureState;
   postureStateSince: number | null;
-  standUpTimestamps: readonly number[];
 }
 
-function createSpanId(prefix: string): string {
-  const randomPart = globalThis.crypto?.randomUUID?.() ??
-    Math.random().toString(36).slice(2);
+function createSpanId(prefix: "screen" | "seated"): string {
+  const randomPart =
+    globalThis.crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2);
   return `${prefix}:${randomPart}`;
 }
 
-function getOpenCurrentSpan(
+function getOpenSpan(
   repository: TimelineRepository,
-  startType: TimelineEventType,
-  endType: TimelineEventType,
+  startType: Extract<TimelineEventType, `${string}.started`>,
+  endType: Extract<TimelineEventType, `${string}.ended`>,
 ): OpenSpan | null {
-  const events = repository.getCurrentEvents();
-  const endedSpans = new Set(
-    events
-      .filter((event) => event.type === endType && event.spanId)
-      .map((event) => event.spanId),
-  );
-  for (let index = events.length - 1; index >= 0; index -= 1) {
-    const event = events[index];
-    if (event.type === startType && event.spanId && !endedSpans.has(event.spanId)) {
-      return {
-        spanId: event.spanId,
-        startEventId: event.id,
-        lastObservedAt: event.at,
-      };
-    }
-  }
-  return null;
-}
-
-function latestLifecycleType(
-  repository: TimelineRepository,
-  startedType: TimelineEventType,
-  stoppedType: TimelineEventType,
-): TimelineEventType | null {
-  const started = repository.findLatestCurrentEvent(startedType);
-  const stopped = repository.findLatestCurrentEvent(stoppedType);
-  if (!started && !stopped) {
+  const snapshot = repository.getSnapshot();
+  if (!snapshot.activeSessionId) {
     return null;
   }
-  return !stopped || (started && started.at >= stopped.at) ? startedType : stoppedType;
+  const endedSpanIds = new Set(
+    snapshot.events
+      .filter(
+        (event): event is SpanTimelineEvent =>
+          hasSpanId(event) && event.type === endType,
+      )
+      .map((event) => event.spanId),
+  );
+  let started: SpanTimelineEvent | undefined;
+  for (const event of [...snapshot.events].reverse()) {
+    if (
+      hasSpanId(event) &&
+      event.type === startType &&
+      event.sessionId === snapshot.activeSessionId &&
+      !endedSpanIds.has(event.spanId)
+    ) {
+      started = event;
+      break;
+    }
+  }
+  if (!started) {
+    return null;
+  }
+  return {
+    spanId: started.spanId,
+    startedAt: started.at,
+    lastObservedAt: started.at,
+  };
+}
+
+function closeScreenSpan(
+  repository: TimelineRepository,
+  span: OpenSpan,
+  at: number,
+): void {
+  repository.record({
+    at: Math.max(span.startedAt, at),
+    type: "screen.ended",
+    spanId: span.spanId,
+  });
+}
+
+function closeSeatedSpan(
+  repository: TimelineRepository,
+  span: OpenSpan,
+  at: number,
+  reason: SeatedEndReason,
+): void {
+  repository.record({
+    at: Math.max(span.startedAt, at),
+    type: "seated.ended",
+    spanId: span.spanId,
+    reason,
+  });
 }
 
 export function useTimelineCapture(
   input: TimelineCaptureInput,
   repository = timelineRepository,
 ): void {
-  const screenSpan = useRef<OpenSpan | null>(
-    getOpenCurrentSpan(repository, "screen.started", "screen.ended"),
-  );
-  const mouthSpan = useRef<OpenSpan | null>(
-    getOpenCurrentSpan(repository, "mouth.opened", "mouth.closed"),
-  );
-  const processedBlinkCount = useRef(0);
-  const processedMouthCount = useRef(0);
-  const processedYawnCount = useRef(0);
-  const processedStandUpCount = useRef(0);
-  const lastPostureState = useRef<PostureState | null>(null);
+  const screenSpan = useRef<OpenSpan | null>(null);
+  const seatedSpan = useRef<OpenSpan | null>(null);
+  const spansInitialized = useRef(false);
+  if (!spansInitialized.current) {
+    screenSpan.current = getOpenSpan(
+      repository,
+      "screen.started",
+      "screen.ended",
+    );
+    seatedSpan.current = getOpenSpan(
+      repository,
+      "seated.started",
+      "seated.ended",
+    );
+    spansInitialized.current = true;
+  }
+  const processedBlinkEventId = useRef(0);
+  const processedYawnEventId = useRef(0);
+  const collectionLastObservedAt = useRef<number | null>(null);
+  const latestInput = useRef(input);
+  latestInput.current = input;
 
   useEffect(() => {
-    const expectedType = input.monitoring
-      ? "monitoring.started"
-      : "monitoring.stopped";
-    if (
-      latestLifecycleType(
-        repository,
-        "monitoring.started",
-        "monitoring.stopped",
-      ) !== expectedType
-    ) {
-      repository.record({
-        at: input.now,
-        layer: "fact",
-        type: expectedType,
-      });
+    if (input.collecting && input.observedAt !== null) {
+      const previousObservedAt = collectionLastObservedAt.current;
+      if (
+        previousObservedAt !== null &&
+        input.observedAt - previousObservedAt >
+          MAX_CONTIGUOUS_OBSERVATION_GAP_MS &&
+        repository.getSnapshot().activeSessionId
+      ) {
+        if (screenSpan.current) {
+          closeScreenSpan(
+            repository,
+            screenSpan.current,
+            screenSpan.current.lastObservedAt,
+          );
+          screenSpan.current = null;
+        }
+        if (seatedSpan.current) {
+          closeSeatedSpan(
+            repository,
+            seatedSpan.current,
+            seatedSpan.current.lastObservedAt,
+            "tracking_lost",
+          );
+          seatedSpan.current = null;
+        }
+        repository.endSession(previousObservedAt);
+      }
+      repository.startSession(input.observedAt);
+      collectionLastObservedAt.current = input.observedAt;
     }
-  }, [input.monitoring, input.now, repository]);
+  }, [input.collecting, input.observedAt, repository]);
 
   useEffect(() => {
-    const expectedType = input.distanceReminderEnabled
-      ? "distance-reminder.enabled"
-      : "distance-reminder.disabled";
-    if (
-      latestLifecycleType(
-        repository,
-        "distance-reminder.enabled",
-        "distance-reminder.disabled",
-      ) !== expectedType
-    ) {
-      repository.record({
-        at: input.now,
-        layer: "fact",
-        type: expectedType,
-      });
-    }
-  }, [input.distanceReminderEnabled, input.now, repository]);
-
-  useEffect(() => {
-    const observing = input.screenObserving;
     const current = screenSpan.current;
-    if (!observing) {
-      if (current) {
-        repository.record({
-          at: current.lastObservedAt,
-          layer: "fact",
-          type: "screen.ended",
-          spanId: current.spanId,
-          causedBy: [current.startEventId],
-          data: { reason: input.screenEndReason },
-        });
+    if (
+      !input.collecting ||
+      !input.screenObserving ||
+      input.observedAt === null
+    ) {
+      if (current && repository.getSnapshot().activeSessionId) {
+        closeScreenSpan(repository, current, current.lastObservedAt);
         screenSpan.current = null;
       }
       return;
@@ -155,198 +187,187 @@ export function useTimelineCapture(
 
     if (
       current &&
-      input.now - current.lastObservedAt > MAX_CONTIGUOUS_OBSERVATION_GAP_MS
+      input.observedAt - current.lastObservedAt >
+        MAX_CONTIGUOUS_OBSERVATION_GAP_MS
     ) {
-      repository.record({
-        at: current.lastObservedAt,
-        layer: "fact",
-        type: "screen.ended",
-        spanId: current.spanId,
-        causedBy: [current.startEventId],
-        data: { reason: "observation-gap" },
-      });
+      closeScreenSpan(repository, current, current.lastObservedAt);
       screenSpan.current = null;
     }
 
     if (!screenSpan.current) {
       const spanId = createSpanId("screen");
-      const started = repository.record({
-        at: input.now,
-        layer: "fact",
+      repository.record({
+        at: input.observedAt,
         type: "screen.started",
         spanId,
       });
       screenSpan.current = {
         spanId,
-        startEventId: started.id,
-        lastObservedAt: input.now,
+        startedAt: input.observedAt,
+        lastObservedAt: input.observedAt,
       };
       return;
     }
-    screenSpan.current.lastObservedAt = input.now;
+    screenSpan.current.lastObservedAt = input.observedAt;
+  }, [input.collecting, input.observedAt, input.screenObserving, repository]);
+
+  useEffect(() => {
+    const unprocessed = input.blinkEvents.filter(
+      (event) => event.id > processedBlinkEventId.current,
+    );
+    const latestEvent = unprocessed[unprocessed.length - 1];
+    if (latestEvent) {
+      processedBlinkEventId.current = latestEvent.id;
+    }
+    const snapshot = repository.getSnapshot();
+    if (!input.collecting || !snapshot.activeSessionId) {
+      return;
+    }
+    const session = snapshot.sessions.find(
+      ({ id }) => id === snapshot.activeSessionId,
+    );
+    repository.recordMany(
+      unprocessed
+        .filter((event) => !session || event.at >= session.startedAt)
+        .map((event) => ({ at: event.at, type: "blink.detected" as const })),
+    );
+  }, [input.blinkEvents, input.collecting, repository]);
+
+  useEffect(() => {
+    const unprocessed = input.yawnEvents.filter(
+      (event) => event.id > processedYawnEventId.current,
+    );
+    const latestEvent = unprocessed[unprocessed.length - 1];
+    if (latestEvent) {
+      processedYawnEventId.current = latestEvent.id;
+    }
+    const snapshot = repository.getSnapshot();
+    if (!input.collecting || !snapshot.activeSessionId) {
+      return;
+    }
+    const session = snapshot.sessions.find(
+      ({ id }) => id === snapshot.activeSessionId,
+    );
+    repository.recordMany(
+      unprocessed
+        .filter((event) => !session || event.at >= session.startedAt)
+        .map((event) => ({ at: event.at, type: "yawn.detected" as const })),
+    );
+  }, [input.collecting, input.yawnEvents, repository]);
+
+  useEffect(() => {
+    if (!input.collecting || input.observedAt === null) {
+      if (seatedSpan.current && repository.getSnapshot().activeSessionId) {
+        closeSeatedSpan(
+          repository,
+          seatedSpan.current,
+          seatedSpan.current.lastObservedAt,
+          "tracking_lost",
+        );
+        seatedSpan.current = null;
+      }
+      return;
+    }
+
+    if (input.postureState === "seated") {
+      if (!seatedSpan.current) {
+        const snapshot = repository.getSnapshot();
+        const session = snapshot.sessions.find(
+          ({ id }) => id === snapshot.activeSessionId,
+        );
+        const startedAt = Math.max(
+          session?.startedAt ?? input.observedAt,
+          input.postureStateSince ?? input.observedAt,
+        );
+        const spanId = createSpanId("seated");
+        repository.record({ at: startedAt, type: "seated.started", spanId });
+        seatedSpan.current = {
+          spanId,
+          startedAt,
+          lastObservedAt: input.observedAt,
+        };
+      } else {
+        seatedSpan.current.lastObservedAt = input.observedAt;
+      }
+      return;
+    }
+
+    if (seatedSpan.current) {
+      const reason: SeatedEndReason =
+        input.postureState === "away" ? "stand_up" : "tracking_lost";
+      closeSeatedSpan(
+        repository,
+        seatedSpan.current,
+        input.postureStateSince ?? input.observedAt,
+        reason,
+      );
+      seatedSpan.current = null;
+    }
   }, [
+    input.collecting,
     input.now,
-    input.screenEndReason,
-    input.screenObserving,
+    input.observedAt,
+    input.postureState,
+    input.postureStateSince,
     repository,
   ]);
 
   useEffect(() => {
-    if (input.blinkEvents.length < processedBlinkCount.current) {
-      processedBlinkCount.current = 0;
+    if (!input.collecting) {
+      repository.endSession(
+        collectionLastObservedAt.current ?? input.observedAt ?? input.now,
+      );
+      collectionLastObservedAt.current = null;
     }
-    const unprocessed = input.blinkEvents.slice(processedBlinkCount.current);
-    processedBlinkCount.current = input.blinkEvents.length;
-    repository.recordMany(
-      unprocessed.map((event) => ({
-        at: event.at,
-        layer: "fact" as const,
-        type: "blink.detected" as const,
-        data: {
-          closedAt: event.closedAt,
-          openedAt: event.openedAt,
-          closedDurationMs: event.closedDurationMs,
-          peakLeftBlend: event.peakLeftBlend,
-          peakRightBlend: event.peakRightBlend,
-          minimumEar: event.minimumEar,
-        },
-      })),
-    );
-  }, [input.blinkEvents, repository]);
+  }, [input.collecting, input.now, input.observedAt, repository]);
 
-  useEffect(() => {
-    if (input.mouthEvents.length < processedMouthCount.current) {
-      processedMouthCount.current = 0;
-    }
-    const unprocessed = input.mouthEvents.slice(processedMouthCount.current);
-    processedMouthCount.current = input.mouthEvents.length;
-    for (const event of unprocessed) {
-      if (event.state === "opened" && !mouthSpan.current) {
-        const spanId = createSpanId("mouth");
-        const started = repository.record({
-          at: event.at,
-          layer: "fact",
-          type: "mouth.opened",
-          spanId,
-          data: { jawOpen: event.jawOpen },
-        });
-        mouthSpan.current = {
-          spanId,
-          startEventId: started.id,
-          lastObservedAt: event.at,
-        };
-      } else if (event.state === "closed" && mouthSpan.current) {
-        const current = mouthSpan.current;
-        repository.record({
-          at: event.at,
-          layer: "fact",
-          type: "mouth.closed",
-          spanId: current.spanId,
-          causedBy: [current.startEventId],
-          data: { jawOpen: event.jawOpen, reason: event.reason },
-        });
-        mouthSpan.current = null;
+  useEffect(
+    () => () => {
+      if (!repository.getSnapshot().activeSessionId) {
+        return;
       }
-    }
-  }, [input.mouthEvents, repository]);
-
-  useEffect(() => {
-    if ((!input.monitoring || !input.sensingReady) && mouthSpan.current) {
-      const current = mouthSpan.current;
-      repository.record({
-        at: input.now,
-        layer: "fact",
-        type: "mouth.closed",
-        spanId: current.spanId,
-        causedBy: [current.startEventId],
-        data: {
-          jawOpen: 0,
-          reason: input.monitoring ? "sensing-unavailable" : "monitoring-stopped",
-        },
-      });
-      mouthSpan.current = null;
-    }
-  }, [input.monitoring, input.now, input.sensingReady, repository]);
-
-  useEffect(() => {
-    if (input.yawnEvents.length < processedYawnCount.current) {
-      processedYawnCount.current = 0;
-    }
-    const unprocessed = input.yawnEvents.slice(processedYawnCount.current);
-    processedYawnCount.current = input.yawnEvents.length;
-    repository.recordMany(
-      unprocessed.map((event) => ({
-        at: event.at,
-        layer: "decision" as const,
-        type: "yawn.detected" as const,
-        ...(mouthSpan.current
-          ? { causedBy: [mouthSpan.current.startEventId] }
-          : {}),
-        data: {
-          openedAt: event.openedAt,
-          openDurationMs: event.openDurationMs,
-          thresholdMs: event.thresholdMs,
-        },
-      })),
-    );
-  }, [input.yawnEvents, repository]);
-
-  useEffect(() => {
-    const lastRecorded = repository.findLatestCurrentEvent("posture.changed");
-    const lastRecordedState = lastRecorded?.data?.state;
-    if (
-      lastPostureState.current === input.postureState ||
-      lastRecordedState === input.postureState
-    ) {
-      lastPostureState.current = input.postureState;
-      return;
-    }
-    repository.record({
-      at: input.postureStateSince ?? input.now,
-      layer: "fact",
-      type: "posture.changed",
-      data: { state: input.postureState },
-    });
-    lastPostureState.current = input.postureState;
-  }, [input.now, input.postureState, input.postureStateSince, repository]);
-
-  useEffect(() => {
-    if (input.standUpTimestamps.length < processedStandUpCount.current) {
-      processedStandUpCount.current = 0;
-    }
-    const unprocessed = input.standUpTimestamps.slice(processedStandUpCount.current);
-    processedStandUpCount.current = input.standUpTimestamps.length;
-    repository.recordMany(
-      unprocessed.map((at) => ({
-        at,
-        layer: "fact" as const,
-        type: "stand-up.detected" as const,
-      })),
-    );
-  }, [input.standUpTimestamps, repository]);
+      const at =
+        collectionLastObservedAt.current ??
+        latestInput.current.observedAt ??
+        latestInput.current.now;
+      if (screenSpan.current) {
+        closeScreenSpan(
+          repository,
+          screenSpan.current,
+          screenSpan.current.lastObservedAt,
+        );
+        screenSpan.current = null;
+      }
+      if (seatedSpan.current) {
+        closeSeatedSpan(
+          repository,
+          seatedSpan.current,
+          seatedSpan.current.lastObservedAt,
+          "tracking_lost",
+        );
+        seatedSpan.current = null;
+      }
+      repository.endSession(at);
+    },
+    [repository],
+  );
 }
 
 export function useCurrentTimelineRange(
   repository = timelineRepository,
 ): TimelineRange {
-  const events = useSyncExternalStore(
+  const snapshot = useSyncExternalStore(
     repository.subscribe,
-    repository.getCurrentEvents,
-    repository.getCurrentEvents,
+    repository.getSnapshot,
+    repository.getSnapshot,
   );
   return useMemo(
     () => ({
-      events: [...events],
-      sessions: [
-        {
-          id: repository.currentSessionId,
-          startedAt: events[0]?.at ?? Date.now(),
-          lastSeenAt: Date.now(),
-        },
-      ],
-      currentSessionId: repository.currentSessionId,
+      events: [...snapshot.events],
+      sessions: [...snapshot.sessions],
+      activeSessionId: snapshot.activeSessionId,
     }),
-    [events, repository],
+    [snapshot],
   );
 }
 
@@ -355,10 +376,10 @@ export function useTimelineRange(
   to: number,
   repository = timelineRepository,
 ): TimelineRange {
-  const currentEvents = useSyncExternalStore(
+  const snapshot = useSyncExternalStore(
     repository.subscribe,
-    repository.getCurrentEvents,
-    repository.getCurrentEvents,
+    repository.getSnapshot,
+    repository.getSnapshot,
   );
   const [loadedRange, setLoadedRange] = useState<{
     repository: TimelineRepository;
@@ -385,15 +406,12 @@ export function useTimelineRange(
       loadedRange.from === from &&
       loadedRange.to === to
         ? loadedRange.value
-        : {
-            events: [],
-            sessions: [],
-            currentSessionId: repository.currentSessionId,
-          };
+        : { events: [], sessions: [], activeSessionId: null };
+    const current = repository.getCurrentRange(from, to);
     return {
-      events: mergeTimelineEvents(persisted.events, currentEvents),
-      sessions: persisted.sessions,
-      currentSessionId: repository.currentSessionId,
+      events: mergeTimelineEvents(persisted.events, current.events),
+      sessions: mergeTimelineSessions(persisted.sessions, current.sessions),
+      activeSessionId: snapshot.activeSessionId,
     };
-  }, [currentEvents, from, loadedRange, repository, to]);
+  }, [from, loadedRange, repository, snapshot, to]);
 }

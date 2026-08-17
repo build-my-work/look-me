@@ -18,7 +18,6 @@ export interface PostureSample {
 export interface PostureSignalResult {
   state: PostureState;
   stateStartedAt: number;
-  stoodUp: boolean;
 }
 
 const EYE_LINE_LANDMARKS = [33, 133, 362, 263] as const;
@@ -94,13 +93,13 @@ export class PostureSignal {
   private calibrationSamples: TimedFacePosition[] = [];
   private recentFaces: TimedFacePosition[] = [];
   private missingSince: number | null = null;
-  private rising = false;
+  private lastRisingAt: number | null = null;
   private returnSince: number | null = null;
   private lastTimestamp = Number.NEGATIVE_INFINITY;
 
   process(sample: PostureSample): PostureSignalResult {
     if (!Number.isFinite(sample.timestamp) || sample.timestamp <= this.lastTimestamp) {
-      return this.result(false);
+      return this.result();
     }
     this.lastTimestamp = sample.timestamp;
 
@@ -126,10 +125,10 @@ export class PostureSignal {
     this.calibrationSamples = [];
     this.recentFaces = [];
     this.missingSince = null;
-    this.rising = false;
+    this.lastRisingAt = null;
     this.returnSince = null;
     this.lastTimestamp = Number.NEGATIVE_INFINITY;
-    return this.result(false);
+    return this.result();
   }
 
   private processCalibration(face: TimedFacePosition): PostureSignalResult {
@@ -144,7 +143,7 @@ export class PostureSignal {
       !first ||
       face.timestamp - first.timestamp < CALIBRATION_DURATION_MS
     ) {
-      return this.result(false);
+      return this.result();
     }
 
     const xValues = this.calibrationSamples.map((sample) => sample.x);
@@ -153,14 +152,14 @@ export class PostureSignal {
       spread(xValues) > CALIBRATION_MAX_X_SPREAD ||
       spread(yValues) > CALIBRATION_MAX_Y_SPREAD
     ) {
-      return this.result(false);
+      return this.result();
     }
 
     this.baseline = { x: median(xValues), y: median(yValues) };
     this.recentFaces = [face];
     this.calibrationSamples = [];
     this.setState("seated", face.timestamp);
-    return this.result(false);
+    return this.result();
   }
 
   private processSeated(face: TimedFacePosition): PostureSignalResult {
@@ -191,16 +190,21 @@ export class PostureSignal {
       Math.abs(face.x - baseline.x) <= MAX_BASELINE_X_OFFSET;
 
     if (movedUp && reachedExitZone && horizontallySafe) {
-      this.rising = true;
+      this.lastRisingAt = face.timestamp;
     } else if (
       face.y >= baseline.y - BASELINE_ADAPT_BAND ||
       !horizontallySafe
     ) {
-      this.rising = false;
+      this.lastRisingAt = null;
+    } else if (
+      this.lastRisingAt !== null &&
+      face.timestamp - this.lastRisingAt >= TRAJECTORY_WINDOW_MS
+    ) {
+      this.lastRisingAt = null;
     }
 
     if (
-      !this.rising &&
+      this.lastRisingAt === null &&
       horizontallySafe &&
       face.y >= baseline.y - BASELINE_ADAPT_BAND
     ) {
@@ -213,31 +217,31 @@ export class PostureSignal {
           face.y * BASELINE_ADAPT_WEIGHT,
       };
     }
-    return this.result(false);
+    return this.result();
   }
 
   private processMissing(timestamp: number): PostureSignalResult {
     if (this.state === "calibrating") {
       this.calibrationSamples = [];
-      return this.result(false);
+      return this.result();
     }
     if (this.state === "away" || this.state === "unknown") {
       this.returnSince = null;
-      return this.result(false);
+      return this.result();
     }
 
     this.missingSince ??= timestamp;
     const missingDuration = timestamp - this.missingSince;
-    if (this.rising && missingDuration >= EXIT_CONFIRM_MS) {
+    if (this.lastRisingAt !== null && missingDuration >= EXIT_CONFIRM_MS) {
       this.setState("away", this.missingSince);
-      this.rising = false;
-      return this.result(true);
+      this.lastRisingAt = null;
+      return this.result();
     }
     if (missingDuration >= UNKNOWN_CONFIRM_MS) {
       this.setState("unknown", this.missingSince);
-      this.rising = false;
+      this.lastRisingAt = null;
     }
-    return this.result(false);
+    return this.result();
   }
 
   private processReturn(face: TimedFacePosition): PostureSignalResult {
@@ -253,7 +257,7 @@ export class PostureSignal {
       face.x <= MAX_SAFE_X;
     if (!backInSeatedRegion) {
       this.returnSince = null;
-      return this.result(false);
+      return this.result();
     }
 
     this.returnSince ??= face.timestamp;
@@ -263,7 +267,7 @@ export class PostureSignal {
       this.baseline = { x: face.x, y: face.y };
       this.recentFaces = [face];
     }
-    return this.result(false);
+    return this.result();
   }
 
   private setState(state: PostureState, startedAt: number): void {
@@ -273,11 +277,10 @@ export class PostureSignal {
     this.returnSince = null;
   }
 
-  private result(stoodUp: boolean): PostureSignalResult {
+  private result(): PostureSignalResult {
     return {
       state: this.state,
       stateStartedAt: this.stateStartedAt,
-      stoodUp,
     };
   }
 }

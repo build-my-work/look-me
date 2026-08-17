@@ -34,6 +34,7 @@
     "concurrently": "10.0.4",
     "electron": "43.4.0",
     "electron-builder": "26.15.3",
+    "fake-indexeddb": "6.2.4",
     "typescript": "7.0.2",
     "vitest": "4.1.10",
     "wait-on": "9.1.0"

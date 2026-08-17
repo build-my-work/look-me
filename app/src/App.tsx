@@ -1,4 +1,5 @@
 import {
+  ArrowClockwise,
   Camera,
   ChartLineUp,
   Eye,
@@ -8,8 +9,11 @@ import {
   X,
 } from "@phosphor-icons/react";
 import {
+  Component,
   Suspense,
   lazy,
+  type ErrorInfo,
+  type ReactNode,
   useCallback,
   useEffect,
   useMemo,
@@ -21,18 +25,15 @@ import { CircularProgressbar, buildStyles } from "react-circular-progressbar";
 import "react-circular-progressbar/dist/styles.css";
 import {
   type CoachMode,
-  DISTANCE_DURATION_MS,
-  DISTANCE_INTERVAL_MS,
-  NO_BLINK_REMINDER_MS,
   coachReducer,
   createCoachState,
   getDistanceProgress,
   getDistanceSecondsRemaining,
 } from "./coach";
 import {
-  calculateDistanceObservedMs,
   formatObservedDuration,
   getActiveScreenStartedAt,
+  getActiveSeatedStartedAt,
   getBlinkTimestamps,
   summarizeTimeline,
 } from "./timeline-analytics";
@@ -66,11 +67,11 @@ import {
 } from "./pet-idle-action";
 import { SedentaryReminder } from "./sedentary-reminder";
 import {
+  MAX_CONTIGUOUS_OBSERVATION_GAP_MS,
   TIMELINE_RETENTION_DAYS,
   getLocalDayRange,
 } from "./timeline";
 import { createTimelineDemoRange } from "./timeline-demo";
-import { timelineRepository } from "./timeline-store";
 import {
   useCurrentTimelineRange,
   useTimelineCapture,
@@ -99,6 +100,61 @@ const DEMO_MODES = new Set<CoachMode>([
   "blink",
   "distance",
 ]);
+
+interface HistoryPanelErrorBoundaryProps {
+  children: ReactNode;
+  onClose: () => void;
+}
+
+class HistoryPanelErrorBoundary extends Component<
+  HistoryPanelErrorBoundaryProps,
+  { failed: boolean }
+> {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  componentDidCatch(error: unknown, errorInfo: ErrorInfo) {
+    console.error("Failed to load the history panel", error, errorInfo);
+  }
+
+  render() {
+    if (!this.state.failed) {
+      return this.props.children;
+    }
+
+    return (
+      <article
+        className="history-panel history-panel--load-error"
+        data-interactive
+        aria-label="行为时间轴加载失败"
+      >
+        <button
+          className="history-close"
+          type="button"
+          aria-label="关闭行为时间轴"
+          onClick={this.props.onClose}
+        >
+          <X size={15} weight="bold" aria-hidden />
+        </button>
+        <div className="history-load-error">
+          <ChartLineUp size={22} weight="bold" aria-hidden />
+          <strong>时间轴加载失败</strong>
+          <button
+            className="secondary-button history-reload-button"
+            type="button"
+            onClick={() => window.location.reload()}
+          >
+            <ArrowClockwise size={14} weight="bold" aria-hidden />
+            重新加载
+          </button>
+        </div>
+      </article>
+    );
+  }
+}
 
 function getInitialMode(
   isDesktop: boolean,
@@ -168,10 +224,7 @@ export function App() {
   );
   const faceMonitor = useFaceMonitor();
   const lastBlinkCount = useRef(0);
-  const lastYawnCount = useRef(0);
   const previousMouthOpen = useRef(false);
-  const previousCoachState = useRef(state);
-  const previousSedentaryReminderActive = useRef(false);
   const attentionController = useRef(new PetAttentionController());
   const sedentaryReminder = useRef(new SedentaryReminder());
   const windowDragPointer = useRef<number | null>(null);
@@ -284,40 +337,27 @@ export function App() {
   );
   const coachingEnabled =
     statsDemo || historyDataDemo || !isDesktop || cameraShouldRun;
+  const sensingLive =
+    faceMonitor.status === "ready" &&
+    faceMonitor.lastDetectionAt !== null &&
+    state.now - faceMonitor.lastDetectionAt <=
+      MAX_CONTIGUOUS_OBSERVATION_GAP_MS;
   const screenObserving =
     coachingEnabled &&
-    faceMonitor.status === "ready" &&
+    sensingLive &&
     faceMonitor.faceVisible &&
     state.mode !== "distance";
-  const screenEndReason = !coachingEnabled
-    ? "monitoring-stopped"
-    : state.mode === "distance"
-      ? "distance-break"
-      : faceMonitor.status !== "ready"
-        ? "sensing-unavailable"
-        : !faceMonitor.faceVisible
-          ? "face-lost"
-          : "not-observing";
   useTimelineCapture({
     now: state.now,
-    monitoring: coachingEnabled,
-    sensingReady: faceMonitor.status === "ready",
-    distanceReminderEnabled: cameraSettings.distanceReminderEnabled,
+    observedAt: faceMonitor.lastDetectionAt,
+    collecting: coachingEnabled && sensingLive,
     screenObserving,
-    screenEndReason,
     blinkEvents: faceMonitor.blinkEvents,
-    mouthEvents: faceMonitor.mouthEvents,
     yawnEvents: faceMonitor.yawnEvents,
     postureState: faceMonitor.postureState,
     postureStateSince: faceMonitor.postureStateSince,
-    standUpTimestamps: faceMonitor.standUpTimestamps,
   });
   const currentTimeline = useCurrentTimelineRange();
-  const distanceObservedMs = cameraSettings.distanceReminderEnabled
-    ? calculateDistanceObservedMs(currentTimeline, state.now)
-    : 0;
-  const distanceObservedMsRef = useRef(distanceObservedMs);
-  distanceObservedMsRef.current = distanceObservedMs;
   const todayDate = formatLocalDateKey(Date.now());
   const todayRange = getLocalDayRange(todayDate);
   const recordedTodayTimeline = useTimelineRange(
@@ -408,7 +448,7 @@ export function App() {
         sedentaryReminderDemo ||
         sedentaryReminder.current.update({
           now,
-          monitoring: coachingEnabled && faceMonitor.status === "ready",
+          monitoring: coachingEnabled && sensingLive,
           enabled: cameraSettings.sedentaryReminderEnabled,
           thresholdMs: cameraSettings.sedentaryReminderMinutes * 60 * 1_000,
           postureState: faceMonitor.postureState,
@@ -423,11 +463,11 @@ export function App() {
         type: "TICK",
         now,
         sensingAvailable:
-          faceMonitor.status === "ready" && faceMonitor.faceVisible,
+          sensingLive && faceMonitor.faceVisible,
         coachingEnabled: coachingEnabled && !nextSedentaryReminderActive,
         blinkReminderEnabled: cameraSettings.blinkReminderEnabled,
         distanceReminderEnabled: cameraSettings.distanceReminderEnabled,
-        distanceObservedMs: distanceObservedMsRef.current,
+        screenObserving,
       });
     }, 250);
     return () => window.clearInterval(timer);
@@ -443,6 +483,8 @@ export function App() {
     faceMonitor.status,
     freezeDemo,
     historyOpen,
+    sensingLive,
+    screenObserving,
     sedentaryReminderDemo,
     state.mode,
     statsOpen,
@@ -483,146 +525,6 @@ export function App() {
   }, [coachingEnabled, faceMonitor.blinkCount]);
 
   useEffect(() => {
-    if (faceMonitor.yawnCount === 0) {
-      lastYawnCount.current = 0;
-      return undefined;
-    }
-    if (faceMonitor.yawnCount <= lastYawnCount.current) {
-      lastYawnCount.current = faceMonitor.yawnCount;
-      return undefined;
-    }
-    lastYawnCount.current = faceMonitor.yawnCount;
-    const yawn = faceMonitor.yawnEvents[faceMonitor.yawnEvents.length - 1];
-    const decision = timelineRepository.findLatestCurrentEvent("yawn.detected");
-    timelineRepository.record({
-      at: yawn?.at ?? Date.now(),
-      layer: "action",
-      type: "yawn-response.shown",
-      ...(decision ? { causedBy: [decision.id] } : {}),
-      data: { response: "mouth-sync" },
-    });
-    return undefined;
-  }, [faceMonitor.yawnCount, faceMonitor.yawnEvents]);
-
-  useEffect(() => {
-    const previous = previousCoachState.current;
-    if (previous.mode !== state.mode) {
-      if (state.mode === "distance") {
-        const decision = timelineRepository.record({
-          at: state.distanceStartedAt ?? state.now,
-          layer: "decision",
-          type: "distance.due",
-          data: {
-            accumulatedScreenMs: state.distanceObservedMs,
-            thresholdMs: DISTANCE_INTERVAL_MS,
-          },
-        });
-        timelineRepository.record({
-          at: state.distanceStartedAt ?? state.now,
-          layer: "action",
-          type: "distance-reminder.shown",
-          causedBy: [decision.id],
-          data: { durationMs: DISTANCE_DURATION_MS },
-        });
-      } else if (previous.mode === "distance") {
-        const completed =
-          previous.distanceStartedAt !== null &&
-          state.now - previous.distanceStartedAt >= DISTANCE_DURATION_MS;
-        const skipped = timelineRepository.findLatestCurrentEvent(
-          "distance-reminder.skipped",
-        );
-        if (completed) {
-          timelineRepository.record({
-            at: state.now,
-            layer: "action",
-            type: "distance-reminder.completed",
-          });
-        } else if (
-          !skipped ||
-          previous.distanceStartedAt === null ||
-          skipped.at < previous.distanceStartedAt
-        ) {
-          timelineRepository.record({
-            at: state.now,
-            layer: "action",
-            type: "distance-reminder.dismissed",
-            data: {
-              reason: cameraSettings.distanceReminderEnabled
-                ? "monitoring-unavailable"
-                : "reminder-disabled",
-            },
-          });
-        }
-      }
-
-      if (state.mode === "blink") {
-        const decision = timelineRepository.record({
-          at: state.now,
-          layer: "decision",
-          type: "blink-reminder.due",
-          data: { thresholdMs: NO_BLINK_REMINDER_MS },
-        });
-        timelineRepository.record({
-          at: state.now,
-          layer: "action",
-          type: "blink-reminder.shown",
-          causedBy: [decision.id],
-        });
-      } else if (previous.mode === "blink") {
-        timelineRepository.record({
-          at: state.now,
-          layer: "action",
-          type:
-            state.guidedBlinks >= 2
-              ? "blink-reminder.completed"
-              : "blink-reminder.dismissed",
-          data:
-            state.guidedBlinks >= 2
-              ? { blinkCount: state.guidedBlinks }
-              : { reason: "sensing-or-setting-changed" },
-        });
-      }
-    }
-    previousCoachState.current = state;
-  }, [cameraSettings.distanceReminderEnabled, state]);
-
-  useEffect(() => {
-    const previous = previousSedentaryReminderActive.current;
-    if (!previous && sedentaryReminderActive) {
-      const decision = timelineRepository.record({
-        at: state.now,
-        layer: "decision",
-        type: "sedentary.due",
-        data: {
-          thresholdMs: cameraSettings.sedentaryReminderMinutes * 60 * 1_000,
-        },
-      });
-      timelineRepository.record({
-        at: state.now,
-        layer: "action",
-        type: "sedentary-reminder.shown",
-        causedBy: [decision.id],
-      });
-    } else if (previous && !sedentaryReminderActive) {
-      const acknowledged = timelineRepository.findLatestCurrentEvent(
-        "sedentary-reminder.acknowledged",
-      );
-      if (!acknowledged || state.now - acknowledged.at > 1_000) {
-        timelineRepository.record({
-          at: state.now,
-          layer: "action",
-          type: "sedentary-reminder.dismissed",
-        });
-      }
-    }
-    previousSedentaryReminderActive.current = sedentaryReminderActive;
-  }, [
-    cameraSettings.sedentaryReminderMinutes,
-    sedentaryReminderActive,
-    state.now,
-  ]);
-
-  useEffect(() => {
     const media = window.matchMedia?.("(prefers-reduced-motion: reduce)");
     if (!media) {
       return undefined;
@@ -639,7 +541,7 @@ export function App() {
         sensing:
           coachingEnabled &&
           cameraSettings.blinkReminderEnabled &&
-          faceMonitor.status === "ready" &&
+          sensingLive &&
           faceMonitor.faceVisible,
         parked:
           state.mode !== "idle" ||
@@ -674,6 +576,7 @@ export function App() {
     coachingEnabled,
     historyOpen,
     reducedMotion,
+    sensingLive,
     sedentaryReminderActive,
     state.mode,
     statsOpen,
@@ -840,16 +743,12 @@ export function App() {
   const timelineBlinkTimestamps = getBlinkTimestamps(currentTimeline);
   const measuredStats = calculateBlinkStatistics(
     timelineBlinkTimestamps,
-    faceMonitor.sessionStartedAt,
     activeScreenStartedAt,
     state.now,
   );
   const blinkStats = statsDemo
     ? {
         rollingRate: 14,
-        segmentAverage: 16,
-        recentCount: 14,
-        totalCount: 38,
         collectingSecondsRemaining: 0,
       }
     : measuredStats;
@@ -859,26 +758,27 @@ export function App() {
     todayRange.endAt,
     state.now,
   );
-  const todayObservedDuration = formatObservedDuration(
-    measuredTodaySummary.screenMs,
-  );
-  const todayPostureSummary = statsDemo
-    ? { seatedMs: 4 * 60 * 60_000 + 32 * 60_000, awayMs: 38 * 60_000, standUps: 4 }
+  const todaySummary = statsDemo
+    ? {
+        screenMs: 3 * 60 * 60_000 + 46 * 60_000,
+        seatedMs: 4 * 60 * 60_000 + 32 * 60_000,
+        standUps: 4,
+      }
     : measuredTodaySummary;
+  const todayObservedDuration = formatObservedDuration(todaySummary.screenMs);
+  const activeSeatedStartedAt = getActiveSeatedStartedAt(currentTimeline);
   const currentSeatedDuration = statsDemo
     ? formatObservedDuration(42 * 60_000)
-    : faceMonitor.postureState === "seated" &&
-        faceMonitor.postureStateSince !== null
+    : activeSeatedStartedAt !== null
       ? formatObservedDuration(
-          Math.max(0, state.now - faceMonitor.postureStateSince),
+          Math.max(0, state.now - activeSeatedStartedAt),
         )
       : null;
-  const todaySeatedDuration = formatObservedDuration(todayPostureSummary.seatedMs);
-  const todayAwayDuration = formatObservedDuration(todayPostureSummary.awayMs);
-  const hasCameraSession = statsDemo || faceMonitor.sessionStartedAt !== null;
+  const todaySeatedDuration = formatObservedDuration(todaySummary.seatedMs);
+  const hasCameraSession = statsDemo || displayedTodayTimeline.sessions.length > 0;
   const hasVisibleFace =
     statsDemo ||
-    (coachingEnabled && faceMonitor.status === "ready" && faceMonitor.faceVisible);
+    (coachingEnabled && sensingLive && faceMonitor.faceVisible);
   let cameraStatus: {
     label: string;
     tone: "active" | "waiting" | "off" | "error";
@@ -901,6 +801,11 @@ export function App() {
     };
   } else if (faceMonitor.status === "starting") {
     cameraStatus = { label: "正在准备本地检测", tone: "waiting" };
+  } else if (faceMonitor.status === "ready" && !sensingLive) {
+    cameraStatus = {
+      label: "正在等待本地检测画面",
+      tone: "waiting",
+    };
   } else if (faceMonitor.status === "ready" && !faceMonitor.faceVisible) {
     cameraStatus = {
       label: cameraSettings.blinkReminderEnabled
@@ -914,18 +819,18 @@ export function App() {
     cameraStatus = { label: "等待恢复本地检测", tone: "waiting" };
   }
   const sensingLabel =
-    statsDemo || (faceMonitor.status === "ready" && faceMonitor.faceVisible)
+    statsDemo || (sensingLive && faceMonitor.faceVisible)
       ? "本地检测中"
       : !cameraSettings.enabled
         ? "监测与提醒已关闭"
-        : faceMonitor.status === "ready"
+        : faceMonitor.status === "ready" && sensingLive
           ? cameraSettings.blinkReminderEnabled
             ? "暂未检测到人脸，眨眼提醒已暂停"
             : "暂未检测到人脸"
           : cameraStatus.label;
   const postureStatusLabel = statsDemo
     ? "坐姿位置已建立"
-    : !coachingEnabled || faceMonitor.status !== "ready"
+    : !coachingEnabled || !sensingLive
       ? cameraStatus.label
       : faceMonitor.postureState === "calibrating"
         ? "正在建立坐姿位置"
@@ -1099,21 +1004,24 @@ export function App() {
         )}
 
         {!cameraSettingsOpen && historyOpen && (
-          <Suspense fallback={null}>
-            <BlinkHistoryPanel
-              selectedDate={selectedHistoryDate}
-              firstDate={firstHistoryDate}
-              todayDate={todayDate}
-              now={state.now}
-              demoRange={
-                (historyDemo || historyDataDemo) && selectedHistoryDate === todayDate
-                  ? demoTimeline
-                  : undefined
-              }
-              onSelectDate={setSelectedHistoryDate}
-              onClose={() => setHistoryOpen(false)}
-            />
-          </Suspense>
+          <HistoryPanelErrorBoundary onClose={() => setHistoryOpen(false)}>
+            <Suspense fallback={null}>
+              <BlinkHistoryPanel
+                selectedDate={selectedHistoryDate}
+                firstDate={firstHistoryDate}
+                todayDate={todayDate}
+                now={state.now}
+                demoRange={
+                  (historyDemo || historyDataDemo) &&
+                  selectedHistoryDate === todayDate
+                    ? demoTimeline
+                    : undefined
+                }
+                onSelectDate={setSelectedHistoryDate}
+                onClose={() => setHistoryOpen(false)}
+              />
+            </Suspense>
+          </HistoryPanelErrorBoundary>
         )}
 
         {!cameraSettingsOpen && !historyOpen && sedentaryReminderActive && (
@@ -1134,11 +1042,6 @@ export function App() {
                 className="secondary-button"
                 type="button"
                 onClick={() => {
-                  timelineRepository.record({
-                    at: Date.now(),
-                    layer: "action",
-                    type: "sedentary-reminder.acknowledged",
-                  });
                   sedentaryReminder.current.acknowledge();
                   setSedentaryReminderActive(false);
                 }}
@@ -1180,16 +1083,7 @@ export function App() {
               className="text-button"
               data-interactive
               type="button"
-              onClick={() => {
-                const now = Date.now();
-                timelineRepository.record({
-                  at: now,
-                  layer: "action",
-                  type: "distance-reminder.skipped",
-                  data: { accumulatedScreenMs: state.distanceObservedMs },
-                });
-                dispatch({ type: "SKIP", now });
-              }}
+              onClick={() => dispatch({ type: "SKIP", now: Date.now() })}
             >
               <SkipForward size={16} weight="bold" aria-hidden />
               跳过
@@ -1280,7 +1174,7 @@ export function App() {
                     <ChartLineUp size={19} weight="bold" />
                   </span>
                   <div>
-                    <h2>眨眼、看屏与离座</h2>
+                    <h2>眨眼，看屏与久坐时长</h2>
                     <p>
                       {hasCameraSession
                         ? postureStatusLabel
@@ -1307,20 +1201,6 @@ export function App() {
                       </dd>
                     </div>
                     <div>
-                      <dt>当前段平均</dt>
-                      <dd>
-                        <strong>{hasVisibleFace ? (blinkStats.segmentAverage ?? "—") : "—"}</strong>
-                        <span>次/分</span>
-                      </dd>
-                    </div>
-                    <div>
-                      <dt>本次总计</dt>
-                      <dd>
-                        <strong>{blinkStats.totalCount}</strong>
-                        <span>次</span>
-                      </dd>
-                    </div>
-                    <div>
                       <dt>今日有效看屏</dt>
                       <dd>
                         <strong>{todayObservedDuration.value}</strong>
@@ -1343,23 +1223,16 @@ export function App() {
                       </dd>
                     </div>
                     <div>
-                      <dt>今日坐姿</dt>
+                      <dt>今日久坐时长</dt>
                       <dd>
                         <strong>{todaySeatedDuration.value}</strong>
                         <span>{todaySeatedDuration.unit}</span>
                       </dd>
                     </div>
                     <div>
-                      <dt>今日离座</dt>
-                      <dd>
-                        <strong>{todayAwayDuration.value}</strong>
-                        <span>{todayAwayDuration.unit}</span>
-                      </dd>
-                    </div>
-                    <div>
                       <dt>今日起身</dt>
                       <dd>
-                        <strong>{todayPostureSummary.standUps}</strong>
+                        <strong>{todaySummary.standUps}</strong>
                         <span>次</span>
                       </dd>
                     </div>
@@ -1367,7 +1240,7 @@ export function App() {
                 )}
                 <div className="stats-footer">
                   <p className="stats-footnote">
-                    坐姿按脸部位置估算；离座不等于精确站立
+                    坐姿按脸部位置估算；起身需满足完整站起轨迹
                   </p>
                   <button
                     className="stats-history-button"
@@ -1377,7 +1250,7 @@ export function App() {
                       setHistoryOpen(true);
                     }}
                   >
-                    查看近 1 小时曲线
+                    查看行为时间轴
                   </button>
                 </div>
               </article>
