@@ -13,6 +13,8 @@ import {
 } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
 import {
+  MAX_SEDENTARY_REMINDER_MINUTES,
+  MIN_SEDENTARY_REMINDER_MINUTES,
   type CameraMonitoringSettings,
   isValidMonitoringWindow,
 } from "./camera-monitoring";
@@ -60,6 +62,9 @@ export function CameraSettingsPanel({
 }: CameraSettingsPanelProps) {
   const [startTime, setStartTime] = useState(settings.startTime);
   const [endTime, setEndTime] = useState(settings.endTime);
+  const [sedentaryMinutes, setSedentaryMinutes] = useState(
+    String(settings.sedentaryReminderMinutes),
+  );
   const settingsRef = useRef(settings);
 
   useEffect(() => {
@@ -71,8 +76,18 @@ export function CameraSettingsPanel({
     setEndTime(settings.endTime);
   }, [settings.endTime, settings.startTime]);
 
+  useEffect(() => {
+    setSedentaryMinutes(String(settings.sedentaryReminderMinutes));
+  }, [settings.sedentaryReminderMinutes]);
+
   const validWindow = isValidMonitoringWindow(startTime, endTime);
   const scheduleControlsEnabled = settings.enabled && settings.scheduleEnabled;
+  const parsedSedentaryMinutes = Number(sedentaryMinutes);
+  const validSedentaryMinutes =
+    sedentaryMinutes !== "" &&
+    Number.isInteger(parsedSedentaryMinutes) &&
+    parsedSedentaryMinutes >= MIN_SEDENTARY_REMINDER_MINUTES &&
+    parsedSedentaryMinutes <= MAX_SEDENTARY_REMINDER_MINUTES;
 
   useEffect(() => {
     if (!isValidMonitoringWindow(startTime, endTime)) {
@@ -97,7 +112,7 @@ export function CameraSettingsPanel({
     >
       <header className="camera-settings-header">
         <span className="camera-settings-mark" aria-hidden>
-          <GearSix size={19} weight="fill" />
+          <GearSix size={22} weight="fill" />
         </span>
         <div>
           <span className="camera-settings-eyebrow">看山陪伴</span>
@@ -109,14 +124,14 @@ export function CameraSettingsPanel({
           aria-label="关闭设置"
           onClick={onClose}
         >
-          <X size={15} weight="bold" aria-hidden />
+          <X size={17} weight="bold" aria-hidden />
         </button>
       </header>
 
       <div className="camera-settings-body">
         <section className="camera-monitoring-settings" aria-labelledby="monitoring-title">
           <div className="camera-settings-section-heading">
-            <Camera size={12} weight="fill" aria-hidden />
+            <Camera size={14} weight="fill" aria-hidden />
             <strong id="monitoring-title">监测与提醒</strong>
             <span className={`camera-runtime-status camera-runtime-status--${statusTone}`}>
               {statusLabel}
@@ -179,6 +194,73 @@ export function CameraSettingsPanel({
               />
               <span className="camera-switch-track" aria-hidden />
             </label>
+          </div>
+
+          <div
+            data-reminder="sedentary"
+            className={
+              settings.enabled
+                ? "camera-reminder-row"
+                : "camera-reminder-row camera-reminder-row--disabled"
+            }
+          >
+            <div>
+              <strong>久坐提醒</strong>
+              <span>可设置 1–600 分钟</span>
+            </div>
+            <span className="sedentary-reminder-controls">
+              <input
+                className="sedentary-reminder-interval"
+                type="number"
+                inputMode="numeric"
+                aria-label="久坐提醒时间"
+                aria-invalid={!validSedentaryMinutes}
+                min={MIN_SEDENTARY_REMINDER_MINUTES}
+                max={MAX_SEDENTARY_REMINDER_MINUTES}
+                step={1}
+                value={sedentaryMinutes}
+                disabled={
+                  !settings.enabled || !settings.sedentaryReminderEnabled
+                }
+                onChange={(event) => {
+                  const value = event.target.value;
+                  const minutes = Number(value);
+                  setSedentaryMinutes(value);
+                  if (
+                    value !== "" &&
+                    Number.isInteger(minutes) &&
+                    minutes >= MIN_SEDENTARY_REMINDER_MINUTES &&
+                    minutes <= MAX_SEDENTARY_REMINDER_MINUTES
+                  ) {
+                    onChange({
+                      ...settings,
+                      sedentaryReminderMinutes: minutes,
+                    });
+                  }
+                }}
+                onBlur={() =>
+                  setSedentaryMinutes(
+                    String(settingsRef.current.sedentaryReminderMinutes),
+                  )
+                }
+              />
+              <span className="sedentary-reminder-unit">分钟</span>
+              <label className="camera-switch camera-switch--small">
+                <span className="sr-only">开启久坐提醒</span>
+                <input
+                  type="checkbox"
+                  checked={settings.sedentaryReminderEnabled}
+                  disabled={!settings.enabled}
+                  onChange={(event) =>
+                    onChange({
+                      ...settings,
+                      sedentaryReminderEnabled: event.target.checked,
+                    })
+                  }
+                />
+                <span className="camera-switch-track" aria-hidden />
+              </label>
+            </span>
           </div>
 
           <div
@@ -248,7 +330,7 @@ export function CameraSettingsPanel({
                 </div>
               </div>
               <span className="camera-time-bridge" aria-hidden>
-                <Clock size={13} weight="bold" />
+                <Clock size={15} weight="bold" />
                 <span />
               </span>
               <div className="camera-time-field">
@@ -300,7 +382,7 @@ export function CameraSettingsPanel({
           <legend className="sr-only">提醒动作</legend>
           <div className="pet-action-heading">
             <span className="pet-action-heading-mark" aria-hidden>
-              <Sparkle size={12} weight="fill" />
+              <Sparkle size={14} weight="fill" />
             </span>
             <div>
               <strong>提醒动作</strong>
@@ -324,7 +406,7 @@ export function CameraSettingsPanel({
                   checked={petAction === value}
                   onChange={() => onPetActionChange(value)}
                 />
-                <Icon size={13} weight={petAction === value ? "fill" : "bold"} aria-hidden />
+                <Icon size={15} weight={petAction === value ? "fill" : "bold"} aria-hidden />
                 <span>{label}</span>
               </label>
             ))}

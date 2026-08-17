@@ -9,8 +9,34 @@ import {
   calculateFacePosition,
   type PostureState,
 } from "./posture-signal";
+import { MouthSignal } from "./mouth-signal";
+import { YAWN_MIN_OPEN_MS, YawnSignal } from "./yawn-signal";
 
 export type FaceMonitorStatus = "idle" | "starting" | "ready" | "error";
+
+export interface BlinkDetectionEvent {
+  at: number;
+  closedAt: number;
+  openedAt: number;
+  closedDurationMs: number;
+  peakLeftBlend: number;
+  peakRightBlend: number;
+  minimumEar: number | null;
+}
+
+export interface MouthTransitionEvent {
+  at: number;
+  state: "opened" | "closed";
+  jawOpen: number;
+  reason: "detected" | "face-lost";
+}
+
+export interface YawnDetectionEvent {
+  at: number;
+  openedAt: number;
+  openDurationMs: number;
+  thresholdMs: number;
+}
 
 export interface FaceMonitor {
   status: FaceMonitorStatus;
@@ -18,6 +44,11 @@ export interface FaceMonitor {
   faceVisible: boolean;
   blinkCount: number;
   blinkTimestamps: readonly number[];
+  blinkEvents: readonly BlinkDetectionEvent[];
+  yawnCount: number;
+  yawnEvents: readonly YawnDetectionEvent[];
+  mouthEvents: readonly MouthTransitionEvent[];
+  mouthOpen: boolean;
   postureState: PostureState;
   postureStateSince: number | null;
   standUpTimestamps: readonly number[];
@@ -57,7 +88,10 @@ export function useFaceMonitor(): FaceMonitor {
   const [status, setStatus] = useState<FaceMonitorStatus>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [faceVisible, setFaceVisible] = useState(false);
-  const [blinkTimestamps, setBlinkTimestamps] = useState<number[]>([]);
+  const [blinkEvents, setBlinkEvents] = useState<BlinkDetectionEvent[]>([]);
+  const [mouthEvents, setMouthEvents] = useState<MouthTransitionEvent[]>([]);
+  const [mouthOpen, setMouthOpen] = useState(false);
+  const [yawnEvents, setYawnEvents] = useState<YawnDetectionEvent[]>([]);
   const [postureState, setPostureState] =
     useState<PostureState>("calibrating");
   const [postureStateSince, setPostureStateSince] = useState<number | null>(null);
@@ -73,6 +107,8 @@ export function useFaceMonitor(): FaceMonitor {
   const lastFaceSeenAtRef = useRef(0);
   const lastDetectionAtRef = useRef(0);
   const blinkSignalRef = useRef(new BlinkSignal());
+  const mouthSignalRef = useRef(new MouthSignal());
+  const yawnSignalRef = useRef(new YawnSignal());
   const postureSignalRef = useRef(new PostureSignal());
   const startGenerationRef = useRef(0);
   const startPromiseRef = useRef<Promise<boolean> | null>(null);
@@ -97,11 +133,14 @@ export function useFaceMonitor(): FaceMonitor {
     landmarkerRef.current?.close();
     landmarkerRef.current = null;
     blinkSignalRef.current.reset();
+    mouthSignalRef.current.reset();
+    yawnSignalRef.current.reset();
     resetPostureSignal();
     faceVisibleRef.current = false;
     lastFaceSeenAtRef.current = 0;
     lastDetectionAtRef.current = 0;
     setFaceVisible(false);
+    setMouthOpen(false);
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
@@ -116,7 +155,9 @@ export function useFaceMonitor(): FaceMonitor {
 
   const stop = useCallback(() => {
     cleanup();
-    setBlinkTimestamps([]);
+    setBlinkEvents([]);
+    setMouthEvents([]);
+    setYawnEvents([]);
     setStandUpTimestamps([]);
     setSessionStartedAt(null);
     setStatus("idle");
@@ -212,7 +253,6 @@ export function useFaceMonitor(): FaceMonitor {
           }
 
           if (
-            document.visibilityState === "visible" &&
             timestamp - lastDetectionAtRef.current >= DETECTION_INTERVAL_MS &&
             video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA
           ) {
@@ -260,17 +300,83 @@ export function useFaceMonitor(): FaceMonitor {
             }
 
             if (hasFace && landmarks) {
-              const didBlink = blinkSignalRef.current.process({
+              const blinkSample = {
                 timestamp,
                 leftBlend: getBlendshapeScore(categories, "eyeBlinkLeft"),
                 rightBlend: getBlendshapeScore(categories, "eyeBlinkRight"),
                 ear: calculateAverageEyeAspectRatio(landmarks),
+              };
+              const didBlink = blinkSignalRef.current.process(blinkSample);
+              const blinkDetection = blinkSignalRef.current.getLastDetection();
+              if (didBlink && blinkDetection) {
+                setBlinkEvents((events) => [
+                  ...events,
+                  {
+                    at: wallClockNow,
+                    closedAt:
+                      wallClockNow -
+                      (blinkDetection.openedAt - blinkDetection.closedAt),
+                    openedAt: wallClockNow,
+                    closedDurationMs: blinkDetection.closedDurationMs,
+                    peakLeftBlend: blinkDetection.peakLeftBlend,
+                    peakRightBlend: blinkDetection.peakRightBlend,
+                    minimumEar: blinkDetection.minimumEar,
+                  },
+                ]);
+              }
+              const jawOpen = getBlendshapeScore(categories, "jawOpen");
+              const mouthResult = mouthSignalRef.current.process({
+                timestamp,
+                jawOpen,
               });
-              if (didBlink) {
-                setBlinkTimestamps((timestamps) => [...timestamps, wallClockNow]);
+              setMouthOpen(mouthResult.open);
+              if (mouthResult.transition) {
+                setMouthEvents((events) => [
+                  ...events,
+                  {
+                    at: wallClockNow,
+                    state: mouthResult.transition as "opened" | "closed",
+                    jawOpen,
+                    reason: "detected",
+                  },
+                ]);
+              }
+              const yawnDetection = yawnSignalRef.current.process({
+                timestamp,
+                mouthOpen: mouthResult.open,
+              });
+              if (yawnDetection) {
+                setYawnEvents((events) => [
+                  ...events,
+                  {
+                    at: wallClockNow,
+                    openedAt:
+                      wallClockNow -
+                      (yawnDetection.detectedAt - yawnDetection.openedAt),
+                    openDurationMs: yawnDetection.openDurationMs,
+                    thresholdMs: YAWN_MIN_OPEN_MS,
+                  },
+                ]);
               }
             } else {
               blinkSignalRef.current.reset();
+              const mouthResult = mouthSignalRef.current.process({
+                timestamp,
+                jawOpen: 0,
+              });
+              setMouthOpen(mouthResult.open);
+              if (mouthResult.transition === "closed") {
+                setMouthEvents((events) => [
+                  ...events,
+                  {
+                    at: wallClockNow,
+                    state: "closed",
+                    jawOpen: 0,
+                    reason: "face-lost",
+                  },
+                ]);
+              }
+              yawnSignalRef.current.process({ timestamp, mouthOpen: false });
             }
           }
 
@@ -301,12 +407,19 @@ export function useFaceMonitor(): FaceMonitor {
 
   useEffect(() => cleanup, [cleanup]);
 
+  const blinkTimestamps = blinkEvents.map((event) => event.at);
+
   return {
     status,
     errorMessage,
     faceVisible,
-    blinkCount: blinkTimestamps.length,
+    blinkCount: blinkEvents.length,
     blinkTimestamps,
+    blinkEvents,
+    yawnCount: yawnEvents.length,
+    yawnEvents,
+    mouthEvents,
+    mouthOpen,
     postureState,
     postureStateSince,
     standUpTimestamps,

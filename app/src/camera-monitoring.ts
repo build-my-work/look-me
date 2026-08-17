@@ -1,10 +1,16 @@
 export const CAMERA_MONITORING_STORAGE_KEY =
   "look-me:camera-monitoring:v1";
 
+export const MIN_SEDENTARY_REMINDER_MINUTES = 1;
+export const MAX_SEDENTARY_REMINDER_MINUTES = 600;
+export const DEFAULT_SEDENTARY_REMINDER_MINUTES = 30;
+
 export interface CameraMonitoringSettings {
   enabled: boolean;
   blinkReminderEnabled: boolean;
   distanceReminderEnabled: boolean;
+  sedentaryReminderEnabled: boolean;
+  sedentaryReminderMinutes: number;
   scheduleEnabled: boolean;
   startTime: string;
   endTime: string;
@@ -19,6 +25,8 @@ export const DEFAULT_CAMERA_MONITORING_SETTINGS: CameraMonitoringSettings = {
   enabled: false,
   blinkReminderEnabled: true,
   distanceReminderEnabled: true,
+  sedentaryReminderEnabled: true,
+  sedentaryReminderMinutes: DEFAULT_SEDENTARY_REMINDER_MINUTES,
   scheduleEnabled: false,
   startTime: "09:00",
   endTime: "21:00",
@@ -80,10 +88,33 @@ export function parseCameraMonitoringSettings(
       distanceReminderEnabled = parsed.distanceReminderEnabled;
     }
 
+    let sedentaryReminderEnabled = true;
+    if ("sedentaryReminderEnabled" in parsed) {
+      if (typeof parsed.sedentaryReminderEnabled !== "boolean") {
+        return DEFAULT_CAMERA_MONITORING_SETTINGS;
+      }
+      sedentaryReminderEnabled = parsed.sedentaryReminderEnabled;
+    }
+
+    let sedentaryReminderMinutes = DEFAULT_SEDENTARY_REMINDER_MINUTES;
+    if ("sedentaryReminderMinutes" in parsed) {
+      if (
+        typeof parsed.sedentaryReminderMinutes !== "number" ||
+        !Number.isInteger(parsed.sedentaryReminderMinutes) ||
+        parsed.sedentaryReminderMinutes < MIN_SEDENTARY_REMINDER_MINUTES ||
+        parsed.sedentaryReminderMinutes > MAX_SEDENTARY_REMINDER_MINUTES
+      ) {
+        return DEFAULT_CAMERA_MONITORING_SETTINGS;
+      }
+      sedentaryReminderMinutes = parsed.sedentaryReminderMinutes;
+    }
+
     return {
       enabled: parsed.enabled,
       blinkReminderEnabled,
       distanceReminderEnabled,
+      sedentaryReminderEnabled,
+      sedentaryReminderMinutes,
       scheduleEnabled: parsed.scheduleEnabled,
       startTime: parsed.startTime,
       endTime: parsed.endTime,

@@ -7,7 +7,16 @@ describe("BlinkSignal", () => {
 
     expect(signal.process({ timestamp: 0, leftBlend: 0.05, rightBlend: 0.06, ear: 0.3 })).toBe(false);
     expect(signal.process({ timestamp: 100, leftBlend: 0.76, rightBlend: 0.79, ear: 0.13 })).toBe(false);
+    expect(signal.process({ timestamp: 130, leftBlend: 0.82, rightBlend: 0.81, ear: 0.11 })).toBe(false);
     expect(signal.process({ timestamp: 180, leftBlend: 0.06, rightBlend: 0.05, ear: 0.3 })).toBe(true);
+    expect(signal.getLastDetection()).toEqual({
+      closedAt: 100,
+      openedAt: 180,
+      closedDurationMs: 80,
+      peakLeftBlend: 0.82,
+      peakRightBlend: 0.81,
+      minimumEar: 0.11,
+    });
   });
 
   it("accepts an attenuated distant-face closure when EAR strongly confirms it", () => {

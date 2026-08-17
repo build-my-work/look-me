@@ -11,6 +11,15 @@ export interface BlinkSample {
   ear?: number;
 }
 
+export interface BlinkDetection {
+  closedAt: number;
+  openedAt: number;
+  closedDurationMs: number;
+  peakLeftBlend: number;
+  peakRightBlend: number;
+  minimumEar: number | null;
+}
+
 const LEFT_EYE = [362, 385, 387, 263, 373, 380] as const;
 const RIGHT_EYE = [33, 160, 158, 133, 153, 144] as const;
 
@@ -53,6 +62,10 @@ export class BlinkSignal {
   private openBlendBaseline = 0.08;
   private openEarBaseline: number | null = null;
   private closedAt: number | null = null;
+  private peakLeftBlend = 0;
+  private peakRightBlend = 0;
+  private minimumEar: number | null = null;
+  private lastDetection: BlinkDetection | null = null;
 
   process(sample: BlinkSample): boolean {
     const averageBlend = (sample.leftBlend + sample.rightBlend) / 2;
@@ -81,6 +94,9 @@ export class BlinkSignal {
     if (this.closedAt === null) {
       if (looksClosed) {
         this.closedAt = sample.timestamp;
+        this.peakLeftBlend = sample.leftBlend;
+        this.peakRightBlend = sample.rightBlend;
+        this.minimumEar = sample.ear ?? null;
         return false;
       }
 
@@ -97,10 +113,31 @@ export class BlinkSignal {
       return false;
     }
 
+    this.peakLeftBlend = Math.max(this.peakLeftBlend, sample.leftBlend);
+    this.peakRightBlend = Math.max(this.peakRightBlend, sample.rightBlend);
+    if (sample.ear !== undefined) {
+      this.minimumEar =
+        this.minimumEar === null
+          ? sample.ear
+          : Math.min(this.minimumEar, sample.ear);
+    }
+
     if (averageBlend <= openThreshold) {
-      const closedDuration = sample.timestamp - this.closedAt;
+      const closedAt = this.closedAt;
+      const closedDurationMs = sample.timestamp - closedAt;
       this.closedAt = null;
-      return closedDuration >= 45 && closedDuration <= 800;
+      if (closedDurationMs >= 45 && closedDurationMs <= 800) {
+        this.lastDetection = {
+          closedAt,
+          openedAt: sample.timestamp,
+          closedDurationMs,
+          peakLeftBlend: this.peakLeftBlend,
+          peakRightBlend: this.peakRightBlend,
+          minimumEar: this.minimumEar,
+        };
+        return true;
+      }
+      return false;
     }
 
     if (sample.timestamp - this.closedAt > 1_000) {
@@ -109,7 +146,15 @@ export class BlinkSignal {
     return false;
   }
 
+  getLastDetection(): BlinkDetection | null {
+    return this.lastDetection;
+  }
+
   reset(): void {
     this.closedAt = null;
+    this.peakLeftBlend = 0;
+    this.peakRightBlend = 0;
+    this.minimumEar = null;
+    this.lastDetection = null;
   }
 }

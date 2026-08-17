@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  type CameraMonitoringSettings,
   DEFAULT_CAMERA_MONITORING_SETTINGS,
   isValidMonitoringWindow,
   isWithinMonitoringWindow,
@@ -20,6 +21,8 @@ describe("camera monitoring settings", () => {
     expect(DEFAULT_CAMERA_MONITORING_SETTINGS).toMatchObject({
       blinkReminderEnabled: true,
       distanceReminderEnabled: true,
+      sedentaryReminderEnabled: true,
+      sedentaryReminderMinutes: 30,
       startTime: "09:00",
       endTime: "21:00",
     });
@@ -55,6 +58,8 @@ describe("camera monitoring settings", () => {
       enabled: true,
       blinkReminderEnabled: true,
       distanceReminderEnabled: true,
+      sedentaryReminderEnabled: true,
+      sedentaryReminderMinutes: 30,
       scheduleEnabled: false,
       startTime: "09:00",
       endTime: "18:00",
@@ -90,6 +95,82 @@ describe("camera monitoring settings", () => {
     ).toMatchObject({ blinkReminderEnabled: false });
   });
 
+  it("restores a saved sedentary reminder preference", () => {
+    expect(
+      parseCameraMonitoringSettings(
+        JSON.stringify({
+          enabled: true,
+          blinkReminderEnabled: true,
+          distanceReminderEnabled: true,
+          sedentaryReminderEnabled: false,
+          scheduleEnabled: false,
+          startTime: "09:00",
+          endTime: "18:00",
+        }),
+      ),
+    ).toMatchObject({ sedentaryReminderEnabled: false });
+  });
+
+  it("restores a saved sedentary reminder interval", () => {
+    expect(
+      parseCameraMonitoringSettings(
+        JSON.stringify({
+          enabled: true,
+          sedentaryReminderMinutes: 45,
+          scheduleEnabled: false,
+          startTime: "09:00",
+          endTime: "18:00",
+        }),
+      ),
+    ).toMatchObject({ sedentaryReminderMinutes: 45 });
+  });
+
+  it("accepts inclusive sedentary reminder interval boundaries", () => {
+    for (const sedentaryReminderMinutes of [1, 600]) {
+      expect(
+        parseCameraMonitoringSettings(
+          JSON.stringify({
+            enabled: true,
+            sedentaryReminderMinutes,
+            scheduleEnabled: false,
+            startTime: "09:00",
+            endTime: "18:00",
+          }),
+        ),
+      ).toMatchObject({ sedentaryReminderMinutes });
+    }
+  });
+
+  it("rejects a sedentary reminder interval outside 1 to 600 minutes", () => {
+    for (const sedentaryReminderMinutes of [0, 601, 30.5]) {
+      expect(
+        parseCameraMonitoringSettings(
+          JSON.stringify({
+            enabled: true,
+            sedentaryReminderMinutes,
+            scheduleEnabled: false,
+            startTime: "09:00",
+            endTime: "18:00",
+          }),
+        ),
+      ).toEqual(DEFAULT_CAMERA_MONITORING_SETTINGS);
+    }
+  });
+
+  it("accepts an arbitrary whole minute within the supported range", () => {
+    expect(
+      parseCameraMonitoringSettings(
+        JSON.stringify({
+          enabled: true,
+          sedentaryReminderMinutes: 31,
+          scheduleEnabled: false,
+          startTime: "09:00",
+          endTime: "18:00",
+        }),
+      ),
+    ).toMatchObject({ sedentaryReminderMinutes: 31 });
+  });
+
   it("accepts one same-day monitoring window", () => {
     expect(isValidMonitoringWindow("09:00", "18:00")).toBe(true);
     expect(isValidMonitoringWindow("18:00", "09:00")).toBe(false);
@@ -98,10 +179,12 @@ describe("camera monitoring settings", () => {
 });
 
 describe("camera monitoring policy", () => {
-  const settings = {
+  const settings: CameraMonitoringSettings = {
     enabled: true,
     blinkReminderEnabled: true,
     distanceReminderEnabled: true,
+    sedentaryReminderEnabled: true,
+    sedentaryReminderMinutes: 30,
     scheduleEnabled: true,
     startTime: "09:00",
     endTime: "21:00",
@@ -169,6 +252,7 @@ describe("camera monitoring policy", () => {
           ...settings,
           blinkReminderEnabled: false,
           distanceReminderEnabled: false,
+          sedentaryReminderEnabled: false,
         },
         now,
         AVAILABLE_SYSTEM,

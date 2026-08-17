@@ -2,6 +2,7 @@ import {
   Camera,
   ChartLineUp,
   Eye,
+  PersonSimpleWalk,
   ShieldCheck,
   SkipForward,
   X,
@@ -20,19 +21,21 @@ import { CircularProgressbar, buildStyles } from "react-circular-progressbar";
 import "react-circular-progressbar/dist/styles.css";
 import {
   type CoachMode,
+  DISTANCE_DURATION_MS,
+  DISTANCE_INTERVAL_MS,
+  NO_BLINK_REMINDER_MS,
   coachReducer,
   createCoachState,
   getDistanceProgress,
   getDistanceSecondsRemaining,
 } from "./coach";
 import {
-  BLINK_HISTORY_RETENTION_DAYS,
-  type BlinkHistory,
-  formatLocalDateKey,
+  calculateDistanceObservedMs,
   formatObservedDuration,
-  shiftLocalDateKey,
-  summarizeDay,
-} from "./blink-history";
+  getActiveScreenStartedAt,
+  getBlinkTimestamps,
+  summarizeTimeline,
+} from "./timeline-analytics";
 import { calculateBlinkStatistics } from "./blink-stats";
 import {
   CAMERA_MONITORING_STORAGE_KEY,
@@ -49,18 +52,30 @@ import {
   type PetAttentionFrame,
 } from "./pet-attention";
 import {
-  type PostureHistory,
-  summarizePostureDay,
-} from "./posture-history";
+  formatLocalDateKey,
+  shiftLocalDateKey,
+} from "./local-history-time";
 import { useFaceMonitor } from "./useFaceMonitor";
-import { useBlinkHistory } from "./useBlinkHistory";
-import { usePostureHistory } from "./usePostureHistory";
 import { isPetClick } from "./pet-pointer";
 import {
   PET_IDLE_ACTION_STORAGE_KEY,
+  type PetActionDemo,
   type PetIdleActionPreference,
   parsePetIdleActionPreference,
+  resolvePetDisplayAction,
 } from "./pet-idle-action";
+import { SedentaryReminder } from "./sedentary-reminder";
+import {
+  TIMELINE_RETENTION_DAYS,
+  getLocalDayRange,
+} from "./timeline";
+import { createTimelineDemoRange } from "./timeline-demo";
+import { timelineRepository } from "./timeline-store";
+import {
+  useCurrentTimelineRange,
+  useTimelineCapture,
+  useTimelineRange,
+} from "./useTimeline";
 
 const PET_IMAGE = new URL("assets/kanshan-distance-break.png", document.baseURI).toString();
 const CLAP_SPRITE_IMAGE = new URL("assets/kanshan-clap-sprite.png", document.baseURI).toString();
@@ -75,6 +90,7 @@ const PET_SIZE_STORAGE_KEY = "look-me:pet-size:v1";
 const PET_PERSISTENCE_STORAGE_KEY = "look-me:pet-persistent:v1";
 const PANEL_VISIBILITY_STORAGE_KEY = "look-me:panel-visible:v1";
 const LOW_BLINK_RATE_THRESHOLD = 10;
+const MOUTH_SYNC_ANIMATION_MS = 780;
 const PET_SIZES = new Set<LookMePetSize>(["small", "standard", "large"]);
 
 const DEMO_MODES = new Set<CoachMode>([
@@ -112,14 +128,16 @@ export function App() {
     (new URLSearchParams(window.location.search).get("petYawn") === "1"
       ? "yawn"
       : "");
-  const petActionDemo = ["yawn", "clap", "sit", "spin"].includes(
+  const petActionDemo: PetActionDemo | null = ["yawn", "clap", "sit", "spin"].includes(
     requestedPetAction,
   )
-    ? requestedPetAction
+    ? (requestedPetAction as PetActionDemo)
     : null;
   const petCryDemo = new URLSearchParams(window.location.search).get("petCry") === "1";
   const cameraSettingsDemo =
     new URLSearchParams(window.location.search).get("cameraSettings") === "1";
+  const sedentaryReminderDemo =
+    new URLSearchParams(window.location.search).get("sedentaryReminder") === "1";
   const initialCameraPreference = useMemo(() => {
     try {
       const raw = window.localStorage.getItem(CAMERA_MONITORING_STORAGE_KEY);
@@ -150,7 +168,12 @@ export function App() {
   );
   const faceMonitor = useFaceMonitor();
   const lastBlinkCount = useRef(0);
+  const lastYawnCount = useRef(0);
+  const previousMouthOpen = useRef(false);
+  const previousCoachState = useRef(state);
+  const previousSedentaryReminderActive = useRef(false);
   const attentionController = useRef(new PetAttentionController());
+  const sedentaryReminder = useRef(new SedentaryReminder());
   const windowDragPointer = useRef<number | null>(null);
   const windowDragStart = useRef<{ screenX: number; screenY: number } | null>(
     null,
@@ -168,6 +191,9 @@ export function App() {
     rail: false,
   });
   const [statsOpen, setStatsOpen] = useState(statsDemo);
+  const [sedentaryReminderActive, setSedentaryReminderActive] = useState(
+    sedentaryReminderDemo,
+  );
   const [cameraSettingsOpen, setCameraSettingsOpen] =
     useState(cameraSettingsDemo);
   const [cameraPreferenceConfigured, setCameraPreferenceConfigured] = useState(
@@ -191,14 +217,11 @@ export function App() {
     }
   });
   const [panelVisible, setPanelVisible] = useState(() => {
-    if (!petPersistent) {
-      return false;
-    }
     try {
       const stored = window.localStorage.getItem(PANEL_VISIBILITY_STORAGE_KEY);
-      return stored === null ? true : stored === "true";
+      return stored === "true";
     } catch {
-      return true;
+      return false;
     }
   });
   const [panelPetSide, setPanelPetSide] = useState<"left" | "right" | null>(
@@ -227,11 +250,9 @@ export function App() {
     useState<PetIdleActionPreference | null>(() =>
       cameraSettingsDemo ? petIdleAction : null,
     );
+  const [petMouthClosing, setPetMouthClosing] = useState(false);
   const [selectedHistoryDate, setSelectedHistoryDate] = useState(() =>
     formatLocalDateKey(Date.now()),
-  );
-  const [visibleSince, setVisibleSince] = useState<number | null>(() =>
-    statsDemo ? Date.now() - 60_000 : null,
   );
   const applyCameraSettings = useCallback(
     (nextSettings: CameraMonitoringSettings) => {
@@ -263,6 +284,52 @@ export function App() {
   );
   const coachingEnabled =
     statsDemo || historyDataDemo || !isDesktop || cameraShouldRun;
+  const screenObserving =
+    coachingEnabled &&
+    faceMonitor.status === "ready" &&
+    faceMonitor.faceVisible &&
+    state.mode !== "distance";
+  const screenEndReason = !coachingEnabled
+    ? "monitoring-stopped"
+    : state.mode === "distance"
+      ? "distance-break"
+      : faceMonitor.status !== "ready"
+        ? "sensing-unavailable"
+        : !faceMonitor.faceVisible
+          ? "face-lost"
+          : "not-observing";
+  useTimelineCapture({
+    now: state.now,
+    monitoring: coachingEnabled,
+    sensingReady: faceMonitor.status === "ready",
+    distanceReminderEnabled: cameraSettings.distanceReminderEnabled,
+    screenObserving,
+    screenEndReason,
+    blinkEvents: faceMonitor.blinkEvents,
+    mouthEvents: faceMonitor.mouthEvents,
+    yawnEvents: faceMonitor.yawnEvents,
+    postureState: faceMonitor.postureState,
+    postureStateSince: faceMonitor.postureStateSince,
+    standUpTimestamps: faceMonitor.standUpTimestamps,
+  });
+  const currentTimeline = useCurrentTimelineRange();
+  const distanceObservedMs = cameraSettings.distanceReminderEnabled
+    ? calculateDistanceObservedMs(currentTimeline, state.now)
+    : 0;
+  const distanceObservedMsRef = useRef(distanceObservedMs);
+  distanceObservedMsRef.current = distanceObservedMs;
+  const todayDate = formatLocalDateKey(Date.now());
+  const todayRange = getLocalDayRange(todayDate);
+  const recordedTodayTimeline = useTimelineRange(
+    todayRange.startAt,
+    todayRange.endAt,
+  );
+  const demoTimeline = useMemo(
+    () => createTimelineDemoRange(todayDate),
+    [todayDate],
+  );
+  const displayedTodayTimeline =
+    historyDemo || historyDataDemo ? demoTimeline : recordedTodayTimeline;
 
   useEffect(() => {
     if (cameraPreferenceConfigured) {
@@ -336,25 +403,68 @@ export function App() {
       return undefined;
     }
     const timer = window.setInterval(() => {
+      const now = Date.now();
+      const nextSedentaryReminderActive =
+        sedentaryReminderDemo ||
+        sedentaryReminder.current.update({
+          now,
+          monitoring: coachingEnabled && faceMonitor.status === "ready",
+          enabled: cameraSettings.sedentaryReminderEnabled,
+          thresholdMs: cameraSettings.sedentaryReminderMinutes * 60 * 1_000,
+          postureState: faceMonitor.postureState,
+          canPrompt:
+            state.mode === "idle" &&
+            !cameraSettingsOpen &&
+            !historyOpen &&
+            !statsOpen,
+        });
+      setSedentaryReminderActive(nextSedentaryReminderActive);
       dispatch({
         type: "TICK",
-        now: Date.now(),
+        now,
         sensingAvailable:
           faceMonitor.status === "ready" && faceMonitor.faceVisible,
-        coachingEnabled,
+        coachingEnabled: coachingEnabled && !nextSedentaryReminderActive,
         blinkReminderEnabled: cameraSettings.blinkReminderEnabled,
         distanceReminderEnabled: cameraSettings.distanceReminderEnabled,
+        distanceObservedMs: distanceObservedMsRef.current,
       });
     }, 250);
     return () => window.clearInterval(timer);
   }, [
     cameraSettings.blinkReminderEnabled,
     cameraSettings.distanceReminderEnabled,
+    cameraSettings.sedentaryReminderEnabled,
+    cameraSettings.sedentaryReminderMinutes,
+    cameraSettingsOpen,
     coachingEnabled,
     faceMonitor.faceVisible,
+    faceMonitor.postureState,
     faceMonitor.status,
     freezeDemo,
+    historyOpen,
+    sedentaryReminderDemo,
+    state.mode,
+    statsOpen,
   ]);
+
+  useEffect(() => {
+    if (faceMonitor.mouthOpen) {
+      previousMouthOpen.current = true;
+      setPetMouthClosing(false);
+      return undefined;
+    }
+    if (!previousMouthOpen.current) {
+      return undefined;
+    }
+    previousMouthOpen.current = false;
+    setPetMouthClosing(true);
+    const timer = window.setTimeout(
+      () => setPetMouthClosing(false),
+      MOUTH_SYNC_ANIMATION_MS,
+    );
+    return () => window.clearTimeout(timer);
+  }, [faceMonitor.mouthOpen]);
 
   useEffect(() => {
     if (!coachingEnabled) {
@@ -373,19 +483,144 @@ export function App() {
   }, [coachingEnabled, faceMonitor.blinkCount]);
 
   useEffect(() => {
-    if (statsDemo) {
-      return;
+    if (faceMonitor.yawnCount === 0) {
+      lastYawnCount.current = 0;
+      return undefined;
     }
-    if (
-      coachingEnabled &&
-      faceMonitor.status === "ready" &&
-      faceMonitor.faceVisible
-    ) {
-      setVisibleSince((startedAt) => startedAt ?? Date.now());
-      return;
+    if (faceMonitor.yawnCount <= lastYawnCount.current) {
+      lastYawnCount.current = faceMonitor.yawnCount;
+      return undefined;
     }
-    setVisibleSince(null);
-  }, [coachingEnabled, faceMonitor.faceVisible, faceMonitor.status, statsDemo]);
+    lastYawnCount.current = faceMonitor.yawnCount;
+    const yawn = faceMonitor.yawnEvents[faceMonitor.yawnEvents.length - 1];
+    const decision = timelineRepository.findLatestCurrentEvent("yawn.detected");
+    timelineRepository.record({
+      at: yawn?.at ?? Date.now(),
+      layer: "action",
+      type: "yawn-response.shown",
+      ...(decision ? { causedBy: [decision.id] } : {}),
+      data: { response: "mouth-sync" },
+    });
+    return undefined;
+  }, [faceMonitor.yawnCount, faceMonitor.yawnEvents]);
+
+  useEffect(() => {
+    const previous = previousCoachState.current;
+    if (previous.mode !== state.mode) {
+      if (state.mode === "distance") {
+        const decision = timelineRepository.record({
+          at: state.distanceStartedAt ?? state.now,
+          layer: "decision",
+          type: "distance.due",
+          data: {
+            accumulatedScreenMs: state.distanceObservedMs,
+            thresholdMs: DISTANCE_INTERVAL_MS,
+          },
+        });
+        timelineRepository.record({
+          at: state.distanceStartedAt ?? state.now,
+          layer: "action",
+          type: "distance-reminder.shown",
+          causedBy: [decision.id],
+          data: { durationMs: DISTANCE_DURATION_MS },
+        });
+      } else if (previous.mode === "distance") {
+        const completed =
+          previous.distanceStartedAt !== null &&
+          state.now - previous.distanceStartedAt >= DISTANCE_DURATION_MS;
+        const skipped = timelineRepository.findLatestCurrentEvent(
+          "distance-reminder.skipped",
+        );
+        if (completed) {
+          timelineRepository.record({
+            at: state.now,
+            layer: "action",
+            type: "distance-reminder.completed",
+          });
+        } else if (
+          !skipped ||
+          previous.distanceStartedAt === null ||
+          skipped.at < previous.distanceStartedAt
+        ) {
+          timelineRepository.record({
+            at: state.now,
+            layer: "action",
+            type: "distance-reminder.dismissed",
+            data: {
+              reason: cameraSettings.distanceReminderEnabled
+                ? "monitoring-unavailable"
+                : "reminder-disabled",
+            },
+          });
+        }
+      }
+
+      if (state.mode === "blink") {
+        const decision = timelineRepository.record({
+          at: state.now,
+          layer: "decision",
+          type: "blink-reminder.due",
+          data: { thresholdMs: NO_BLINK_REMINDER_MS },
+        });
+        timelineRepository.record({
+          at: state.now,
+          layer: "action",
+          type: "blink-reminder.shown",
+          causedBy: [decision.id],
+        });
+      } else if (previous.mode === "blink") {
+        timelineRepository.record({
+          at: state.now,
+          layer: "action",
+          type:
+            state.guidedBlinks >= 2
+              ? "blink-reminder.completed"
+              : "blink-reminder.dismissed",
+          data:
+            state.guidedBlinks >= 2
+              ? { blinkCount: state.guidedBlinks }
+              : { reason: "sensing-or-setting-changed" },
+        });
+      }
+    }
+    previousCoachState.current = state;
+  }, [cameraSettings.distanceReminderEnabled, state]);
+
+  useEffect(() => {
+    const previous = previousSedentaryReminderActive.current;
+    if (!previous && sedentaryReminderActive) {
+      const decision = timelineRepository.record({
+        at: state.now,
+        layer: "decision",
+        type: "sedentary.due",
+        data: {
+          thresholdMs: cameraSettings.sedentaryReminderMinutes * 60 * 1_000,
+        },
+      });
+      timelineRepository.record({
+        at: state.now,
+        layer: "action",
+        type: "sedentary-reminder.shown",
+        causedBy: [decision.id],
+      });
+    } else if (previous && !sedentaryReminderActive) {
+      const acknowledged = timelineRepository.findLatestCurrentEvent(
+        "sedentary-reminder.acknowledged",
+      );
+      if (!acknowledged || state.now - acknowledged.at > 1_000) {
+        timelineRepository.record({
+          at: state.now,
+          layer: "action",
+          type: "sedentary-reminder.dismissed",
+        });
+      }
+    }
+    previousSedentaryReminderActive.current = sedentaryReminderActive;
+  }, [
+    cameraSettings.sedentaryReminderMinutes,
+    sedentaryReminderActive,
+    state.now,
+  ]);
 
   useEffect(() => {
     const media = window.matchMedia?.("(prefers-reduced-motion: reduce)");
@@ -408,6 +643,7 @@ export function App() {
           faceMonitor.faceVisible,
         parked:
           state.mode !== "idle" ||
+          sedentaryReminderActive ||
           cameraSettingsOpen ||
           statsOpen ||
           historyOpen,
@@ -438,6 +674,7 @@ export function App() {
     coachingEnabled,
     historyOpen,
     reducedMotion,
+    sedentaryReminderActive,
     state.mode,
     statsOpen,
     windowDragging,
@@ -529,10 +766,6 @@ export function App() {
       if (command === "pet-persistent:on" || command === "pet-persistent:off") {
         const enabled = command === "pet-persistent:on";
         setPetPersistent(enabled);
-        if (!enabled) {
-          setPanelVisible(false);
-          setPanelPetSide(null);
-        }
         return;
       }
       if (command === "panel:hide") {
@@ -570,6 +803,14 @@ export function App() {
     window.lookMe?.syncMonitoringEnabled(cameraSettings.enabled);
   }, [cameraSettings.enabled]);
 
+  useEffect(() => {
+    window.lookMe?.syncCameraSettingsOpen(cameraSettingsOpen);
+  }, [cameraSettingsOpen]);
+
+  useEffect(() => {
+    window.lookMe?.syncHistoryOpen(historyOpen);
+  }, [historyOpen]);
+
   const enableCamera = () => {
     applyCameraSettings({ ...cameraSettings, enabled: true });
   };
@@ -591,81 +832,16 @@ export function App() {
 
   const secondsRemaining = getDistanceSecondsRemaining(state);
   const distanceProgress = getDistanceProgress(state);
-  const blinkHistory = useBlinkHistory(
-    faceMonitor.blinkTimestamps,
-    coachingEnabled &&
-      faceMonitor.status === "ready" &&
-      faceMonitor.faceVisible &&
-      state.mode !== "distance",
-    state.now,
-  );
-  const postureHistory = usePostureHistory(
-    faceMonitor.postureState,
-    faceMonitor.standUpTimestamps,
-    coachingEnabled && faceMonitor.status === "ready",
-    state.now,
-  );
-  const todayDate = formatLocalDateKey(Date.now());
   const firstHistoryDate = shiftLocalDateKey(
     todayDate,
-    -(BLINK_HISTORY_RETENTION_DAYS - 1),
+    -(TIMELINE_RETENTION_DAYS - 1),
   );
-  const displayedBlinkHistory = useMemo<BlinkHistory>(() => {
-    if (!historyDemo && !historyDataDemo) {
-      return blinkHistory;
-    }
-
-    const demoDay: BlinkHistory["days"][string] = {};
-    for (let minute = 8 * 60 + 30; minute < 18 * 60 + 20; minute += 1) {
-      const duringLunch = minute >= 12 * 60 && minute < 13 * 60 + 20;
-      const sensingGap = minute % 97 >= 89;
-      if (duringLunch || sensingGap) {
-        continue;
-      }
-      demoDay[String(minute)] = {
-        blinks: Math.max(
-          5,
-          Math.round(13 + Math.sin(minute / 24) * 3 + Math.cos(minute / 11) * 2),
-        ),
-        observedMs: 60_000,
-      };
-    }
-    return {
-      version: 1,
-      days: { ...blinkHistory.days, [todayDate]: demoDay },
-    };
-  }, [blinkHistory, historyDataDemo, historyDemo, todayDate]);
-  const displayedPostureHistory = useMemo<PostureHistory>(() => {
-    if (!historyDemo && !historyDataDemo) {
-      return postureHistory;
-    }
-
-    const demoDay: PostureHistory["days"][string] = {};
-    const awayRanges = [
-      [10 * 60 + 30, 10 * 60 + 38],
-      [12 * 60, 13 * 60 + 20],
-      [15 * 60 + 20, 15 * 60 + 28],
-      [17 * 60, 17 * 60 + 6],
-    ] as const;
-    for (let minute = 8 * 60 + 30; minute < 18 * 60 + 20; minute += 1) {
-      const awayRange = awayRanges.find(
-        ([startedAt, endedAt]) => minute >= startedAt && minute < endedAt,
-      );
-      demoDay[String(minute)] = {
-        seatedMs: awayRange ? 0 : 60_000,
-        awayMs: awayRange ? 60_000 : 0,
-        standUps: awayRange?.[0] === minute ? 1 : 0,
-      };
-    }
-    return {
-      version: 1,
-      days: { ...postureHistory.days, [todayDate]: demoDay },
-    };
-  }, [historyDataDemo, historyDemo, postureHistory, todayDate]);
+  const activeScreenStartedAt = getActiveScreenStartedAt(currentTimeline);
+  const timelineBlinkTimestamps = getBlinkTimestamps(currentTimeline);
   const measuredStats = calculateBlinkStatistics(
-    faceMonitor.blinkTimestamps,
+    timelineBlinkTimestamps,
     faceMonitor.sessionStartedAt,
-    visibleSince,
+    activeScreenStartedAt,
     state.now,
   );
   const blinkStats = statsDemo
@@ -677,16 +853,18 @@ export function App() {
         collectingSecondsRemaining: 0,
       }
     : measuredStats;
-  const todayObservedDuration = formatObservedDuration(
-    summarizeDay(displayedBlinkHistory, todayDate).observedMs,
+  const measuredTodaySummary = summarizeTimeline(
+    displayedTodayTimeline,
+    todayRange.startAt,
+    todayRange.endAt,
+    state.now,
   );
-  const measuredPostureSummary = summarizePostureDay(
-    displayedPostureHistory,
-    todayDate,
+  const todayObservedDuration = formatObservedDuration(
+    measuredTodaySummary.screenMs,
   );
   const todayPostureSummary = statsDemo
     ? { seatedMs: 4 * 60 * 60_000 + 32 * 60_000, awayMs: 38 * 60_000, standUps: 4 }
-    : measuredPostureSummary;
+    : measuredTodaySummary;
   const currentSeatedDuration = statsDemo
     ? formatObservedDuration(42 * 60_000)
     : faceMonitor.postureState === "seated" &&
@@ -769,12 +947,33 @@ export function App() {
         rail: true,
       }
     : persistentAttentionFrame;
+  const standardCoachVisible =
+    !cameraSettingsOpen && !historyOpen && !sedentaryReminderActive;
+  const companionVisible = standardCoachVisible && panelVisible;
+  const petDisplayAction = resolvePetDisplayAction({
+    petActionDemo,
+    mouthOpen: faceMonitor.mouthOpen,
+    mouthClosing: petMouthClosing,
+    cameraSettingsOpen,
+    petActionPreview,
+    idleActionEligible:
+      state.mode === "idle" &&
+      !sedentaryReminderActive &&
+      !cameraSettingsOpen &&
+      !historyOpen &&
+      !statsOpen,
+    petIdleAction,
+  });
 
   return (
     <main
-      className={isDesktop ? "app-shell app-shell--desktop" : "app-shell app-shell--preview"}
+      className={
+        isDesktop
+          ? `app-shell app-shell--desktop${cameraSettingsOpen ? " app-shell--settings" : ""}${historyOpen ? " app-shell--history" : ""}`
+          : "app-shell app-shell--preview"
+      }
       style={isDesktop ? undefined : { backgroundImage: `url(${PREVIEW_IMAGE})` }}
-      data-mode={state.mode}
+      data-mode={sedentaryReminderActive ? "sedentary" : state.mode}
       data-pet-attention={displayedAttentionFrame.phase}
     >
       <video ref={faceMonitor.videoRef} className="sensor-video" muted playsInline />
@@ -782,25 +981,14 @@ export function App() {
       <section
         className="coach-stage"
         data-pet-size={petSize}
+        data-camera-settings-open={cameraSettingsOpen ? "true" : undefined}
+        data-history-open={historyOpen ? "true" : undefined}
         data-pet-attention={displayedAttentionFrame.phase}
         data-pet-rail={displayedAttentionFrame.rail ? "true" : "false"}
         data-pet-flying={displayedAttentionFrame.flying ? "true" : "false"}
         data-pet-panel-side={panelVisible ? panelPetSide ?? undefined : undefined}
         data-pet-action-preference={petIdleAction}
-        data-pet-idle-action={
-          petActionDemo
-            ? petActionDemo
-            : cameraSettingsOpen && petActionPreview
-              ? petActionPreview
-            : state.mode === "idle" &&
-                !cameraSettingsOpen &&
-                !historyOpen &&
-                !statsOpen
-              ? petIdleAction === "off"
-                ? "off"
-                : "auto"
-              : "off"
-        }
+        data-pet-idle-action={petDisplayAction}
         aria-label="Look Me 护眼陪伴"
       >
         <div className="coach-pet-shell">
@@ -913,18 +1101,55 @@ export function App() {
         {!cameraSettingsOpen && historyOpen && (
           <Suspense fallback={null}>
             <BlinkHistoryPanel
-              history={displayedBlinkHistory}
-              postureHistory={displayedPostureHistory}
               selectedDate={selectedHistoryDate}
               firstDate={firstHistoryDate}
               todayDate={todayDate}
+              now={state.now}
+              demoRange={
+                (historyDemo || historyDataDemo) && selectedHistoryDate === todayDate
+                  ? demoTimeline
+                  : undefined
+              }
               onSelectDate={setSelectedHistoryDate}
               onClose={() => setHistoryOpen(false)}
             />
           </Suspense>
         )}
 
-        {!cameraSettingsOpen && !historyOpen && state.mode === "distance" && (
+        {!cameraSettingsOpen && !historyOpen && sedentaryReminderActive && (
+          <article
+            className="coach-card coach-card--sedentary"
+            data-interactive
+            data-sedentary-reminder
+            aria-live="polite"
+          >
+            <div className="card-icon card-icon--posture">
+              <PersonSimpleWalk size={25} weight="fill" aria-hidden />
+            </div>
+            <div className="sedentary-copy">
+              <span className="eyebrow">坐得有点久啦</span>
+              <h1>起来走一走吧</h1>
+              <p>离开座位后，会重新开始计算连续坐姿时间。</p>
+              <button
+                className="secondary-button"
+                type="button"
+                onClick={() => {
+                  timelineRepository.record({
+                    at: Date.now(),
+                    layer: "action",
+                    type: "sedentary-reminder.acknowledged",
+                  });
+                  sedentaryReminder.current.acknowledge();
+                  setSedentaryReminderActive(false);
+                }}
+              >
+                知道了
+              </button>
+            </div>
+          </article>
+        )}
+
+        {standardCoachVisible && state.mode === "distance" && (
           <article
             className="coach-card coach-card--horizon"
             style={{ backgroundImage: `url(${HORIZON_IMAGE})` }}
@@ -955,7 +1180,16 @@ export function App() {
               className="text-button"
               data-interactive
               type="button"
-              onClick={() => dispatch({ type: "SKIP", now: Date.now() })}
+              onClick={() => {
+                const now = Date.now();
+                timelineRepository.record({
+                  at: now,
+                  layer: "action",
+                  type: "distance-reminder.skipped",
+                  data: { accumulatedScreenMs: state.distanceObservedMs },
+                });
+                dispatch({ type: "SKIP", now });
+              }}
             >
               <SkipForward size={16} weight="bold" aria-hidden />
               跳过
@@ -1013,7 +1247,7 @@ export function App() {
           </article>
         )}
 
-        {!cameraSettingsOpen && !historyOpen && state.mode === "blink" && (
+        {standardCoachVisible && state.mode === "blink" && (
           <article className="coach-card coach-card--blink" aria-live="polite">
             <div className="card-icon card-icon--eye">
               <Eye size={25} weight="fill" aria-hidden />
@@ -1033,7 +1267,7 @@ export function App() {
           </article>
         )}
 
-        {!cameraSettingsOpen && !historyOpen && state.mode === "idle" && (
+        {standardCoachVisible && state.mode === "idle" && (
           <>
             {statsOpen && (
               <article
@@ -1143,49 +1377,50 @@ export function App() {
                       setHistoryOpen(true);
                     }}
                   >
-                    查看全天曲线
+                    查看近 1 小时曲线
                   </button>
                 </div>
               </article>
             )}
 
-            {petPersistent && panelVisible && (
-              <article className="idle-companion" data-interactive>
-                <div className="idle-status" title={sensingLabel}>
-                  <span className="stats-eye-pulse" key={faceMonitor.blinkCount} aria-hidden>
-                    <Eye size={14} weight="fill" />
-                  </span>
-                  <span
-                    className={
-                      hasVisibleFace &&
-                      blinkStats.rollingRate !== null &&
-                      blinkStats.rollingRate < LOW_BLINK_RATE_THRESHOLD
-                        ? "idle-status-value idle-status-value--low"
-                        : "idle-status-value"
-                    }
-                  >
-                    {hasVisibleFace
-                      ? blinkStats.rollingRate === null
-                        ? `采集中 ${blinkStats.collectingSecondsRemaining} 秒`
-                        : `${blinkStats.rollingRate} 次/分`
-                      : sensingLabel}
-                  </span>
-                </div>
-                <div className="idle-actions">
-                  <button
-                    className={statsOpen ? "icon-button icon-button--active" : "icon-button"}
-                    type="button"
-                    title="查看统计"
-                    aria-label="查看统计"
-                    aria-expanded={statsOpen}
-                    onClick={() => setStatsOpen((open) => !open)}
-                  >
-                    <ChartLineUp size={18} weight="bold" aria-hidden />
-                  </button>
-                </div>
-              </article>
-            )}
           </>
+        )}
+
+        {companionVisible && (
+          <article className="idle-companion" data-interactive>
+            <div className="idle-status" title={sensingLabel}>
+              <span className="stats-eye-pulse" key={faceMonitor.blinkCount} aria-hidden>
+                <Eye size={14} weight="fill" />
+              </span>
+              <span
+                className={
+                  hasVisibleFace &&
+                  blinkStats.rollingRate !== null &&
+                  blinkStats.rollingRate < LOW_BLINK_RATE_THRESHOLD
+                    ? "idle-status-value idle-status-value--low"
+                    : "idle-status-value"
+                }
+              >
+                {hasVisibleFace
+                  ? blinkStats.rollingRate === null
+                    ? `采集中 ${blinkStats.collectingSecondsRemaining} 秒`
+                    : `${blinkStats.rollingRate} 次/分`
+                  : sensingLabel}
+              </span>
+            </div>
+            <div className="idle-actions">
+              <button
+                className={statsOpen ? "icon-button icon-button--active" : "icon-button"}
+                type="button"
+                title="查看统计"
+                aria-label="查看统计"
+                aria-expanded={statsOpen}
+                onClick={() => setStatsOpen((open) => !open)}
+              >
+                <ChartLineUp size={18} weight="bold" aria-hidden />
+              </button>
+            </div>
+          </article>
         )}
       </section>
     </main>

@@ -13,6 +13,7 @@ import {
 } from "electron";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { existsSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 
 const ELECTRON_DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -20,10 +21,26 @@ const APP_ROOT = path.dirname(ELECTRON_DIR);
 const RENDERER_ROOT = path.join(APP_ROOT, "dist", "client");
 const PRELOAD_PATH = path.join(ELECTRON_DIR, "preload.cjs");
 const WINDOW_WIDTH = 760;
-const WINDOW_HEIGHT = 300;
-const PET_DRAG_HANDLE = Object.freeze({ x: 18, y: 12, width: 194, height: 230 });
+const WINDOW_HEIGHT = 390;
+const SETTINGS_WINDOW_WIDTH = 900;
+const SETTINGS_WINDOW_HEIGHT = 400;
+const HISTORY_WINDOW_WIDTH = 1120;
+const HISTORY_WINDOW_HEIGHT = 680;
+const PET_DRAG_HANDLE = Object.freeze({ x: 18, y: 62, width: 194, height: 230 });
+const PET_DRAG_HANDLE_TOPS = Object.freeze({ small: 22, standard: 62, large: 62 });
 const PET_SIZES = new Set(["small", "standard", "large"]);
 const PET_SCALES = Object.freeze({ small: 0.41, standard: 1, large: 1.1 });
+const SMOKE_ENV_KEYS = [
+  "LOOK_ME_ATTENTION_SMOKE",
+  "LOOK_ME_DRAG_SMOKE",
+  "LOOK_ME_HISTORY_SMOKE",
+  "LOOK_ME_MONITORING_SMOKE",
+  "LOOK_ME_PANEL_ANCHOR_SMOKE",
+  "LOOK_ME_PERSISTENCE_SMOKE",
+  "LOOK_ME_PET_SETTINGS_SMOKE",
+  "LOOK_ME_RAIL_DRAG_SMOKE",
+  "LOOK_ME_SMOKE",
+];
 const PET_ATTENTION_PHASES = new Set([
   "parked",
   "hidden",
@@ -44,6 +61,9 @@ let petSize = "standard";
 let petPersistent = false;
 let panelVisible = false;
 let panelPetSide = null;
+let cameraSettingsOpen = false;
+let historyOpen = false;
+let currentWindowSize = { width: WINDOW_WIDTH, height: WINDOW_HEIGHT };
 let rendererSettingsReady = false;
 let monitoringSettingsReady = false;
 let monitoringEnabled = false;
@@ -63,6 +83,10 @@ const systemAvailability = {
   screenLocked: false,
   systemSuspended: false,
 };
+
+if (SMOKE_ENV_KEYS.some((key) => process.env[key] === "1")) {
+  app.setPath("userData", path.join(tmpdir(), `look-me-smoke-${process.pid}`));
+}
 
 const wait = (milliseconds) => new Promise((resolve) => {
   setTimeout(resolve, milliseconds);
@@ -128,15 +152,42 @@ function configureMediaPermissions() {
   );
 }
 
-function getPetHitBoundsForSide(side) {
+function getWindowSize(
+  settingsOpen = cameraSettingsOpen,
+  timelineOpen = historyOpen,
+) {
+  if (settingsOpen) {
+    return { width: SETTINGS_WINDOW_WIDTH, height: SETTINGS_WINDOW_HEIGHT };
+  }
+  if (timelineOpen) {
+    return { width: HISTORY_WINDOW_WIDTH, height: HISTORY_WINDOW_HEIGHT };
+  }
+  return { width: WINDOW_WIDTH, height: WINDOW_HEIGHT };
+}
+
+function getPetDragHandle() {
+  return {
+    ...PET_DRAG_HANDLE,
+    y: PET_DRAG_HANDLE_TOPS[petSize] ?? PET_DRAG_HANDLE.y,
+  };
+}
+
+function getPetHitBoundsForSide(
+  side,
+  windowSize = currentWindowSize,
+  activePanelSide = panelPetSide,
+) {
+  const dragHandle = getPetDragHandle();
   const scale = PET_SCALES[petSize] ?? PET_SCALES.standard;
-  const width = PET_DRAG_HANDLE.width * scale;
-  const height = PET_DRAG_HANDLE.height * scale;
+  const width = dragHandle.width * scale;
+  const height = dragHandle.height * scale;
+  const handleBottom = WINDOW_HEIGHT - dragHandle.y - dragHandle.height;
+  const panelInset = petSize === "small" && activePanelSide !== null ? 40 : 0;
   return {
     x: side === "right"
-      ? WINDOW_WIDTH - PET_DRAG_HANDLE.x - width
-      : PET_DRAG_HANDLE.x,
-    y: PET_DRAG_HANDLE.y + PET_DRAG_HANDLE.height - height,
+      ? windowSize.width - dragHandle.x - width - panelInset
+      : dragHandle.x + panelInset,
+    y: windowSize.height - handleBottom - height,
     width,
     height,
   };
@@ -182,6 +233,18 @@ function showPanelBesidePet(window, forceCommand = false) {
     reanchorPetForSide(window, nextSide);
     panelPetSide = nextSide;
   }
+  if (petSize === "small") {
+    const bounds = window.getBounds();
+    const workArea = screen.getDisplayMatching(bounds).workArea;
+    const maximumX = workArea.x + Math.max(0, workArea.width - bounds.width);
+    const nextX = Math.min(maximumX, Math.max(workArea.x, bounds.x));
+    if (nextX !== bounds.x) {
+      window.setPosition(nextX, bounds.y, false);
+      if (petAttentionMode === "rail") {
+        petRailWindowX = nextX;
+      }
+    }
+  }
   if (sideChanged || forceCommand) {
     window.webContents.send("look-me:command", `panel:show:${nextSide}`);
   }
@@ -192,6 +255,60 @@ function hidePanelBesidePet(window) {
   reanchorPetForSide(window, nextSide);
   panelPetSide = null;
   window.webContents.send("look-me:command", "panel:hide");
+}
+
+function resizeWindowForExpandedPanel(window, nextState) {
+  const nextCameraSettingsOpen =
+    nextState.cameraSettingsOpen ?? cameraSettingsOpen;
+  const nextHistoryOpen = nextState.historyOpen ?? historyOpen;
+  if (
+    cameraSettingsOpen === nextCameraSettingsOpen &&
+    historyOpen === nextHistoryOpen
+  ) {
+    return;
+  }
+
+  const previousBounds = window.getBounds();
+  const previousSize = {
+    width: previousBounds.width,
+    height: previousBounds.height,
+  };
+  const petSide = panelPetSide ?? (petAttentionMode === "rail" ? "right" : "left");
+  const previousPetBounds = getPetHitBoundsForSide(petSide, previousSize);
+  const petCenter = {
+    x: Math.round(previousBounds.x + previousPetBounds.x + previousPetBounds.width / 2),
+    y: Math.round(previousBounds.y + previousPetBounds.y + previousPetBounds.height / 2),
+  };
+
+  const workArea = screen.getDisplayNearestPoint(petCenter).workArea;
+  const requestedSize = getWindowSize(
+    nextCameraSettingsOpen,
+    nextHistoryOpen,
+  );
+  const nextSize = {
+    width: Math.min(requestedSize.width, workArea.width),
+    height: Math.min(requestedSize.height, workArea.height),
+  };
+  const nextPetBounds = getPetHitBoundsForSide(petSide, nextSize);
+  const preferredX = Math.round(
+    previousBounds.x + previousPetBounds.x - nextPetBounds.x,
+  );
+  const preferredY = Math.round(
+    previousBounds.y + previousPetBounds.y - nextPetBounds.y,
+  );
+  const maximumX = workArea.x + Math.max(0, workArea.width - nextSize.width);
+  const maximumY = workArea.y + Math.max(0, workArea.height - nextSize.height);
+  const nextX = Math.min(maximumX, Math.max(workArea.x, preferredX));
+  const nextY = Math.min(maximumY, Math.max(workArea.y, preferredY));
+
+  cameraSettingsOpen = nextCameraSettingsOpen;
+  historyOpen = nextHistoryOpen;
+  currentWindowSize = nextSize;
+  window.setBounds({ x: nextX, y: nextY, ...nextSize }, false);
+  if (petAttentionMode === "rail") {
+    petRailWindowX = nextX;
+  }
+  updatePointerHitTest(window);
 }
 
 function applyPointerEvents(window) {
@@ -293,21 +410,26 @@ function positionWindow(window, selectCursorDisplay = true) {
 
 function positionPetOnRail(window, position) {
   const { x, y, width, height } = getHomeDisplay().workArea;
+  const windowSize = currentWindowSize;
   const clampedPosition = Math.min(1, Math.max(0, position));
-  const petBounds = getPetHitBounds();
+  const petBounds = getPetHitBoundsForSide(
+    panelPetSide ?? (petAttentionMode === "rail" ? "right" : "left"),
+    currentWindowSize,
+    null,
+  );
   const nextX = petRailWindowX ?? Math.round(
     x + width - PET_DRAG_HANDLE.x - petBounds.x - petBounds.width,
   );
   const nextY = Math.round(
-    y + clampedPosition * Math.max(0, height - WINDOW_HEIGHT),
+    y + clampedPosition * Math.max(0, height - windowSize.height),
   );
   const bounds = window.getBounds();
   if (bounds.x !== nextX || bounds.y !== nextY) {
     window.setBounds({
       x: nextX,
       y: nextY,
-      width: WINDOW_WIDTH,
-      height: WINDOW_HEIGHT,
+      width: windowSize.width,
+      height: windowSize.height,
     }, false);
   }
 }
@@ -430,7 +552,7 @@ async function runDragSmoke(window, rail = false) {
   await wait(250);
   const after = window.getBounds();
   const moved = before.x !== after.x || before.y !== after.y;
-  const handleBounds = hitTarget.handleBounds ?? PET_DRAG_HANDLE;
+  const handleBounds = hitTarget.handleBounds ?? getPetDragHandle();
   if (rail) {
     const endScreenPoint = {
       x: before.x + end.x,
@@ -646,15 +768,14 @@ async function runPetSettingsSmoke(window) {
   );
   const panelDependencySynced =
     panelMenuItem?.checked === panelVisible &&
-    panelMenuItem?.enabled === petPersistent &&
-    (petPersistent || !panelVisible);
+    panelMenuItem?.enabled === true;
   const monitoringMenuSynced =
     monitoringSettingsReady &&
     monitoringMenuItem?.enabled === true &&
     monitoringMenuItem?.checked === monitoringEnabled;
   const scopedSettingsMenu =
     menuLabels.join("|") === [
-      "看山设置…",
+      "看山设置",
       "监测与提醒",
       "看山大小",
       "始终显示看山",
@@ -833,12 +954,20 @@ async function runPanelAnchorSmoke(window) {
   const measure = async () => {
     const bounds = window.getBounds();
     const renderer = await window.webContents.executeJavaScript(`(() => {
+      const shell = document.querySelector(".app-shell")?.getBoundingClientRect();
+      const pet = document.querySelector(".coach-pet-shell")?.getBoundingClientRect();
       const handle = document.querySelector("[data-window-drag]")?.getBoundingClientRect();
+      const status = document.querySelector(".idle-status-value");
+      if (status) {
+        status.textContent = "暂未检测到人脸，眨眼提醒已暂停";
+      }
       const panel = document.querySelector(".idle-companion")?.getBoundingClientRect();
       const serialize = (rect) => rect
         ? { x: rect.x, y: rect.y, width: rect.width, height: rect.height }
         : null;
       return {
+        shell: serialize(shell),
+        pet: serialize(pet),
         handle: serialize(handle),
         panel: serialize(panel),
         panelSide: document.querySelector(".coach-stage")?.dataset.petPanelSide ?? null,
@@ -854,6 +983,8 @@ async function runPanelAnchorSmoke(window) {
       : null;
     return {
       bounds,
+      shell: toScreen(renderer.shell),
+      pet: toScreen(renderer.pet),
       handle: toScreen(renderer.handle),
       panel: toScreen(renderer.panel),
       panelSide: renderer.panelSide,
@@ -871,6 +1002,25 @@ async function runPanelAnchorSmoke(window) {
   const isAnchored = (before, after) =>
     Math.abs(before.handle.left - after.handle.left) <= 1 &&
     Math.abs(before.handle.top - after.handle.top) <= 1;
+  // The small pet shifts inward while its wider widget is visible.
+  const hasExpectedPetPosition = (before, after) =>
+    requestedPetSize === "small" || isAnchored(before, after);
+  const isPanelBelowPet = (snapshot) => {
+    if (!snapshot.panel || !snapshot.pet || !snapshot.handle || !snapshot.shell) {
+      return false;
+    }
+    const panelCenter = (snapshot.panel.left + snapshot.panel.right) / 2;
+    const petCenter = (snapshot.pet.left + snapshot.pet.right) / 2;
+    return (
+      Math.abs(panelCenter - petCenter) <= 10 &&
+      snapshot.panel.top >= snapshot.pet.bottom + 6 &&
+      snapshot.panel.bottom <= snapshot.shell.bottom &&
+      snapshot.panel.left >= snapshot.shell.left &&
+      snapshot.panel.right <= snapshot.shell.right &&
+      snapshot.panel.left >= workArea.x &&
+      snapshot.panel.right <= workArea.x + workArea.width
+    );
+  };
 
   selectPetPersistence(true);
   await wait(100);
@@ -885,18 +1035,15 @@ async function runPanelAnchorSmoke(window) {
   await wait(200);
   const rightAfter = await measure();
   const rightPassed =
-    isAnchored(rightBefore, rightAfter) &&
+    hasExpectedPetPosition(rightBefore, rightAfter) &&
     rightAfter.panelSide === "right" &&
-    (rightAfter.panel.left + rightAfter.panel.right) / 2 <
-      (rightAfter.handle.left + rightAfter.handle.right) / 2 &&
-    rightAfter.panel.left >= workArea.x &&
-    rightAfter.panel.right <= workArea.x + workArea.width;
+    isPanelBelowPet(rightAfter);
 
   selectPanelVisibility(false);
   await wait(150);
   const rightHidden = await measure();
   const rightHidePassed =
-    isAnchored(rightAfter, rightHidden) &&
+    hasExpectedPetPosition(rightAfter, rightHidden) &&
     rightHidden.panel === null &&
     rightHidden.panelSide === null;
   const leftBefore = await anchorAt("left");
@@ -904,30 +1051,24 @@ async function runPanelAnchorSmoke(window) {
   await wait(200);
   const leftAfter = await measure();
   const leftPassed =
-    isAnchored(leftBefore, leftAfter) &&
+    hasExpectedPetPosition(leftBefore, leftAfter) &&
     leftAfter.panelSide === "left" &&
-    (leftAfter.panel.left + leftAfter.panel.right) / 2 >
-      (leftAfter.handle.left + leftAfter.handle.right) / 2 &&
-    leftAfter.panel.left >= workArea.x &&
-    leftAfter.panel.right <= workArea.x + workArea.width;
+    isPanelBelowPet(leftAfter);
 
   const draggedRightBeforeFlip = await anchorAt("right");
   showPanelBesidePet(window);
   await wait(150);
   const draggedRightAfterFlip = await measure();
   const dragFlipPassed =
-    isAnchored(draggedRightBeforeFlip, draggedRightAfterFlip) &&
+    hasExpectedPetPosition(draggedRightBeforeFlip, draggedRightAfterFlip) &&
     draggedRightAfterFlip.panelSide === "right" &&
-    (draggedRightAfterFlip.panel.left + draggedRightAfterFlip.panel.right) / 2 <
-      (draggedRightAfterFlip.handle.left + draggedRightAfterFlip.handle.right) / 2 &&
-    draggedRightAfterFlip.panel.left >= workArea.x &&
-    draggedRightAfterFlip.panel.right <= workArea.x + workArea.width;
+    isPanelBelowPet(draggedRightAfterFlip);
 
   selectPanelVisibility(false);
   await wait(150);
   const finalHidden = await measure();
   const finalHidePassed =
-    isAnchored(draggedRightAfterFlip, finalHidden) &&
+    hasExpectedPetPosition(draggedRightAfterFlip, finalHidden) &&
     finalHidden.panel === null &&
     finalHidden.panelSide === null;
   const passed =
@@ -983,6 +1124,9 @@ async function loadRenderer(window) {
 function createWindow() {
   rendererSettingsReady = false;
   monitoringSettingsReady = false;
+  cameraSettingsOpen = false;
+  historyOpen = false;
+  currentWindowSize = { width: WINDOW_WIDTH, height: WINDOW_HEIGHT };
   petAttentionMode = "parked";
   petAttentionPhase = "parked";
   petRailWindowX = null;
@@ -1017,7 +1161,7 @@ function createWindow() {
   window.setAlwaysOnTop(true, "floating");
   window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   applyPointerEvents(window);
-  positionWindow(window);
+  positionWindow(window, false);
   pointerHitTestTimer = setInterval(() => {
     updatePointerHitTest(window);
   }, 50);
@@ -1046,13 +1190,37 @@ function createWindow() {
     }
     if (process.env.LOOK_ME_MONITORING_SMOKE === "1") {
       await wait(600);
-      showCameraSettings();
+      const originalMonitoringEnabled = monitoringEnabled;
+      selectMonitoringEnabled(false);
       await wait(150);
+      const getPetAnchor = () => {
+        const windowBounds = window.getBounds();
+        const petBounds = getPetHitBounds();
+        return {
+          x: Math.round(windowBounds.x + petBounds.x),
+          y: Math.round(windowBounds.y + petBounds.y),
+        };
+      };
+      const beforeSettingsBounds = window.getBounds();
+      const beforeSettingsPetAnchor = getPetAnchor();
+      showCameraSettings();
+      await wait(250);
+      const expandedSettingsBounds = window.getBounds();
+      const expandedSettingsPetAnchor = getPetAnchor();
       const rendererState = await window.webContents.executeJavaScript(`(() => ({
         settingsFits: (() => {
           const panel = document.querySelector(".camera-settings-panel");
-          return panel ? panel.scrollHeight <= panel.clientHeight + 1 : false;
+          return panel
+            ? panel.scrollHeight <= panel.clientHeight + 1 &&
+              panel.scrollWidth <= panel.clientWidth + 1
+            : false;
         })(),
+        reminderTitleFontSize: parseFloat(getComputedStyle(
+          document.querySelector(".camera-reminder-row strong"),
+        ).fontSize),
+        reminderDescriptionFontSize: parseFloat(getComputedStyle(
+          document.querySelector(".camera-reminder-row > div > span"),
+        ).fontSize),
         mode: document.querySelector("main")?.dataset.mode ?? null,
         blinkPromptVisible: Boolean(document.querySelector(".coach-card--blink")),
         settingsVisible: Boolean(document.querySelector(".camera-settings-panel")),
@@ -1064,33 +1232,87 @@ function createWindow() {
         distanceReminderDisabled:
           document.querySelector('[data-reminder="distance"] input[type="checkbox"]')
             ?.disabled ?? null,
+        sedentaryReminderDisabled:
+          document.querySelector('[data-reminder="sedentary"] input[type="checkbox"]')
+            ?.disabled ?? null,
+        sedentaryIntervalDisabled:
+          document.querySelector('[data-reminder="sedentary"] input[type="number"]')
+            ?.disabled ?? null,
+        sedentaryInterval:
+          document.querySelector('[data-reminder="sedentary"] input[type="number"]')
+            ?.value ?? null,
+        sedentaryIntervalMin:
+          document.querySelector('[data-reminder="sedentary"] input[type="number"]')
+            ?.min ?? null,
+        sedentaryIntervalMax:
+          document.querySelector('[data-reminder="sedentary"] input[type="number"]')
+            ?.max ?? null,
       }))()`);
+      await window.webContents.executeJavaScript(
+        "document.querySelector('.camera-settings-close')?.click()",
+      );
+      await wait(250);
+      const restoredSettingsBounds = window.getBounds();
+      const restoredSettingsPetAnchor = getPetAnchor();
       const menuLabels = settingsMenu.items.map((item) => item.label).filter(Boolean);
       const monitoringMenuItem = settingsMenu.items.find(
         (item) => item.label === "监测与提醒",
       );
       const shellMenuOnly = menuLabels.join("|") === [
-        "看山设置…",
+        "看山设置",
         "监测与提醒",
         "看山大小",
         "始终显示看山",
         "显示眨眼次数",
         "退出 Look Me",
       ].join("|");
+      selectMonitoringEnabled(originalMonitoringEnabled);
+      await wait(100);
+      const settingsWindowExpanded =
+        expandedSettingsBounds.width === SETTINGS_WINDOW_WIDTH &&
+        expandedSettingsBounds.height === SETTINGS_WINDOW_HEIGHT;
+      const compactWindowRestored =
+        restoredSettingsBounds.width === WINDOW_WIDTH &&
+        restoredSettingsBounds.height === WINDOW_HEIGHT;
+      const petAnchorPreserved =
+        expandedSettingsPetAnchor.x === beforeSettingsPetAnchor.x &&
+        expandedSettingsPetAnchor.y === beforeSettingsPetAnchor.y &&
+        restoredSettingsPetAnchor.x === beforeSettingsPetAnchor.x &&
+        restoredSettingsPetAnchor.y === beforeSettingsPetAnchor.y;
       const passed =
         rendererState.mode === "idle" &&
         !rendererState.blinkPromptVisible &&
         rendererState.settingsVisible &&
         rendererState.settingsFits &&
+        rendererState.reminderTitleFontSize >= 11 &&
+        rendererState.reminderDescriptionFontSize >= 8.5 &&
         rendererState.masterSwitchAbsent &&
         rendererState.blinkReminderDisabled === true &&
         rendererState.distanceReminderDisabled === true &&
+        rendererState.sedentaryReminderDisabled === true &&
+        rendererState.sedentaryIntervalDisabled === true &&
+        rendererState.sedentaryInterval === "30" &&
+        rendererState.sedentaryIntervalMin === "1" &&
+        rendererState.sedentaryIntervalMax === "600" &&
+        settingsWindowExpanded &&
+        compactWindowRestored &&
+        petAnchorPreserved &&
         monitoringMenuItem?.enabled === true &&
         monitoringMenuItem?.checked === false &&
         shellMenuOnly;
       console.log(`LOOK_ME_MONITORING ${JSON.stringify({
         rendererState,
         menuLabels,
+        originalMonitoringEnabled,
+        beforeSettingsBounds,
+        expandedSettingsBounds,
+        restoredSettingsBounds,
+        beforeSettingsPetAnchor,
+        expandedSettingsPetAnchor,
+        restoredSettingsPetAnchor,
+        settingsWindowExpanded,
+        compactWindowRestored,
+        petAnchorPreserved,
         monitoringMenuChecked: monitoringMenuItem?.checked ?? null,
         shellMenuOnly,
         passed,
@@ -1109,6 +1331,16 @@ function createWindow() {
       await wait(150);
       selectPanelVisibility(true);
       await wait(150);
+      const getHistoryPetAnchor = () => {
+        const windowBounds = window.getBounds();
+        const petBounds = getPetHitBounds();
+        return {
+          x: Math.round(windowBounds.x + petBounds.x),
+          y: Math.round(windowBounds.y + petBounds.y),
+        };
+      };
+      const compactHistoryBounds = window.getBounds();
+      const compactHistoryPetAnchor = getHistoryPetAnchor();
       const panelShown = await window.webContents.executeJavaScript(
         "Boolean(document.querySelector('.idle-companion'))",
       );
@@ -1129,6 +1361,30 @@ function createWindow() {
       const shown = await window.webContents.executeJavaScript(
         "Boolean(document.querySelector('.history-panel'))",
       );
+      const expandedHistoryBounds = window.getBounds();
+      const expandedHistoryPetAnchor = getHistoryPetAnchor();
+      const historyLayout = await window.webContents.executeJavaScript(`(() => {
+        const panel = document.querySelector(".history-panel")?.getBoundingClientRect();
+        const chart = document.querySelector(".history-chart-frame")?.getBoundingClientRect();
+        const footer = document.querySelector(".history-footer")?.getBoundingClientRect();
+        if (!panel || !chart || !footer) {
+          return { fitsViewport: false };
+        }
+        return {
+          viewport: { width: innerWidth, height: innerHeight },
+          panel: { left: panel.left, top: panel.top, right: panel.right, bottom: panel.bottom },
+          chart: { left: chart.left, top: chart.top, right: chart.right, bottom: chart.bottom },
+          footer: { left: footer.left, top: footer.top, right: footer.right, bottom: footer.bottom },
+          fitsViewport:
+            panel.left >= 0 &&
+            panel.top >= 0 &&
+            panel.right <= innerWidth &&
+            panel.bottom <= innerHeight &&
+            chart.left >= panel.left &&
+            chart.right <= panel.right &&
+            footer.bottom <= panel.bottom,
+        };
+      })()`);
       const effectiveScreenTime = await window.webContents.executeJavaScript(`(() => {
         const term = Array.from(document.querySelectorAll(".history-summary dt"))
           .find((element) => element.textContent?.trim() === "有效看屏");
@@ -1137,12 +1393,204 @@ function createWindow() {
           value: term?.parentElement?.querySelector("dd")?.textContent?.trim() ?? null,
         };
       })()`);
-      const historyTracks = await window.webContents.executeJavaScript(`(() => ({
-        count: document.querySelectorAll(".history-track").length,
-        labels: Array.from(document.querySelectorAll(".history-track-label strong"))
+      const historyChart = await window.webContents.executeJavaScript(`(() => ({
+        count: document.querySelectorAll(".history-chart-plot .recharts-wrapper").length,
+        mode: document.querySelector(".history-chart-plot")?.dataset.mode ?? null,
+        durationLines: document.querySelectorAll(".history-duration-line").length,
+        blinkBars: document.querySelectorAll(
+          ".history-blink-aggregate.recharts-rectangle",
+        ).length,
+        yawnBars: document.querySelectorAll(
+          ".history-yawn-aggregate.recharts-rectangle",
+        ).length,
+        blinkDots: document.querySelectorAll(".history-blink-dot").length,
+        yawnDots: document.querySelectorAll(".history-yawn-dot").length,
+        yAxes: document.querySelectorAll(".history-chart-plot .recharts-yAxis").length,
+        labels: Array.from(document.querySelectorAll(".history-series-toggle strong"))
           .map((element) => element.textContent?.trim()),
-        lines: document.querySelectorAll(".history-track .recharts-line-curve").length,
+        metricUnits: Array.from(document.querySelectorAll(".history-series-toggle small"))
+          .map((element) => element.textContent?.trim()),
+        checked: Array.from(document.querySelectorAll(".history-series-toggle input"))
+          .map((element) => element.checked),
+        summaryLabels: Array.from(document.querySelectorAll(".history-summary dt"))
+          .map((element) => element.textContent?.trim()),
+        range: document.querySelector(".history-heading p")?.textContent?.trim() ?? null,
+        viewDurationMs: Number(
+          document.querySelector(".history-chart-plot")?.dataset.viewDurationMs ?? NaN,
+        ),
+        decisionAnnotations: document.querySelectorAll(".history-annotation--decision").length,
+        actionAnnotations: document.querySelectorAll(".history-annotation--action").length,
+        zoomControls: document.querySelectorAll(
+          '[aria-label="放大时间轴"], [aria-label="缩小时间轴"], [aria-label="重置时间轴"]',
+        ).length,
       }))()`);
+      const zoomOutTarget = await window.webContents.executeJavaScript(`(() => {
+        const plot = document.querySelector(".history-chart-plot")?.getBoundingClientRect();
+        return plot
+          ? { x: Math.round(plot.left + plot.width / 2), y: Math.round(plot.top + plot.height / 2) }
+          : null;
+      })()`);
+      if (zoomOutTarget) {
+        for (let index = 0; index < 14; index += 1) {
+          window.webContents.sendInputEvent({
+            type: "mouseWheel",
+            x: zoomOutTarget.x,
+            y: zoomOutTarget.y,
+            deltaX: 0,
+            deltaY: -120,
+            canScroll: true,
+          });
+          await wait(24);
+        }
+        await wait(150);
+      }
+      const fullDayChart = await window.webContents.executeJavaScript(`(() => ({
+        mode: document.querySelector(".history-chart-plot")?.dataset.mode ?? null,
+        range: document.querySelector(".history-heading p")?.textContent?.trim() ?? null,
+        blinkBars: document.querySelectorAll(
+          ".history-blink-aggregate.recharts-rectangle",
+        ).length,
+        yawnBars: document.querySelectorAll(
+          ".history-yawn-aggregate.recharts-rectangle",
+        ).length,
+        blinkDots: document.querySelectorAll(".history-blink-dot").length,
+        yawnDots: document.querySelectorAll(".history-yawn-dot").length,
+        decisionAnnotations: document.querySelectorAll(".history-annotation--decision").length,
+        actionAnnotations: document.querySelectorAll(".history-annotation--action").length,
+      }))()`);
+      const zoomTarget = await window.webContents.executeJavaScript(`(() => {
+        const plot = document.querySelector(".history-chart-plot")?.getBoundingClientRect();
+        if (!plot) {
+          return null;
+        }
+        const chartWidth = plot.width - 42 - 34;
+        const targetMinute = 9 * 60 + 32 + 0.4;
+        return {
+          x: Math.round(plot.left + 42 + chartWidth * (targetMinute / (24 * 60))),
+          y: Math.round(plot.top + plot.height / 2),
+        };
+      })()`);
+      if (zoomTarget) {
+        for (let index = 0; index < 5; index += 1) {
+          window.webContents.sendInputEvent({
+            type: "mouseWheel",
+            x: zoomTarget.x,
+            y: zoomTarget.y,
+            deltaX: 0,
+            deltaY: 120,
+            canScroll: true,
+          });
+          await wait(24);
+        }
+        await wait(150);
+      }
+      const minuteResolution = await window.webContents.executeJavaScript(`(() => ({
+        mode: document.querySelector(".history-chart-plot")?.dataset.mode ?? null,
+        range: document.querySelector(".history-heading p")?.textContent?.trim() ?? null,
+        blinkBars: document.querySelectorAll(
+          ".history-blink-aggregate.recharts-rectangle",
+        ).length,
+        yawnBars: document.querySelectorAll(
+          ".history-yawn-aggregate.recharts-rectangle",
+        ).length,
+        blinkDots: document.querySelectorAll(".history-blink-dot").length,
+        yawnDots: document.querySelectorAll(".history-yawn-dot").length,
+        metricUnits: Array.from(document.querySelectorAll(".history-series-toggle small"))
+          .map((element) => element.textContent?.trim()),
+      }))()`);
+      if (zoomTarget) {
+        for (let index = 5; index < 30; index += 1) {
+          window.webContents.sendInputEvent({
+            type: "mouseWheel",
+            x: zoomTarget.x,
+            y: zoomTarget.y,
+            deltaX: 0,
+            deltaY: 120,
+            canScroll: true,
+          });
+          await wait(24);
+        }
+        await wait(300);
+      }
+      const screenHoverTarget = await window.webContents.executeJavaScript(`(() => {
+        const plot = document.querySelector(".history-chart-plot")?.getBoundingClientRect();
+        if (!plot) {
+          return null;
+        }
+        return {
+          x: Math.round(plot.left + 42 + (plot.width - 42 - 34) * 0.45),
+          y: Math.round(plot.top + plot.height / 2),
+        };
+      })()`);
+      if (screenHoverTarget) {
+        window.webContents.sendInputEvent({
+          type: "mouseMove",
+          x: screenHoverTarget.x,
+          y: screenHoverTarget.y,
+        });
+        await wait(100);
+      }
+      const secondResolution = await window.webContents.executeJavaScript(`(() => ({
+        mode: document.querySelector(".history-chart-plot")?.dataset.mode ?? null,
+        range: document.querySelector(".history-heading p")?.textContent?.trim() ?? null,
+        metricUnits: Array.from(document.querySelectorAll(".history-series-toggle small"))
+          .map((element) => element.textContent?.trim()),
+        summaryValues: Array.from(document.querySelectorAll(".history-summary dd"))
+          .map((element) => element.textContent?.trim()),
+        tooltipCount: document.querySelectorAll(".history-tooltip").length,
+        tooltipText: document.querySelector(".history-tooltip")?.textContent?.trim() ?? null,
+        crosshairCount: document.querySelectorAll(".recharts-tooltip-cursor").length,
+        blinkDots: document.querySelectorAll(".history-blink-dot").length,
+        yawnDots: document.querySelectorAll(".history-yawn-dot").length,
+        blinkBars: document.querySelectorAll(
+          ".history-blink-aggregate.recharts-rectangle",
+        ).length,
+        yawnBars: document.querySelectorAll(
+          ".history-yawn-aggregate.recharts-rectangle",
+        ).length,
+        eventLanes: document.querySelectorAll(
+          ".history-blink-event-lane, .history-yawn-event-lane",
+        ).length,
+        tooltipCarriers: document.querySelectorAll(".history-tooltip-carrier").length,
+        decisionAnnotations: document.querySelectorAll(".history-annotation--decision").length,
+        actionAnnotations: document.querySelectorAll(".history-annotation--action").length,
+      }))()`);
+      const filterBefore = await window.webContents.executeJavaScript(`(() => {
+        const plot = document.querySelector(".history-chart-plot")?.getBoundingClientRect();
+        return {
+          durationLines: document.querySelectorAll(".history-duration-line").length,
+          width: plot?.width ?? 0,
+          height: plot?.height ?? 0,
+        };
+      })()`);
+      await window.webContents.executeJavaScript(
+        "document.querySelector('[aria-label=\"显示有效看屏\"]')?.click()",
+      );
+      await wait(100);
+      const filterAfter = await window.webContents.executeJavaScript(`(() => {
+        const plot = document.querySelector(".history-chart-plot")?.getBoundingClientRect();
+        return {
+          durationLines: document.querySelectorAll(".history-duration-line").length,
+          width: plot?.width ?? 0,
+          height: plot?.height ?? 0,
+        };
+      })()`);
+      await window.webContents.executeJavaScript(
+        "document.querySelector('[aria-label=\"显示有效看屏\"]')?.click()",
+      );
+      await wait(100);
+      const filterRestored = await window.webContents.executeJavaScript(`(() => ({
+        durationLines: document.querySelectorAll(".history-duration-line").length,
+        checked: document.querySelector('[aria-label="显示有效看屏"]')?.checked ?? false,
+      }))()`);
+      const metricFilter = {
+        before: filterBefore,
+        after: filterAfter,
+        restored: filterRestored,
+        stable:
+          filterBefore.width === filterAfter.width &&
+          filterBefore.height === filterAfter.height,
+      };
       const trayShown = panelVisible;
       const storedShown = await window.webContents.executeJavaScript(
         "window.localStorage.getItem('look-me:panel-visible:v1') === 'true'",
@@ -1151,6 +1599,8 @@ function createWindow() {
         "document.querySelector('.history-close')?.click()",
       );
       await wait(150);
+      const restoredHistoryBounds = window.getBounds();
+      const restoredHistoryPetAnchor = getHistoryPetAnchor();
       const hidden = !(await window.webContents.executeJavaScript(
         "Boolean(document.querySelector('.history-panel'))",
       ));
@@ -1171,16 +1621,83 @@ function createWindow() {
         selectPanelVisibility(originalPanelVisibility);
       }
       await wait(150);
+      const historyWindowExpanded =
+        expandedHistoryBounds.width > compactHistoryBounds.width &&
+        expandedHistoryBounds.height > compactHistoryBounds.height;
+      const historyWindowRestored =
+        restoredHistoryBounds.width === compactHistoryBounds.width &&
+        restoredHistoryBounds.height === compactHistoryBounds.height;
+      const historyPetAnchorPreserved =
+        expandedHistoryPetAnchor.x === compactHistoryPetAnchor.x &&
+        expandedHistoryPetAnchor.y === compactHistoryPetAnchor.y &&
+        restoredHistoryPetAnchor.x === compactHistoryPetAnchor.x &&
+        restoredHistoryPetAnchor.y === compactHistoryPetAnchor.y;
       const passed =
         panelShown &&
         panelActionCount === 1 &&
         statsShown &&
         shown &&
+        historyWindowExpanded &&
+        historyWindowRestored &&
+        historyPetAnchorPreserved &&
+        historyLayout.fitsViewport &&
         effectiveScreenTime.label === "有效看屏" &&
         Boolean(effectiveScreenTime.value) &&
-        historyTracks.count === 2 &&
-        historyTracks.labels.join(",") === "眨眼次数,有效看屏" &&
-        historyTracks.lines === 2 &&
+        historyChart.count === 1 &&
+        historyChart.mode === "aggregate" &&
+        historyChart.durationLines === 1 &&
+        historyChart.blinkDots === 0 &&
+        historyChart.yawnDots === 0 &&
+        historyChart.yAxes === 2 &&
+        historyChart.labels.join(",") === "眨眼,有效看屏,打哈欠" &&
+        historyChart.metricUnits[0]?.startsWith("次/") &&
+        historyChart.metricUnits[1]?.startsWith("秒/") &&
+        historyChart.metricUnits[2]?.startsWith("次/") &&
+        historyChart.checked.every(Boolean) &&
+        historyChart.summaryLabels.join(",") === "眨眼,有效看屏,打哈欠" &&
+        historyChart.viewDurationMs === 60 * 60_000 &&
+        !historyChart.range?.includes("全天") &&
+        historyChart.zoomControls === 0 &&
+        zoomOutTarget &&
+        fullDayChart.mode === "aggregate" &&
+        fullDayChart.range?.includes("全天") &&
+        fullDayChart.blinkBars > 0 &&
+        fullDayChart.yawnBars > 0 &&
+        fullDayChart.blinkDots === 0 &&
+        fullDayChart.yawnDots === 0 &&
+        fullDayChart.decisionAnnotations > 0 &&
+        fullDayChart.actionAnnotations > 0 &&
+        zoomTarget &&
+        minuteResolution.mode === "aggregate" &&
+        minuteResolution.range?.includes("1 分钟粒度") &&
+        minuteResolution.blinkBars > 0 &&
+        minuteResolution.yawnBars > 0 &&
+        minuteResolution.blinkDots === 0 &&
+        minuteResolution.yawnDots === 0 &&
+        minuteResolution.metricUnits.join(",") === "次/1分钟,秒/1分钟,次/1分钟" &&
+        screenHoverTarget &&
+        secondResolution.mode === "events" &&
+        secondResolution.range?.includes("1 秒粒度") &&
+        secondResolution.metricUnits.join(",") === "事件,秒内时长,事件" &&
+        secondResolution.summaryValues[0] !== "0次" &&
+        secondResolution.summaryValues[1] === "1分钟" &&
+        secondResolution.summaryValues[2] === "1次" &&
+        secondResolution.tooltipCount === 1 &&
+        secondResolution.tooltipText?.includes("有效看屏") &&
+        secondResolution.crosshairCount === 1 &&
+        secondResolution.blinkDots > 0 &&
+        secondResolution.yawnDots > 0 &&
+        secondResolution.blinkBars === 0 &&
+        secondResolution.yawnBars === 0 &&
+        secondResolution.eventLanes === 2 &&
+        secondResolution.tooltipCarriers === 2 &&
+        secondResolution.decisionAnnotations > 0 &&
+        secondResolution.actionAnnotations > 0 &&
+        metricFilter.before.durationLines === 1 &&
+        metricFilter.after.durationLines === 0 &&
+        metricFilter.restored.durationLines === 1 &&
+        metricFilter.restored.checked &&
+        metricFilter.stable &&
         trayShown &&
         storedShown &&
         hidden &&
@@ -1193,8 +1710,25 @@ function createWindow() {
         panelActionCount,
         statsShown,
         shown,
+        compactHistoryBounds,
+        expandedHistoryBounds,
+        restoredHistoryBounds,
+        compactHistoryPetAnchor,
+        expandedHistoryPetAnchor,
+        restoredHistoryPetAnchor,
+        historyWindowExpanded,
+        historyWindowRestored,
+        historyPetAnchorPreserved,
+        historyLayout,
         effectiveScreenTime,
-        historyTracks,
+        historyChart,
+        zoomOutTarget,
+        fullDayChart,
+        zoomTarget,
+        minuteResolution,
+        screenHoverTarget,
+        secondResolution,
+        metricFilter,
         trayShown,
         storedShown,
         hidden,
@@ -1238,30 +1772,28 @@ function createWindow() {
       const storedDisabled = await window.webContents.executeJavaScript(
         "window.localStorage.getItem('look-me:pet-persistent:v1') === 'false'",
       );
-      const panelDisabled = !panelVisible;
-      const storedPanelDisabled = await window.webContents.executeJavaScript(
-        "window.localStorage.getItem('look-me:panel-visible:v1') === 'false'",
+      const panelStillEnabled = panelVisible;
+      const storedPanelStillEnabled = await window.webContents.executeJavaScript(
+        "window.localStorage.getItem('look-me:panel-visible:v1') === 'true'",
       );
-      const panelHidden = !(await window.webContents.executeJavaScript(
+      const panelStillShown = await window.webContents.executeJavaScript(
         "Boolean(document.querySelector('.idle-companion'))",
-      ));
+      );
       const disabledPanelMenuItem = settingsMenu.items.find(
         (item) => item.label === "显示眨眼次数",
       );
-      const panelMenuDisabled =
-        disabledPanelMenuItem?.enabled === false &&
-        disabledPanelMenuItem?.checked === false;
+      const panelMenuStillEnabled =
+        disabledPanelMenuItem?.enabled === true &&
+        disabledPanelMenuItem?.checked === true;
       selectPetPersistence(originalPersistence);
-      if (originalPersistence) {
-        selectPanelVisibility(originalPanelVisibility);
-      }
+      selectPanelVisibility(originalPanelVisibility);
       await wait(150);
       const restored = await window.webContents.executeJavaScript(
         `window.localStorage.getItem('look-me:pet-persistent:v1') === '${originalPersistence}'`,
       );
       const restoredPanel = await window.webContents.executeJavaScript(
         `window.localStorage.getItem('look-me:panel-visible:v1') === '${
-          originalPersistence && originalPanelVisibility
+          originalPanelVisibility
         }'`,
       );
       const passed =
@@ -1272,10 +1804,10 @@ function createWindow() {
         panelMenuEnabled &&
         disabled &&
         storedDisabled &&
-        panelDisabled &&
-        storedPanelDisabled &&
-        panelHidden &&
-        panelMenuDisabled &&
+        panelStillEnabled &&
+        storedPanelStillEnabled &&
+        panelStillShown &&
+        panelMenuStillEnabled &&
         restored &&
         restoredPanel;
       console.log(`LOOK_ME_PERSISTENCE ${JSON.stringify({
@@ -1286,10 +1818,10 @@ function createWindow() {
         panelMenuEnabled,
         disabled,
         storedDisabled,
-        panelDisabled,
-        storedPanelDisabled,
-        panelHidden,
-        panelMenuDisabled,
+        panelStillEnabled,
+        storedPanelStillEnabled,
+        panelStillShown,
+        panelMenuStillEnabled,
         restored,
         restoredPanel,
         passed,
@@ -1357,7 +1889,7 @@ function updateTrayMenu() {
   }
   settingsMenu = Menu.buildFromTemplate([
       {
-        label: "看山设置…",
+        label: "看山设置",
         click: showCameraSettings,
       },
       {
@@ -1401,7 +1933,6 @@ function updateTrayMenu() {
         label: "显示眨眼次数",
         type: "checkbox",
         checked: panelVisible,
-        enabled: petPersistent,
         click: () => selectPanelVisibility(!panelVisible),
       },
       { type: "separator" },
@@ -1437,24 +1968,15 @@ function selectMonitoringEnabled(enabled) {
 
 function selectPetPersistence(enabled) {
   petPersistent = enabled;
-  if (!enabled) {
-    panelVisible = false;
-  }
   updateTrayMenu();
   mainWindow?.showInactive();
   mainWindow?.webContents.send(
     "look-me:command",
     enabled ? "pet-persistent:on" : "pet-persistent:off",
   );
-  if (!enabled && mainWindow) {
-    hidePanelBesidePet(mainWindow);
-  }
 }
 
 function selectPanelVisibility(visible) {
-  if (visible && !petPersistent) {
-    return;
-  }
   panelVisible = visible;
   updateTrayMenu();
   if (!mainWindow) {
@@ -1550,6 +2072,7 @@ ipcMain.on("look-me:window-drag", (event, payload) => {
     return;
   }
   if (phase === "start") {
+    const windowBounds = window.getBounds();
     const hasValidHandleBounds =
       handleBounds &&
       Number.isFinite(handleBounds.x) &&
@@ -1560,14 +2083,16 @@ ipcMain.on("look-me:window-drag", (event, payload) => {
       handleBounds.y >= 0 &&
       handleBounds.width > 0 &&
       handleBounds.height > 0 &&
-      handleBounds.x + handleBounds.width <= WINDOW_WIDTH &&
-      handleBounds.y + handleBounds.height <= WINDOW_HEIGHT;
+      handleBounds.x + handleBounds.width <= windowBounds.width &&
+      handleBounds.y + handleBounds.height <= windowBounds.height;
     activeWindowDrag = {
       window,
       screenX,
       screenY,
       bounds: window.getBounds(),
-      handleBounds: hasValidHandleBounds ? handleBounds : PET_DRAG_HANDLE,
+      handleBounds: hasValidHandleBounds
+        ? handleBounds
+        : getPetDragHandle(),
       attentionMode: petAttentionMode,
     };
     return;
@@ -1651,14 +2176,24 @@ ipcMain.on("look-me:pet-attention", (event, payload) => {
   if (rail) {
     petAttentionMode = "rail";
     positionPetOnRail(window, position);
-    if (panelVisible && rendererSettingsReady) {
+    if (
+      panelVisible &&
+      rendererSettingsReady &&
+      !cameraSettingsOpen &&
+      !historyOpen
+    ) {
       showPanelBesidePet(window);
     }
     return;
   }
 
   petAttentionMode = "parked";
-  if (panelVisible && rendererSettingsReady) {
+  if (
+    panelVisible &&
+    rendererSettingsReady &&
+    !cameraSettingsOpen &&
+    !historyOpen
+  ) {
     showPanelBesidePet(window);
   }
 });
@@ -1686,18 +2221,31 @@ ipcMain.on("look-me:monitoring-enabled", (event, enabled) => {
   }
 });
 
+ipcMain.on("look-me:camera-settings-open", (event, open) => {
+  const window = BrowserWindow.fromWebContents(event.sender);
+  if (!window || window !== mainWindow || typeof open !== "boolean") {
+    return;
+  }
+  resizeWindowForExpandedPanel(window, { cameraSettingsOpen: open });
+});
+
+ipcMain.on("look-me:history-open", (event, open) => {
+  const window = BrowserWindow.fromWebContents(event.sender);
+  if (!window || window !== mainWindow || typeof open !== "boolean") {
+    return;
+  }
+  resizeWindowForExpandedPanel(window, { historyOpen: open });
+});
+
 ipcMain.on("look-me:pet-persistence", (event, enabled) => {
   const window = BrowserWindow.fromWebContents(event.sender);
   if (!window || typeof enabled !== "boolean") {
     return;
   }
-  if (enabled === petPersistent && (enabled || !panelVisible)) {
+  if (enabled === petPersistent) {
     return;
   }
   petPersistent = enabled;
-  if (!enabled) {
-    panelVisible = false;
-  }
   updateTrayMenu();
 });
 
@@ -1713,7 +2261,7 @@ ipcMain.on("look-me:panel-visibility", (event, visible) => {
     selectPanelVisibility(requestedVisibility);
     return;
   }
-  const nextVisible = visible && petPersistent;
+  const nextVisible = visible;
   if (nextVisible === panelVisible) {
     return;
   }

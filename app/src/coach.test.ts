@@ -19,7 +19,7 @@ describe("coachReducer", () => {
     expect(next).toEqual({ ...initial, sensingMode: "camera" });
   });
 
-  it("starts a distance break when the 20-minute interval is due", () => {
+  it("starts a distance break after 20 accumulated screen-facing minutes", () => {
     const initial = coachReducer(createCoachState(0), {
       type: "START",
       now: 0,
@@ -32,13 +32,14 @@ describe("coachReducer", () => {
       coachingEnabled: true,
       blinkReminderEnabled: true,
       distanceReminderEnabled: true,
+      distanceObservedMs: DISTANCE_INTERVAL_MS,
     });
 
     expect(next.mode).toBe("distance");
     expect(next.distanceStartedAt).toBe(DISTANCE_INTERVAL_MS);
   });
 
-  it("restarts the distance interval while automatic reminders are off", () => {
+  it("restarts effective screen accumulation while automatic reminders are off", () => {
     const initial = coachReducer(createCoachState(0), {
       type: "START",
       now: 0,
@@ -60,30 +61,32 @@ describe("coachReducer", () => {
 
     expect(disabled).toMatchObject({
       mode: "idle",
-      nextDistanceAt: disabledAt + DISTANCE_INTERVAL_MS,
+      distanceObservedMs: 0,
     });
 
     const beforeNextInterval = coachReducer({
       ...disabled,
-      lastBlinkAt: disabled.nextDistanceAt - 1,
-      lastBlinkPromptAt: disabled.nextDistanceAt - 1,
+      lastBlinkAt: disabledAt + DISTANCE_INTERVAL_MS - 1,
+      lastBlinkPromptAt: disabledAt + DISTANCE_INTERVAL_MS - 1,
     }, {
       type: "TICK",
-      now: disabled.nextDistanceAt - 1,
+      now: disabledAt + DISTANCE_INTERVAL_MS - 1,
       sensingAvailable: true,
       coachingEnabled: true,
       blinkReminderEnabled: true,
       distanceReminderEnabled: true,
+      distanceObservedMs: DISTANCE_INTERVAL_MS - 1,
     });
     expect(beforeNextInterval.mode).toBe("idle");
 
     const nextInterval = coachReducer(beforeNextInterval, {
       type: "TICK",
-      now: disabled.nextDistanceAt,
+      now: disabledAt + DISTANCE_INTERVAL_MS,
       sensingAvailable: true,
       coachingEnabled: true,
       blinkReminderEnabled: true,
       distanceReminderEnabled: true,
+      distanceObservedMs: DISTANCE_INTERVAL_MS,
     });
     expect(nextInterval.mode).toBe("distance");
   });
@@ -96,6 +99,7 @@ describe("coachReducer", () => {
       coachingEnabled: true,
       blinkReminderEnabled: true,
       distanceReminderEnabled: true,
+      distanceObservedMs: DISTANCE_INTERVAL_MS,
     });
     const next = coachReducer(distance, {
       type: "TICK",
@@ -107,9 +111,7 @@ describe("coachReducer", () => {
     });
 
     expect(next.mode).toBe("idle");
-    expect(next.nextDistanceAt).toBe(
-      DISTANCE_INTERVAL_MS + DISTANCE_DURATION_MS + DISTANCE_INTERVAL_MS,
-    );
+    expect(next.distanceObservedMs).toBe(0);
   });
 
   it("dismisses an active automatic distance reminder when it is turned off", () => {
@@ -120,6 +122,7 @@ describe("coachReducer", () => {
       coachingEnabled: true,
       blinkReminderEnabled: true,
       distanceReminderEnabled: true,
+      distanceObservedMs: DISTANCE_INTERVAL_MS,
     });
     const disabledAt = DISTANCE_INTERVAL_MS + 1_000;
     const next = coachReducer(distance, {
@@ -134,7 +137,7 @@ describe("coachReducer", () => {
     expect(next).toMatchObject({
       mode: "idle",
       distanceStartedAt: null,
-      nextDistanceAt: disabledAt + DISTANCE_INTERVAL_MS,
+      distanceObservedMs: 0,
     });
   });
 
@@ -146,6 +149,7 @@ describe("coachReducer", () => {
       coachingEnabled: true,
       blinkReminderEnabled: false,
       distanceReminderEnabled: true,
+      distanceObservedMs: DISTANCE_INTERVAL_MS,
     });
 
     expect(next.mode).toBe("distance");
@@ -353,7 +357,7 @@ describe("coachReducer", () => {
       mode: "idle",
       lastBlinkAt: disabledAt,
       lastBlinkPromptAt: null,
-      nextDistanceAt: disabledAt + DISTANCE_INTERVAL_MS,
+      distanceObservedMs: 0,
       distanceStartedAt: null,
       guidedBlinks: 0,
     });

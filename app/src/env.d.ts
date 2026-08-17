@@ -52,6 +52,8 @@ interface LookMeBridge {
   openSettings: () => void;
   syncPetSize: (size: LookMePetSize) => void;
   syncMonitoringEnabled: (enabled: boolean) => void;
+  syncCameraSettingsOpen: (open: boolean) => void;
+  syncHistoryOpen: (open: boolean) => void;
   syncPetPersistence: (enabled: boolean) => void;
   syncPetAttention: (attention: LookMePetAttention) => void;
   syncPanelVisibility: (visible: boolean) => void;

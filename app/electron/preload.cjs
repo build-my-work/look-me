@@ -22,6 +22,12 @@ contextBridge.exposeInMainWorld("lookMe", {
   syncMonitoringEnabled(enabled) {
     ipcRenderer.send("look-me:monitoring-enabled", enabled);
   },
+  syncCameraSettingsOpen(open) {
+    ipcRenderer.send("look-me:camera-settings-open", open);
+  },
+  syncHistoryOpen(open) {
+    ipcRenderer.send("look-me:history-open", open);
+  },
   syncPetPersistence(enabled) {
     ipcRenderer.send("look-me:pet-persistence", enabled);
   },
