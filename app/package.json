@@ -28,6 +28,7 @@
     "preview": "vite preview",
     "start": "electron electron/main.mjs",
     "test": "vitest run src",
+    "test:electron": "node --test electron/*.test.mjs",
     "typecheck": "tsc --noEmit",
     "test:sites": "node --test tests/sites-worker.test.mjs"
   },

@@ -175,6 +175,55 @@ Resolution: made Skip a direct portal child and adjusted the selected preview st
 
 final result: passed
 
+## Zhihu Direct capsule and chat
+
+### Evidence
+
+- Source visual truth: `/Users/zhihu/.codex/visualizations/2026/08/17/01a00f6d-52dd-7332-803c-d78ad4555a2f/index.html`
+- Source capture: `/var/folders/pw/87rv66m91h9g710rc68z0c740000gn/T/look-me-zhihu-direct-source.png`
+- Source Direct asset: `/Users/zhihu/.codex/visualizations/2026/08/17/01a00f6d-52dd-7332-803c-d78ad4555a2f/zhida-entry-button.png`
+- Native implementation capture: `/var/folders/pw/87rv66m91h9g710rc68z0c740000gn/T/look-me-zhihu-direct-smoke.png`
+- Browser implementation capture: `/var/folders/pw/87rv66m91h9g710rc68z0c740000gn/T/look-me-zhihu-direct-browser-preview.png`
+- Density-normalized implementation: `/var/folders/pw/87rv66m91h9g710rc68z0c740000gn/T/look-me-zhihu-direct-implementation-1x.png`
+- Full-view comparison: `/var/folders/pw/87rv66m91h9g710rc68z0c740000gn/T/look-me-zhihu-direct-comparison.png`
+- Focused capsule/chat comparison: `/var/folders/pw/87rv66m91h9g710rc68z0c740000gn/T/look-me-zhihu-direct-focused-comparison.png`
+- State: idle, persistent capsule visible, Zhihu Direct open, one submitted question and one answer.
+- Source viewport: `760 × 680` CSS pixels at DPR 1; source capture: `760 × 680` pixels.
+- Implementation viewport: `760 × 680` CSS pixels at DPR 2; native capture: `1520 × 1360` pixels, normalized to `760 × 680` before comparison.
+- Browser preview viewport: `1280 × 720` CSS pixels at DPR 2; the expanded composition is fully visible and the browser console has no warnings or errors.
+
+### Comparison history
+
+- Pass 1 found a P2 state bug: the disabled send button animated every icon, so the idle ArrowUp could be captured rotated downward. The loading animation selector now targets only the loading state.
+- Preliminary small-size inspection found a P2 boundary risk after widening the capsule. The original `83px` pet anchor remains intact; only the small capsule controls scale together to `25px`, and native verification measures the chat panel at `x=1.5px` with no clipping or statistics overlap.
+- Browser pass 1 found a P2 preview-only regression: the expanded chat inherited the old bottom-anchored preview stage and was clipped below the viewport. The Direct preview now uses a top-anchored `680px` stage with bounded low-height and narrow-width scaling; the post-fix `1280 × 720` capture shows the complete composer.
+- Post-fix native captures passed at small, standard, and large pet sizes. Each measured the chart and Direct controls at the same `29px` height, kept the Direct entry inside the capsule, fit the `390 × 300` chat below it, and restored the original `760 × 390` window bounds after close.
+
+### Fidelity review
+
+- Fonts and typography: the implementation keeps the prototype's compact Inter/system hierarchy, `New chat` header weight, monospace CLI label, 12px message text, and zero letter spacing. No wrapping or truncation issue is visible.
+- Spacing and layout rhythm: the source's wide Direct pill remains wider than the circular statistics control but matches its height. The chat keeps the source's header/messages/composer structure and `390px` width. Its height is intentionally reduced from `350px` to `300px` so it fits the native desktop window below the capsule.
+- Colors and visual tokens: teal status, white chat surface, quiet green assistant messages, dark teal user messages, and the purple Direct brand asset match the source while reusing the app's existing tokens.
+- Image quality and asset fidelity: the implementation uses the approved raster Direct asset and the existing project-owned 刘看山 PNG without redraws, substitutions, or CSS approximations. Both render sharply in the DPR 2 native capture.
+- Copy and content: `zhihu cli`, `New chat`, the prompt, close/send labels, and real answer content preserve the selected interaction. Prototype-only explanatory copy is absent from the product UI.
+- Intentional native adaptation: the implementation keeps the established transparent Electron surface and existing pet scale rather than copying the prototype's pale webpage canvas. This is a product-shell constraint, not unresolved design drift.
+
+### Findings
+
+- P0: none.
+- P1: none.
+- P2: none.
+- Residual P3: the source prototype shows more conversation history because it runs in a taller page context; the native panel prioritizes a fully visible composer and scrolls longer content.
+
+### Implementation checklist
+
+- Direct entry is inside the persistent capsule and balanced with the statistics control.
+- Statistics remains a separate action and is mutually exclusive with Direct.
+- Chat opens below the capsule, sends through the typed Electron bridge, and renders success and error states.
+- Native window expansion, all pet sizes, response flow, close restoration, browser preview, renderer build, unsigned desktop packaging, packaged smoke, typecheck, and unit tests are verified.
+
+final result: passed
+
 ## Camera monitoring controls
 
 - Added one visually dominant monitoring master switch, plus subordinate distance-break reminder and daily-window controls that become quiet and disabled when the master switch is off.

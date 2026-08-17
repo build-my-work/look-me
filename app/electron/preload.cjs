@@ -28,6 +28,12 @@ contextBridge.exposeInMainWorld("lookMe", {
   syncHistoryOpen(open) {
     ipcRenderer.send("look-me:history-open", open);
   },
+  syncZhihuDirectOpen(open) {
+    ipcRenderer.send("look-me:zhihu-direct-open", open);
+  },
+  askZhihuDirect(query) {
+    return ipcRenderer.invoke("look-me:zhihu-direct-answer", query);
+  },
   syncPetPersistence(enabled) {
     ipcRenderer.send("look-me:pet-persistence", enabled);
   },

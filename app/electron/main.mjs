@@ -13,8 +13,10 @@ import {
 } from "electron";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { existsSync } from "node:fs";
+import { writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { runZhihuDirect } from "./zhihu-cli.mjs";
 
 const ELECTRON_DIR = path.dirname(fileURLToPath(import.meta.url));
 const APP_ROOT = path.dirname(ELECTRON_DIR);
@@ -27,6 +29,7 @@ const SETTINGS_WINDOW_WIDTH = 900;
 const SETTINGS_WINDOW_HEIGHT = 400;
 const HISTORY_WINDOW_WIDTH = 1120;
 const HISTORY_WINDOW_HEIGHT = 680;
+const ZHIHU_DIRECT_WINDOW_HEIGHT = 680;
 const PET_DRAG_HANDLE = Object.freeze({ x: 18, y: 62, width: 194, height: 230 });
 const PET_DRAG_HANDLE_TOPS = Object.freeze({ small: 22, standard: 62, large: 62 });
 const PET_SIZES = new Set(["small", "standard", "large"]);
@@ -41,6 +44,7 @@ const SMOKE_ENV_KEYS = [
   "LOOK_ME_PET_SETTINGS_SMOKE",
   "LOOK_ME_RAIL_DRAG_SMOKE",
   "LOOK_ME_SMOKE",
+  "LOOK_ME_ZHIHU_DIRECT_SMOKE",
 ];
 const PET_ATTENTION_PHASES = new Set([
   "parked",
@@ -64,6 +68,8 @@ let panelVisible = false;
 let panelPetSide = null;
 let cameraSettingsOpen = false;
 let historyOpen = false;
+let zhihuDirectOpen = false;
+let zhihuDirectRestoreBounds = null;
 let currentWindowSize = { width: WINDOW_WIDTH, height: WINDOW_HEIGHT };
 let rendererSettingsReady = false;
 let monitoringSettingsReady = false;
@@ -157,12 +163,16 @@ function configureMediaPermissions() {
 function getWindowSize(
   settingsOpen = cameraSettingsOpen,
   timelineOpen = historyOpen,
+  directOpen = zhihuDirectOpen,
 ) {
   if (settingsOpen) {
     return { width: SETTINGS_WINDOW_WIDTH, height: SETTINGS_WINDOW_HEIGHT };
   }
   if (timelineOpen) {
     return { width: HISTORY_WINDOW_WIDTH, height: HISTORY_WINDOW_HEIGHT };
+  }
+  if (directOpen) {
+    return { width: WINDOW_WIDTH, height: ZHIHU_DIRECT_WINDOW_HEIGHT };
   }
   return { width: WINDOW_WIDTH, height: WINDOW_HEIGHT };
 }
@@ -178,6 +188,7 @@ function getPetHitBoundsForSide(
   side,
   windowSize = currentWindowSize,
   activePanelSide = panelPetSide,
+  directOpen = zhihuDirectOpen,
 ) {
   const dragHandle = getPetDragHandle();
   const scale = PET_SCALES[petSize] ?? PET_SCALES.standard;
@@ -189,7 +200,9 @@ function getPetHitBoundsForSide(
     x: side === "right"
       ? windowSize.width - dragHandle.x - width - panelInset
       : dragHandle.x + panelInset,
-    y: windowSize.height - handleBottom - height,
+    y: directOpen
+      ? dragHandle.y + dragHandle.height - height
+      : windowSize.height - handleBottom - height,
     width,
     height,
   };
@@ -263,9 +276,12 @@ function resizeWindowForExpandedPanel(window, nextState) {
   const nextCameraSettingsOpen =
     nextState.cameraSettingsOpen ?? cameraSettingsOpen;
   const nextHistoryOpen = nextState.historyOpen ?? historyOpen;
+  const nextZhihuDirectOpen =
+    nextState.zhihuDirectOpen ?? zhihuDirectOpen;
   if (
     cameraSettingsOpen === nextCameraSettingsOpen &&
-    historyOpen === nextHistoryOpen
+    historyOpen === nextHistoryOpen &&
+    zhihuDirectOpen === nextZhihuDirectOpen
   ) {
     return;
   }
@@ -276,7 +292,12 @@ function resizeWindowForExpandedPanel(window, nextState) {
     height: previousBounds.height,
   };
   const petSide = panelPetSide ?? (petAttentionMode === "rail" ? "right" : "left");
-  const previousPetBounds = getPetHitBoundsForSide(petSide, previousSize);
+  const previousPetBounds = getPetHitBoundsForSide(
+    petSide,
+    previousSize,
+    panelPetSide,
+    zhihuDirectOpen,
+  );
   const petCenter = {
     x: Math.round(previousBounds.x + previousPetBounds.x + previousPetBounds.width / 2),
     y: Math.round(previousBounds.y + previousPetBounds.y + previousPetBounds.height / 2),
@@ -286,12 +307,18 @@ function resizeWindowForExpandedPanel(window, nextState) {
   const requestedSize = getWindowSize(
     nextCameraSettingsOpen,
     nextHistoryOpen,
+    nextZhihuDirectOpen,
   );
   const nextSize = {
     width: Math.min(requestedSize.width, workArea.width),
     height: Math.min(requestedSize.height, workArea.height),
   };
-  const nextPetBounds = getPetHitBoundsForSide(petSide, nextSize);
+  const nextPetBounds = getPetHitBoundsForSide(
+    petSide,
+    nextSize,
+    panelPetSide,
+    nextZhihuDirectOpen,
+  );
   const preferredX = Math.round(
     previousBounds.x + previousPetBounds.x - nextPetBounds.x,
   );
@@ -300,11 +327,28 @@ function resizeWindowForExpandedPanel(window, nextState) {
   );
   const maximumX = workArea.x + Math.max(0, workArea.width - nextSize.width);
   const maximumY = workArea.y + Math.max(0, workArea.height - nextSize.height);
-  const nextX = Math.min(maximumX, Math.max(workArea.x, preferredX));
-  const nextY = Math.min(maximumY, Math.max(workArea.y, preferredY));
+  if (!zhihuDirectOpen && nextZhihuDirectOpen) {
+    zhihuDirectRestoreBounds = previousBounds;
+  }
+  const restoringDirectOrigin = Boolean(
+    zhihuDirectRestoreBounds &&
+    !nextCameraSettingsOpen &&
+    !nextHistoryOpen &&
+    !nextZhihuDirectOpen,
+  );
+  const nextX = restoringDirectOrigin
+    ? Math.min(maximumX, Math.max(workArea.x, zhihuDirectRestoreBounds.x))
+    : Math.min(maximumX, Math.max(workArea.x, preferredX));
+  const nextY = restoringDirectOrigin
+    ? Math.min(maximumY, Math.max(workArea.y, zhihuDirectRestoreBounds.y))
+    : Math.min(maximumY, Math.max(workArea.y, preferredY));
 
   cameraSettingsOpen = nextCameraSettingsOpen;
   historyOpen = nextHistoryOpen;
+  zhihuDirectOpen = nextZhihuDirectOpen;
+  if (restoringDirectOrigin) {
+    zhihuDirectRestoreBounds = null;
+  }
   currentWindowSize = nextSize;
   window.setBounds({ x: nextX, y: nextY, ...nextSize }, false);
   if (petAttentionMode === "rail") {
@@ -1189,18 +1233,141 @@ async function runPanelAnchorSmoke(window) {
   app.exit(passed ? 0 : 1);
 }
 
+async function runZhihuDirectSmoke(window) {
+  window.show();
+  await wait(250);
+  const requestedPetSize = PET_SIZES.has(process.env.LOOK_ME_PET_SIZE)
+    ? process.env.LOOK_ME_PET_SIZE
+    : "standard";
+  window.webContents.send("look-me:command", `pet-size:${requestedPetSize}`);
+  await wait(150);
+  window.webContents.send("look-me:command", "panel:show:left");
+  await wait(250);
+
+  const initialBounds = window.getBounds();
+  const initialPetBounds = await window.webContents.executeJavaScript(`(() => {
+    const bounds = document.querySelector(".coach-pet-shell")?.getBoundingClientRect();
+    return bounds
+      ? { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height }
+      : null;
+  })()`);
+  const opened = await window.webContents.executeJavaScript(`(() => {
+    const entry = document.querySelector(".zhihu-direct-entry");
+    entry?.click();
+    return Boolean(entry);
+  })()`);
+  await wait(450);
+
+  const expandedBounds = window.getBounds();
+  const expandedState = await window.webContents.executeJavaScript(`(() => {
+    const capsule = document.querySelector(".idle-companion")?.getBoundingClientRect();
+    const chart = document.querySelector(".icon-button")?.getBoundingClientRect();
+    const entry = document.querySelector(".zhihu-direct-entry")?.getBoundingClientRect();
+    const panel = document.querySelector(".zhihu-direct-panel")?.getBoundingClientRect();
+    const pet = document.querySelector(".coach-pet-shell")?.getBoundingClientRect();
+    const petImage = document.querySelector(".coach-pet");
+    return {
+      capsule: capsule && { x: capsule.x, y: capsule.y, width: capsule.width, height: capsule.height },
+      chart: chart && { x: chart.x, y: chart.y, width: chart.width, height: chart.height },
+      entry: entry && { x: entry.x, y: entry.y, width: entry.width, height: entry.height },
+      panel: panel && { x: panel.x, y: panel.y, width: panel.width, height: panel.height },
+      pet: pet && { x: pet.x, y: pet.y, width: pet.width, height: pet.height },
+      petLoaded: Boolean(petImage?.complete && petImage?.naturalWidth),
+      viewport: { width: innerWidth, height: innerHeight },
+      directOpen: document.querySelector(".coach-stage")?.dataset.zhihuDirectOpen === "true",
+      entryInsideCapsule: Boolean(document.querySelector(".zhihu-direct-entry")?.closest(".idle-companion")),
+    };
+  })()`);
+
+  const submitted = await window.webContents.executeJavaScript(`(() => {
+    const input = document.querySelector("#zhihu-direct-question");
+    const form = document.querySelector(".zhihu-direct-composer");
+    if (!input || !form) return false;
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+    setter?.call(input, "久坐后怎么快速放松？");
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    form.requestSubmit();
+    return true;
+  })()`);
+  await wait(450);
+  const responseText = await window.webContents.executeJavaScript(
+    `Array.from(document.querySelectorAll(".zhihu-direct-message"), (node) => node.textContent ?? "").join("|")`,
+  );
+  const screenshotPath = path.join(tmpdir(), "look-me-zhihu-direct-smoke.png");
+  await writeFile(screenshotPath, (await window.capturePage()).toPNG());
+
+  await window.webContents.executeJavaScript(
+    `document.querySelector(".zhihu-direct-close")?.click()`,
+  );
+  await wait(450);
+  const restoredBounds = window.getBounds();
+  const restoredState = await window.webContents.executeJavaScript(`(() => {
+    const pet = document.querySelector(".coach-pet-shell")?.getBoundingClientRect();
+    return {
+      panelClosed: !document.querySelector(".zhihu-direct-panel"),
+      pet: pet && { x: pet.x, y: pet.y, width: pet.width, height: pet.height },
+    };
+  })()`);
+
+  const controlsBalanced =
+    Math.abs(expandedState.chart?.height - expandedState.entry?.height) <= 1;
+  const panelFits =
+    expandedState.panel &&
+    expandedState.capsule &&
+    expandedState.panel.y >= expandedState.capsule.y + expandedState.capsule.height &&
+    expandedState.panel.x >= 0 &&
+    expandedState.panel.y >= 0 &&
+    expandedState.panel.x + expandedState.panel.width <= expandedState.viewport.width &&
+    expandedState.panel.y + expandedState.panel.height <= expandedState.viewport.height;
+  const restored =
+    restoredBounds.x === initialBounds.x &&
+    restoredBounds.y === initialBounds.y &&
+    restoredBounds.width === WINDOW_WIDTH &&
+    restoredBounds.height === WINDOW_HEIGHT &&
+    restoredState.panelClosed;
+  const passed = Boolean(
+    opened &&
+    submitted &&
+    expandedBounds.height === ZHIHU_DIRECT_WINDOW_HEIGHT &&
+    expandedState.directOpen &&
+    expandedState.entryInsideCapsule &&
+    expandedState.petLoaded &&
+    controlsBalanced &&
+    panelFits &&
+    responseText.includes("知乎直答测试响应：久坐后怎么快速放松？") &&
+    restored,
+  );
+  console.log(`LOOK_ME_ZHIHU_DIRECT ${JSON.stringify({
+    requestedPetSize,
+    initialBounds,
+    initialPetBounds,
+    expandedBounds,
+    expandedState,
+    controlsBalanced,
+    panelFits,
+    responseText,
+    restoredBounds,
+    restoredState,
+    screenshotPath,
+    passed,
+  })}`);
+  app.exit(passed ? 0 : 1);
+}
+
 async function loadRenderer(window) {
   const demoQuery = process.env.LOOK_ME_MONITORING_SMOKE === "1"
     ? "?state=blink"
-    : process.env.LOOK_ME_HISTORY_SMOKE === "1"
-      ? "?state=idle&freeze=1&historyData=1"
-      : process.env.LOOK_ME_RAIL_DRAG_SMOKE === "1"
-        ? "?state=idle&freeze=1&petCry=1"
-        : process.env.LOOK_ME_PANEL_ANCHOR_SMOKE === "1"
-          ? "?state=idle&freeze=1"
-        : process.env.LOOK_ME_DEMO === "1"
-          ? "?state=distance&freeze=1"
-          : "";
+    : process.env.LOOK_ME_ZHIHU_DIRECT_SMOKE === "1"
+      ? "?state=idle&freeze=1"
+      : process.env.LOOK_ME_HISTORY_SMOKE === "1"
+        ? "?state=idle&freeze=1&historyData=1"
+        : process.env.LOOK_ME_RAIL_DRAG_SMOKE === "1"
+          ? "?state=idle&freeze=1&petCry=1"
+          : process.env.LOOK_ME_PANEL_ANCHOR_SMOKE === "1"
+            ? "?state=idle&freeze=1"
+            : process.env.LOOK_ME_DEMO === "1"
+              ? "?state=distance&freeze=1"
+              : "";
   if (process.env.LOOK_ME_DEV_URL) {
     const url = new URL(process.env.LOOK_ME_DEV_URL);
     if (demoQuery) {
@@ -1217,6 +1384,8 @@ function createWindow() {
   monitoringSettingsReady = false;
   cameraSettingsOpen = false;
   historyOpen = false;
+  zhihuDirectOpen = false;
+  zhihuDirectRestoreBounds = null;
   currentWindowSize = { width: WINDOW_WIDTH, height: WINDOW_HEIGHT };
   petAttentionMode = "parked";
   petAttentionPhase = "parked";
@@ -1284,6 +1453,10 @@ function createWindow() {
     }
     if (process.env.LOOK_ME_PANEL_ANCHOR_SMOKE === "1") {
       await runPanelAnchorSmoke(window);
+      return;
+    }
+    if (process.env.LOOK_ME_ZHIHU_DIRECT_SMOKE === "1") {
+      await runZhihuDirectSmoke(window);
       return;
     }
     if (process.env.LOOK_ME_MONITORING_SMOKE === "1") {
@@ -2106,7 +2279,7 @@ ipcMain.on("look-me:window-drag", (event, payload) => {
         petRailWindowX = null;
       }
       activeWindowDrag = null;
-      if (panelVisible && rendererSettingsReady) {
+      if (panelVisible && rendererSettingsReady && !zhihuDirectOpen) {
         showPanelBesidePet(window);
       }
     }
@@ -2174,7 +2347,8 @@ ipcMain.on("look-me:pet-attention", (event, payload) => {
       panelVisible &&
       rendererSettingsReady &&
       !cameraSettingsOpen &&
-      !historyOpen
+      !historyOpen &&
+      !zhihuDirectOpen
     ) {
       showPanelBesidePet(window);
     }
@@ -2186,7 +2360,8 @@ ipcMain.on("look-me:pet-attention", (event, payload) => {
     panelVisible &&
     rendererSettingsReady &&
     !cameraSettingsOpen &&
-    !historyOpen
+    !historyOpen &&
+    !zhihuDirectOpen
   ) {
     showPanelBesidePet(window);
   }
@@ -2229,6 +2404,28 @@ ipcMain.on("look-me:history-open", (event, open) => {
     return;
   }
   resizeWindowForExpandedPanel(window, { historyOpen: open });
+});
+
+ipcMain.on("look-me:zhihu-direct-open", (event, open) => {
+  const window = BrowserWindow.fromWebContents(event.sender);
+  if (!window || window !== mainWindow || typeof open !== "boolean") {
+    return;
+  }
+  resizeWindowForExpandedPanel(window, { zhihuDirectOpen: open });
+});
+
+ipcMain.handle("look-me:zhihu-direct-answer", async (event, query) => {
+  const window = BrowserWindow.fromWebContents(event.sender);
+  if (!window || window !== mainWindow) {
+    return {
+      ok: false,
+      error: { code: "UNTRUSTED_SENDER", message: "无法验证知乎直答请求来源。" },
+    };
+  }
+  if (process.env.LOOK_ME_ZHIHU_DIRECT_SMOKE === "1") {
+    return { ok: true, answer: `知乎直答测试响应：${String(query).trim()}` };
+  }
+  return runZhihuDirect(query);
 });
 
 ipcMain.on("look-me:pet-persistence", (event, enabled) => {

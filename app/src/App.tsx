@@ -47,6 +47,7 @@ import {
   shouldCameraRun,
 } from "./camera-monitoring";
 import { CameraSettingsPanel } from "./CameraSettingsPanel";
+import { ZhihuDirectPanel } from "./ZhihuDirectPanel";
 import {
   applyPetPersistence,
   PetAttentionController,
@@ -86,6 +87,10 @@ const YAWN_MOUTH_IMAGE = new URL("assets/kanshan-yawn-mouth.png", document.baseU
 const TEAR_IMAGE = new URL("assets/kanshan-tear.png", document.baseURI).toString();
 const HORIZON_IMAGE = new URL("assets/horizon-break.webp", document.baseURI).toString();
 const PREVIEW_IMAGE = new URL("assets/preview-workspace.webp", document.baseURI).toString();
+const ZHIHU_DIRECT_IMAGE = new URL(
+  "assets/zhida-entry-button.png",
+  document.baseURI,
+).toString();
 const BlinkHistoryPanel = lazy(() => import("./BlinkHistoryPanel"));
 const PET_SIZE_STORAGE_KEY = "look-me:pet-size:v1";
 const PET_PERSISTENCE_STORAGE_KEY = "look-me:pet-persistent:v1";
@@ -175,6 +180,8 @@ export function App() {
   const isDesktop = Boolean(window.lookMe?.isDesktop);
   const freezeDemo = new URLSearchParams(window.location.search).get("freeze") === "1";
   const statsDemo = new URLSearchParams(window.location.search).get("stats") === "1";
+  const zhihuDirectDemo =
+    new URLSearchParams(window.location.search).get("direct") === "1";
   const historyDemo = new URLSearchParams(window.location.search).get("history") === "1";
   const historyDataDemo =
     new URLSearchParams(window.location.search).get("historyData") === "1";
@@ -244,6 +251,7 @@ export function App() {
     rail: false,
   });
   const [statsOpen, setStatsOpen] = useState(statsDemo);
+  const [zhihuDirectOpen, setZhihuDirectOpen] = useState(zhihuDirectDemo);
   const [sedentaryReminderActive, setSedentaryReminderActive] = useState(
     sedentaryReminderDemo,
   );
@@ -270,6 +278,9 @@ export function App() {
     }
   });
   const [panelVisible, setPanelVisible] = useState(() => {
+    if (zhihuDirectDemo) {
+      return true;
+    }
     try {
       const stored = window.localStorage.getItem(PANEL_VISIBILITY_STORAGE_KEY);
       return stored === "true";
@@ -456,7 +467,8 @@ export function App() {
             state.mode === "idle" &&
             !cameraSettingsOpen &&
             !historyOpen &&
-            !statsOpen,
+            !statsOpen &&
+            !zhihuDirectOpen,
         });
       setSedentaryReminderActive(nextSedentaryReminderActive);
       dispatch({
@@ -488,6 +500,7 @@ export function App() {
     sedentaryReminderDemo,
     state.mode,
     statsOpen,
+    zhihuDirectOpen,
   ]);
 
   useEffect(() => {
@@ -548,7 +561,8 @@ export function App() {
           sedentaryReminderActive ||
           cameraSettingsOpen ||
           statsOpen ||
-          historyOpen,
+          historyOpen ||
+          zhihuDirectOpen,
         held: windowDragging,
         blinkCount: faceMonitor.blinkCount,
         reducedMotion,
@@ -581,6 +595,7 @@ export function App() {
     state.mode,
     statsOpen,
     windowDragging,
+    zhihuDirectOpen,
   ]);
 
   useEffect(() => {
@@ -672,6 +687,7 @@ export function App() {
         return;
       }
       if (command === "panel:hide") {
+        setZhihuDirectOpen(false);
         setPanelVisible(false);
         setPanelPetSide(null);
         return;
@@ -696,6 +712,7 @@ export function App() {
       if (command === "camera-settings:show") {
         setHistoryOpen(false);
         setStatsOpen(false);
+        setZhihuDirectOpen(false);
         setPetActionPreview(petIdleAction);
         setCameraSettingsOpen(true);
       }
@@ -713,6 +730,28 @@ export function App() {
   useEffect(() => {
     window.lookMe?.syncHistoryOpen(historyOpen);
   }, [historyOpen]);
+
+  useEffect(() => {
+    window.lookMe?.syncZhihuDirectOpen(zhihuDirectOpen);
+  }, [zhihuDirectOpen]);
+
+  useEffect(() => {
+    if (
+      zhihuDirectOpen &&
+      (!panelVisible ||
+        cameraSettingsOpen ||
+        historyOpen ||
+        sedentaryReminderActive)
+    ) {
+      setZhihuDirectOpen(false);
+    }
+  }, [
+    cameraSettingsOpen,
+    historyOpen,
+    panelVisible,
+    sedentaryReminderActive,
+    zhihuDirectOpen,
+  ]);
 
   const enableCamera = () => {
     applyCameraSettings({ ...cameraSettings, enabled: true });
@@ -854,6 +893,8 @@ export function App() {
     : persistentAttentionFrame;
   const standardCoachVisible =
     !cameraSettingsOpen && !historyOpen && !sedentaryReminderActive;
+  const standardCoachContentVisible =
+    standardCoachVisible && !zhihuDirectOpen;
   const companionVisible = standardCoachVisible && panelVisible;
   const petDisplayAction = resolvePetDisplayAction({
     petActionDemo,
@@ -866,7 +907,8 @@ export function App() {
       !sedentaryReminderActive &&
       !cameraSettingsOpen &&
       !historyOpen &&
-      !statsOpen,
+      !statsOpen &&
+      !zhihuDirectOpen,
     petIdleAction,
   });
 
@@ -874,7 +916,7 @@ export function App() {
     <main
       className={
         isDesktop
-          ? `app-shell app-shell--desktop${cameraSettingsOpen ? " app-shell--settings" : ""}${historyOpen ? " app-shell--history" : ""}`
+          ? `app-shell app-shell--desktop${cameraSettingsOpen ? " app-shell--settings" : ""}${historyOpen ? " app-shell--history" : ""}${zhihuDirectOpen ? " app-shell--zhihu-direct" : ""}`
           : "app-shell app-shell--preview"
       }
       style={isDesktop ? undefined : { backgroundImage: `url(${PREVIEW_IMAGE})` }}
@@ -888,6 +930,7 @@ export function App() {
         data-pet-size={petSize}
         data-camera-settings-open={cameraSettingsOpen ? "true" : undefined}
         data-history-open={historyOpen ? "true" : undefined}
+        data-zhihu-direct-open={zhihuDirectOpen ? "true" : undefined}
         data-pet-attention={displayedAttentionFrame.phase}
         data-pet-rail={displayedAttentionFrame.rail ? "true" : "false"}
         data-pet-flying={displayedAttentionFrame.flying ? "true" : "false"}
@@ -931,7 +974,7 @@ export function App() {
             </>
           )}
         </div>
-        {isDesktop && (
+        {isDesktop && !zhihuDirectOpen && (
           <div
             className="window-drag-region"
             data-window-drag
@@ -1052,7 +1095,7 @@ export function App() {
           </article>
         )}
 
-        {standardCoachVisible && state.mode === "distance" && (
+        {standardCoachContentVisible && state.mode === "distance" && (
           <article
             className="coach-card coach-card--horizon"
             style={{ backgroundImage: `url(${HORIZON_IMAGE})` }}
@@ -1091,7 +1134,7 @@ export function App() {
           </article>
         )}
 
-        {!cameraSettingsOpen && !historyOpen && state.mode === "permission" && (
+        {standardCoachContentVisible && state.mode === "permission" && (
           <article className="coach-card coach-card--permission" data-interactive>
             <div className="card-icon card-icon--camera">
               <Camera size={24} weight="fill" aria-hidden />
@@ -1141,7 +1184,7 @@ export function App() {
           </article>
         )}
 
-        {standardCoachVisible && state.mode === "blink" && (
+        {standardCoachContentVisible && state.mode === "blink" && (
           <article className="coach-card coach-card--blink" aria-live="polite">
             <div className="card-icon card-icon--eye">
               <Eye size={25} weight="fill" aria-hidden />
@@ -1161,7 +1204,7 @@ export function App() {
           </article>
         )}
 
-        {standardCoachVisible && state.mode === "idle" && (
+        {standardCoachContentVisible && state.mode === "idle" && (
           <>
             {statsOpen && (
               <article
@@ -1260,40 +1303,64 @@ export function App() {
         )}
 
         {companionVisible && (
-          <article className="idle-companion" data-interactive>
-            <div className="idle-status" title={sensingLabel}>
-              <span className="stats-eye-pulse" key={faceMonitor.blinkCount} aria-hidden>
-                <Eye size={14} weight="fill" />
-              </span>
-              <span
-                className={
-                  hasVisibleFace &&
-                  blinkStats.rollingRate !== null &&
-                  blinkStats.rollingRate < LOW_BLINK_RATE_THRESHOLD
-                    ? "idle-status-value idle-status-value--low"
-                    : "idle-status-value"
-                }
-              >
-                {hasVisibleFace
-                  ? blinkStats.rollingRate === null
-                    ? `采集中 ${blinkStats.collectingSecondsRemaining} 秒`
-                    : `${blinkStats.rollingRate} 次/分`
-                  : sensingLabel}
-              </span>
-            </div>
-            <div className="idle-actions">
-              <button
-                className={statsOpen ? "icon-button icon-button--active" : "icon-button"}
-                type="button"
-                title="查看统计"
-                aria-label="查看统计"
-                aria-expanded={statsOpen}
-                onClick={() => setStatsOpen((open) => !open)}
-              >
-                <ChartLineUp size={18} weight="bold" aria-hidden />
-              </button>
-            </div>
-          </article>
+          <div className="idle-companion-stack">
+            <article className="idle-companion" data-interactive>
+              <div className="idle-status" title={sensingLabel}>
+                <span className="stats-eye-pulse" key={faceMonitor.blinkCount} aria-hidden>
+                  <Eye size={14} weight="fill" />
+                </span>
+                <span
+                  className={
+                    hasVisibleFace &&
+                    blinkStats.rollingRate !== null &&
+                    blinkStats.rollingRate < LOW_BLINK_RATE_THRESHOLD
+                      ? "idle-status-value idle-status-value--low"
+                      : "idle-status-value"
+                  }
+                >
+                  {hasVisibleFace
+                    ? blinkStats.rollingRate === null
+                      ? `采集中 ${blinkStats.collectingSecondsRemaining} 秒`
+                      : `${blinkStats.rollingRate} 次/分`
+                    : sensingLabel}
+                </span>
+              </div>
+              <div className="idle-actions">
+                <button
+                  className={statsOpen ? "icon-button icon-button--active" : "icon-button"}
+                  type="button"
+                  title="查看统计"
+                  aria-label="查看统计"
+                  aria-expanded={statsOpen}
+                  onClick={() => {
+                    setZhihuDirectOpen(false);
+                    setStatsOpen((open) => !open);
+                  }}
+                >
+                  <ChartLineUp size={18} weight="bold" aria-hidden />
+                </button>
+                <button
+                  className="zhihu-direct-entry"
+                  type="button"
+                  title="知乎直答"
+                  aria-label="打开知乎直答"
+                  aria-expanded={zhihuDirectOpen}
+                  onClick={() => {
+                    setStatsOpen(false);
+                    setZhihuDirectOpen((open) => !open);
+                  }}
+                >
+                  <img src={ZHIHU_DIRECT_IMAGE} alt="" />
+                </button>
+              </div>
+            </article>
+            {zhihuDirectOpen && (
+              <ZhihuDirectPanel
+                petImage={PET_IMAGE}
+                onClose={() => setZhihuDirectOpen(false)}
+              />
+            )}
+          </div>
         )}
       </section>
     </main>
