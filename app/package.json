@@ -2,15 +2,29 @@
   "name": "look-me",
   "version": "0.1.0",
   "description": "A local-first blink and distance-break desktop companion.",
+  "author": {
+    "name": "fawetian",
+    "email": "fawetian@users.noreply.github.com"
+  },
+  "homepage": "https://github.com/fawetian/look-me",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fawetian/look-me.git"
+  },
   "private": true,
   "type": "module",
   "main": "electron/main.mjs",
+  "desktopName": "com.lookme.coach",
   "scripts": {
     "dev": "vite",
     "dev:desktop": "concurrently --kill-others-on-fail \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && LOOK_ME_DEV_URL=http://127.0.0.1:5173 electron electron/main.mjs\"",
     "build": "vite build && node scripts/prepare-sites-build.mjs",
     "build:renderer": "vite build",
-    "desktop:dir": "npm run build:renderer && electron-builder --mac dir",
+    "desktop:dir": "npm run build:renderer && electron-builder --dir",
+    "desktop:package": "npm run build:renderer && electron-builder",
+    "desktop:mac": "npm run build:renderer && electron-builder --mac",
+    "desktop:win": "npm run build:renderer && electron-builder --win",
+    "desktop:linux": "npm run build:renderer && electron-builder --linux",
     "preview": "vite preview",
     "start": "electron electron/main.mjs",
     "test": "vitest run src",
@@ -42,7 +56,8 @@
   "build": {
     "appId": "com.lookme.coach",
     "productName": "Look Me",
-    "electronDist": "node_modules/electron/dist",
+    "artifactName": "Look-Me-${version}-${os}-${arch}.${ext}",
+    "icon": "public/assets/kanshan-distance-break.png",
     "asar": true,
     "files": [
       "dist/client/**",
@@ -57,11 +72,24 @@
       "category": "public.app-category.healthcare-fitness",
       "minimumSystemVersion": "12.0",
       "target": [
-        "dir"
+        "dmg"
       ],
       "extendInfo": {
         "NSCameraUsageDescription": "Look Me 使用摄像头在本机识别眨眼；画面不会上传或保存。"
       }
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "linux": {
+      "category": "Utility",
+      "syncDesktopName": true,
+      "target": [
+        "AppImage",
+        "deb"
+      ]
     }
   }
 }

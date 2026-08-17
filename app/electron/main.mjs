@@ -20,6 +20,7 @@ const ELECTRON_DIR = path.dirname(fileURLToPath(import.meta.url));
 const APP_ROOT = path.dirname(ELECTRON_DIR);
 const RENDERER_ROOT = path.join(APP_ROOT, "dist", "client");
 const PRELOAD_PATH = path.join(ELECTRON_DIR, "preload.cjs");
+const APP_ID = "com.lookme.coach";
 const WINDOW_WIDTH = 760;
 const WINDOW_HEIGHT = 390;
 const SETTINGS_WINDOW_WIDTH = 900;
@@ -76,6 +77,7 @@ let petAttentionPhase = "parked";
 let petRailWindowX = null;
 let settingsMenuOpenCount = 0;
 let pointerHitTestTimer = null;
+let screenLockPollTimer = null;
 let rendererPointerEventsEnabled = false;
 let petPointerEventsEnabled = false;
 let nativePointerEventsEnabled = null;
@@ -319,6 +321,8 @@ function applyPointerEvents(window) {
   nativePointerEventsEnabled = enabled;
   if (enabled) {
     window.setIgnoreMouseEvents(false);
+  } else if (process.platform === "linux") {
+    window.setIgnoreMouseEvents(true);
   } else {
     window.setIgnoreMouseEvents(true, { forward: true });
   }
@@ -368,6 +372,14 @@ function configurePowerMonitoring() {
   powerMonitor.on("unlock-screen", () => {
     updateSystemAvailability("screenLocked", false);
   });
+  if (process.platform === "linux") {
+    screenLockPollTimer = setInterval(() => {
+      updateSystemAvailability(
+        "screenLocked",
+        powerMonitor.getSystemIdleState(1) === "locked",
+      );
+    }, 1_000);
+  }
   powerMonitor.on("suspend", () => {
     updateSystemAvailability("systemSuspended", true);
   });
@@ -957,6 +969,7 @@ async function runPanelAnchorSmoke(window) {
       const shell = document.querySelector(".app-shell")?.getBoundingClientRect();
       const pet = document.querySelector(".coach-pet-shell")?.getBoundingClientRect();
       const handle = document.querySelector("[data-window-drag]")?.getBoundingClientRect();
+      const stats = document.querySelector(".stats-panel")?.getBoundingClientRect();
       const status = document.querySelector(".idle-status-value");
       if (status) {
         status.textContent = "暂未检测到人脸，眨眼提醒已暂停";
@@ -965,11 +978,27 @@ async function runPanelAnchorSmoke(window) {
       const serialize = (rect) => rect
         ? { x: rect.x, y: rect.y, width: rect.width, height: rect.height }
         : null;
+      const statsParts = Array.from(document.querySelectorAll(".stats-panel > *"))
+        .map((element) => element.getBoundingClientRect());
+      const statsContent = statsParts.length > 0
+        ? {
+            x: Math.min(...statsParts.map((rect) => rect.left)),
+            y: Math.min(...statsParts.map((rect) => rect.top)),
+            width:
+              Math.max(...statsParts.map((rect) => rect.right)) -
+              Math.min(...statsParts.map((rect) => rect.left)),
+            height:
+              Math.max(...statsParts.map((rect) => rect.bottom)) -
+              Math.min(...statsParts.map((rect) => rect.top)),
+          }
+        : null;
       return {
         shell: serialize(shell),
         pet: serialize(pet),
         handle: serialize(handle),
         panel: serialize(panel),
+        stats: serialize(stats),
+        statsContent: serialize(statsContent),
         panelSide: document.querySelector(".coach-stage")?.dataset.petPanelSide ?? null,
       };
     })()`);
@@ -987,6 +1016,8 @@ async function runPanelAnchorSmoke(window) {
       pet: toScreen(renderer.pet),
       handle: toScreen(renderer.handle),
       panel: toScreen(renderer.panel),
+      stats: toScreen(renderer.stats),
+      statsContent: toScreen(renderer.statsContent),
       panelSide: renderer.panelSide,
     };
   };
@@ -1021,6 +1052,40 @@ async function runPanelAnchorSmoke(window) {
       snapshot.panel.right <= workArea.x + workArea.width
     );
   };
+  const rectsOverlap = (left, right) =>
+    left.left < right.right &&
+    left.right > right.left &&
+    left.top < right.bottom &&
+    left.bottom > right.top;
+  const isStatsSeparated = (snapshot) => {
+    if (
+      !snapshot.stats ||
+      !snapshot.statsContent ||
+      !snapshot.pet ||
+      !snapshot.panel ||
+      !snapshot.shell
+    ) {
+      return false;
+    }
+    const gap = snapshot.panelSide === "right"
+      ? Math.min(snapshot.pet.left, snapshot.panel.left) - snapshot.stats.right
+      : snapshot.stats.left - Math.max(snapshot.pet.right, snapshot.panel.right);
+    const minimumGap = requestedPetSize === "small" ? -12 : 8;
+    const maximumGap = requestedPetSize === "small" ? -4 : 48;
+    return (
+      !rectsOverlap(snapshot.stats, snapshot.pet) &&
+      !rectsOverlap(snapshot.statsContent, snapshot.pet) &&
+      !rectsOverlap(snapshot.statsContent, snapshot.panel) &&
+      gap >= minimumGap &&
+      gap <= maximumGap &&
+      snapshot.statsContent.left >= snapshot.stats.left &&
+      snapshot.statsContent.right <= snapshot.stats.right &&
+      snapshot.statsContent.top >= snapshot.stats.top &&
+      snapshot.statsContent.bottom <= snapshot.stats.bottom &&
+      snapshot.stats.left >= snapshot.shell.left &&
+      snapshot.stats.right <= snapshot.shell.right
+    );
+  };
 
   selectPetPersistence(true);
   await wait(100);
@@ -1034,10 +1099,21 @@ async function runPanelAnchorSmoke(window) {
   selectPanelVisibility(true);
   await wait(200);
   const rightAfter = await measure();
+  await window.webContents.executeJavaScript(
+    "document.querySelector('[aria-label=\"查看统计\"]')?.click()",
+  );
+  await wait(150);
+  const rightStats = await measure();
+  const rightStatsPassed = isStatsSeparated(rightStats);
+  await window.webContents.executeJavaScript(
+    "document.querySelector('.stats-close')?.click()",
+  );
+  await wait(150);
   const rightPassed =
     hasExpectedPetPosition(rightBefore, rightAfter) &&
     rightAfter.panelSide === "right" &&
-    isPanelBelowPet(rightAfter);
+    isPanelBelowPet(rightAfter) &&
+    rightStatsPassed;
 
   selectPanelVisibility(false);
   await wait(150);
@@ -1050,10 +1126,21 @@ async function runPanelAnchorSmoke(window) {
   selectPanelVisibility(true);
   await wait(200);
   const leftAfter = await measure();
+  await window.webContents.executeJavaScript(
+    "document.querySelector('[aria-label=\"查看统计\"]')?.click()",
+  );
+  await wait(150);
+  const leftStats = await measure();
+  const leftStatsPassed = isStatsSeparated(leftStats);
+  await window.webContents.executeJavaScript(
+    "document.querySelector('.stats-close')?.click()",
+  );
+  await wait(150);
   const leftPassed =
     hasExpectedPetPosition(leftBefore, leftAfter) &&
     leftAfter.panelSide === "left" &&
-    isPanelBelowPet(leftAfter);
+    isPanelBelowPet(leftAfter) &&
+    leftStatsPassed;
 
   const draggedRightBeforeFlip = await anchorAt("right");
   showPanelBesidePet(window);
@@ -1082,11 +1169,15 @@ async function runPanelAnchorSmoke(window) {
     workArea,
     rightBefore,
     rightAfter,
+    rightStats,
+    rightStatsPassed,
     rightPassed,
     rightHidden,
     rightHidePassed,
     leftBefore,
     leftAfter,
+    leftStats,
+    leftStatsPassed,
     leftPassed,
     draggedRightBeforeFlip,
     draggedRightAfterFlip,
@@ -1158,8 +1249,15 @@ function createWindow() {
   });
 
   mainWindow = window;
-  window.setAlwaysOnTop(true, "floating");
-  window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  if (process.platform === "darwin") {
+    window.setAlwaysOnTop(true, "floating");
+    window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  } else {
+    window.setAlwaysOnTop(true);
+    if (process.platform === "linux") {
+      window.setVisibleOnAllWorkspaces(true);
+    }
+  }
   applyPointerEvents(window);
   positionWindow(window, false);
   pointerHitTestTimer = setInterval(() => {
@@ -1351,8 +1449,8 @@ function createWindow() {
         "document.querySelector('[aria-label=\"查看统计\"]')?.click()",
       );
       await wait(150);
-      const statsShown = await window.webContents.executeJavaScript(
-        "Boolean(document.querySelector('.stats-panel'))",
+      const statsState = await window.webContents.executeJavaScript(
+        "(() => ({ shown: Boolean(document.querySelector('.stats-panel')), labels: Array.from(document.querySelectorAll('.stats-metrics dt')).map((element) => element.textContent?.trim()) }))()",
       );
       await window.webContents.executeJavaScript(
         "document.querySelector('.stats-history-button')?.click()",
@@ -1363,234 +1461,110 @@ function createWindow() {
       );
       const expandedHistoryBounds = window.getBounds();
       const expandedHistoryPetAnchor = getHistoryPetAnchor();
-      const historyLayout = await window.webContents.executeJavaScript(`(() => {
-        const panel = document.querySelector(".history-panel")?.getBoundingClientRect();
-        const chart = document.querySelector(".history-chart-frame")?.getBoundingClientRect();
-        const footer = document.querySelector(".history-footer")?.getBoundingClientRect();
-        if (!panel || !chart || !footer) {
-          return { fitsViewport: false };
-        }
-        return {
-          viewport: { width: innerWidth, height: innerHeight },
-          panel: { left: panel.left, top: panel.top, right: panel.right, bottom: panel.bottom },
-          chart: { left: chart.left, top: chart.top, right: chart.right, bottom: chart.bottom },
-          footer: { left: footer.left, top: footer.top, right: footer.right, bottom: footer.bottom },
-          fitsViewport:
-            panel.left >= 0 &&
-            panel.top >= 0 &&
-            panel.right <= innerWidth &&
-            panel.bottom <= innerHeight &&
-            chart.left >= panel.left &&
-            chart.right <= panel.right &&
-            footer.bottom <= panel.bottom,
-        };
-      })()`);
-      const effectiveScreenTime = await window.webContents.executeJavaScript(`(() => {
-        const term = Array.from(document.querySelectorAll(".history-summary dt"))
-          .find((element) => element.textContent?.trim() === "有效看屏");
-        return {
-          label: term?.textContent?.trim() ?? null,
-          value: term?.parentElement?.querySelector("dd")?.textContent?.trim() ?? null,
-        };
-      })()`);
-      const historyChart = await window.webContents.executeJavaScript(`(() => ({
-        count: document.querySelectorAll(".history-chart-plot .recharts-wrapper").length,
-        mode: document.querySelector(".history-chart-plot")?.dataset.mode ?? null,
-        durationLines: document.querySelectorAll(".history-duration-line").length,
-        blinkBars: document.querySelectorAll(
-          ".history-blink-aggregate.recharts-rectangle",
-        ).length,
-        yawnBars: document.querySelectorAll(
-          ".history-yawn-aggregate.recharts-rectangle",
-        ).length,
-        blinkDots: document.querySelectorAll(".history-blink-dot").length,
-        yawnDots: document.querySelectorAll(".history-yawn-dot").length,
-        yAxes: document.querySelectorAll(".history-chart-plot .recharts-yAxis").length,
-        labels: Array.from(document.querySelectorAll(".history-series-toggle strong"))
-          .map((element) => element.textContent?.trim()),
-        metricUnits: Array.from(document.querySelectorAll(".history-series-toggle small"))
-          .map((element) => element.textContent?.trim()),
-        checked: Array.from(document.querySelectorAll(".history-series-toggle input"))
-          .map((element) => element.checked),
-        summaryLabels: Array.from(document.querySelectorAll(".history-summary dt"))
-          .map((element) => element.textContent?.trim()),
-        range: document.querySelector(".history-heading p")?.textContent?.trim() ?? null,
-        viewDurationMs: Number(
-          document.querySelector(".history-chart-plot")?.dataset.viewDurationMs ?? NaN,
-        ),
-        decisionAnnotations: document.querySelectorAll(".history-annotation--decision").length,
-        actionAnnotations: document.querySelectorAll(".history-annotation--action").length,
-        zoomControls: document.querySelectorAll(
-          '[aria-label="放大时间轴"], [aria-label="缩小时间轴"], [aria-label="重置时间轴"]',
-        ).length,
-      }))()`);
-      const zoomOutTarget = await window.webContents.executeJavaScript(`(() => {
-        const plot = document.querySelector(".history-chart-plot")?.getBoundingClientRect();
-        return plot
-          ? { x: Math.round(plot.left + plot.width / 2), y: Math.round(plot.top + plot.height / 2) }
-          : null;
-      })()`);
-      if (zoomOutTarget) {
-        for (let index = 0; index < 14; index += 1) {
+      const historyLayout = await window.webContents.executeJavaScript(
+        "(() => { const panel = document.querySelector('.history-panel')?.getBoundingClientRect(); const chart = document.querySelector('.history-chart-frame')?.getBoundingClientRect(); const footer = document.querySelector('.history-footer')?.getBoundingClientRect(); if (!panel || !chart || !footer) return { fitsViewport: false }; return { viewport: { width: innerWidth, height: innerHeight }, panel: { left: panel.left, top: panel.top, right: panel.right, bottom: panel.bottom }, chart: { left: chart.left, top: chart.top, right: chart.right, bottom: chart.bottom }, footer: { left: footer.left, top: footer.top, right: footer.right, bottom: footer.bottom }, fitsViewport: panel.left >= 0 && panel.top >= 0 && panel.right <= innerWidth && panel.bottom <= innerHeight && chart.left >= panel.left && chart.right <= panel.right && footer.bottom <= panel.bottom }; })()",
+      );
+      const historyPetState = await window.webContents.executeJavaScript(
+        "(() => { const pet = document.querySelector('.coach-pet-shell'); const image = document.querySelector('.coach-pet'); if (!pet || !image) return { visible: false, imageLoaded: false, fitsViewport: false }; const rect = pet.getBoundingClientRect(); const style = getComputedStyle(pet); return { visible: style.display !== 'none' && style.visibility !== 'hidden' && Number(style.opacity) > 0 && rect.width > 0 && rect.height > 0, imageLoaded: image.complete && image.naturalWidth > 0, fitsViewport: rect.right > 0 && rect.bottom > 0 && rect.left < innerWidth && rect.top < innerHeight, rect: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom } }; })()",
+      );
+      const initialChart = await window.webContents.executeJavaScript(
+        "(() => ({ count: document.querySelectorAll('.history-chart-plot .recharts-wrapper').length, panelView: document.querySelector('.history-panel')?.dataset.historyView ?? null, mode: document.querySelector('.history-chart-plot')?.dataset.mode ?? null, modeLabels: Array.from(document.querySelectorAll('.history-mode-switch button')).map((element) => element.textContent?.trim()), selectedModes: Array.from(document.querySelectorAll('.history-mode-switch button')).map((element) => element.getAttribute('aria-selected')), metricButtons: document.querySelectorAll('.history-metric-switch button').length, summaries: document.querySelectorAll('.history-summary').length, yAxes: document.querySelectorAll('.history-chart-plot .recharts-yAxis').length, range: document.querySelector('.history-heading p')?.textContent?.trim() ?? null, viewDurationMs: Number(document.querySelector('.history-chart-plot')?.dataset.viewDurationMs ?? NaN), viewStartAt: Number(document.querySelector('.history-chart-plot')?.dataset.viewStartAt ?? NaN), eventAxisStepMs: Number(document.querySelector('.history-chart-plot')?.dataset.eventAxisStepMs ?? NaN), zoomControls: document.querySelectorAll('[aria-label=\"放大时间轴\"], [aria-label=\"缩小时间轴\"], [aria-label=\"重置时间轴\"]').length }))()",
+      );
+      const chartCenter = await window.webContents.executeJavaScript(
+        "(() => { const plot = document.querySelector('.history-chart-plot')?.getBoundingClientRect(); return plot ? { x: Math.round(plot.left + plot.width / 2), y: Math.round(plot.top + plot.height / 2) } : null; })()",
+      );
+      const eventCursorState = await window.webContents.executeJavaScript(
+        "(async () => { const plot = document.querySelector('.history-chart-plot'); const bounds = plot?.getBoundingClientRect(); if (plot && bounds) plot.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, clientX: bounds.left + bounds.width / 2, clientY: bounds.top + bounds.height / 2 })); await new Promise((resolve) => setTimeout(resolve, 50)); const cursor = document.querySelector('.history-event-cursor'); const tooltip = document.querySelector('.history-event-tooltip'); return { exists: Boolean(cursor), visible: Boolean(cursor && !cursor.hidden && getComputedStyle(cursor).display !== 'none'), transform: cursor?.style.transform ?? null, tooltipVisible: Boolean(tooltip && getComputedStyle(tooltip).display !== 'none'), tooltipText: tooltip?.textContent?.trim() ?? null }; })()",
+      );
+      const liveEventState = await window.webContents.executeJavaScript(
+        "(async () => { const moduleUrl = performance.getEntriesByType('resource').map((entry) => entry.name).find((name) => name.includes('/src/timeline-store.ts')) ?? '/src/timeline-store.ts'; const { timelineRepository } = await import(moduleUrl); if (!timelineRepository.getSnapshot().activeSessionId) timelineRepository.startSession(Date.now()); const eventAt = Math.ceil((Date.now() + 2 * 60_000) / 10_000) * 10_000 - 1; const pannedEventAt = eventAt - 4 * 60_000; timelineRepository.record({ at: pannedEventAt, type: 'yawn.detected' }); timelineRepository.record({ at: eventAt, type: 'blink.detected' }); await new Promise((resolve) => setTimeout(resolve, 200)); const plot = document.querySelector('.history-chart-plot'); return { moduleUrl, eventAt, pannedEventAt, repositoryEventCount: timelineRepository.getSnapshot().events.length, latestVisibleEventAt: Number(plot?.dataset.latestVisibleEventAt ?? NaN), viewStartAt: Number(plot?.dataset.viewStartAt ?? NaN), range: document.querySelector('.history-heading p')?.textContent?.trim() ?? null }; })()",
+      );
+      const liveEventCursorState = await window.webContents.executeJavaScript(
+        "(async () => { const plot = document.querySelector('.history-chart-plot'); const bounds = plot?.getBoundingClientRect(); if (plot && bounds) plot.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, clientX: bounds.left + bounds.width / 2, clientY: bounds.top + bounds.height / 2 })); await new Promise((resolve) => setTimeout(resolve, 50)); const cursor = document.querySelector('.history-event-cursor'); const tooltip = document.querySelector('.history-event-tooltip'); return { exists: Boolean(cursor), visible: Boolean(cursor && !cursor.hidden && getComputedStyle(cursor).display !== 'none'), transform: cursor?.style.transform ?? null, tooltipVisible: Boolean(tooltip && getComputedStyle(tooltip).display !== 'none'), tooltipText: tooltip?.textContent?.trim() ?? null }; })()",
+      );
+      if (chartCenter) {
+        for (let index = 0; index < 4; index += 1) {
           window.webContents.sendInputEvent({
             type: "mouseWheel",
-            x: zoomOutTarget.x,
-            y: zoomOutTarget.y,
+            x: chartCenter.x,
+            y: chartCenter.y,
+            deltaX: 0,
+            deltaY: 120,
+            canScroll: true,
+          });
+          await wait(50);
+        }
+        await wait(200);
+      }
+      const pannedEvents = await window.webContents.executeJavaScript(
+        "(() => ({ mode: document.querySelector('.history-chart-plot')?.dataset.mode ?? null, range: document.querySelector('.history-heading p')?.textContent?.trim() ?? null, viewDurationMs: Number(document.querySelector('.history-chart-plot')?.dataset.viewDurationMs ?? NaN), viewStartAt: Number(document.querySelector('.history-chart-plot')?.dataset.viewStartAt ?? NaN), eventAxisStepMs: Number(document.querySelector('.history-chart-plot')?.dataset.eventAxisStepMs ?? NaN), scatterGroups: document.querySelectorAll('.recharts-scatter').length, eventSymbols: document.querySelectorAll('.recharts-scatter .recharts-symbols').length, laneLabels: Array.from(document.querySelectorAll('.history-chart-plot .recharts-yAxis-tick-labels .recharts-cartesian-axis-tick-value')).map((element) => element.textContent?.trim()) }))()",
+      );
+      if (chartCenter) {
+        window.webContents.sendInputEvent({
+          type: "mouseDown",
+          x: chartCenter.x,
+          y: chartCenter.y,
+          button: "left",
+          clickCount: 1,
+        });
+        await wait(50);
+        window.webContents.sendInputEvent({
+          type: "mouseMove",
+          x: chartCenter.x + 120,
+          y: chartCenter.y,
+          button: "left",
+        });
+        await wait(100);
+        window.webContents.sendInputEvent({
+          type: "mouseUp",
+          x: chartCenter.x + 120,
+          y: chartCenter.y,
+          button: "left",
+          clickCount: 1,
+        });
+        await wait(150);
+      }
+      const draggedEvents = await window.webContents.executeJavaScript(
+        "(() => ({ mode: document.querySelector('.history-chart-plot')?.dataset.mode ?? null, range: document.querySelector('.history-heading p')?.textContent?.trim() ?? null, viewDurationMs: Number(document.querySelector('.history-chart-plot')?.dataset.viewDurationMs ?? NaN), viewStartAt: Number(document.querySelector('.history-chart-plot')?.dataset.viewStartAt ?? NaN), eventAxisStepMs: Number(document.querySelector('.history-chart-plot')?.dataset.eventAxisStepMs ?? NaN) }))()",
+      );
+      await window.webContents.executeJavaScript(
+        "Array.from(document.querySelectorAll('.history-mode-switch button')).find((element) => element.textContent?.trim() === '次数统计')?.click()",
+      );
+      await wait(200);
+      const minuteChart = await window.webContents.executeJavaScript(
+        "(() => ({ panelView: document.querySelector('.history-panel')?.dataset.historyView ?? null, mode: document.querySelector('.history-chart-plot')?.dataset.mode ?? null, viewDurationMs: Number(document.querySelector('.history-chart-plot')?.dataset.viewDurationMs ?? NaN), viewStartAt: Number(document.querySelector('.history-chart-plot')?.dataset.viewStartAt ?? NaN), eventAxisStep: document.querySelector('.history-chart-plot')?.dataset.eventAxisStepMs ?? null, countBucketMs: Number(document.querySelector('.history-chart-plot')?.dataset.countBucketMs ?? NaN), countPointCount: Number(document.querySelector('.history-chart-plot')?.dataset.countPointCount ?? NaN), metricLabels: Array.from(document.querySelectorAll('.history-metric-switch button')).map((element) => element.textContent?.trim()), selectedMetric: document.querySelector('.history-metric-switch button[aria-pressed=\"true\"]')?.textContent?.trim() ?? null, lineCount: document.querySelectorAll('.history-chart-plot .recharts-line-curve').length, scatterGroups: document.querySelectorAll('.history-chart-plot .recharts-scatter').length, summaries: document.querySelectorAll('.history-summary').length, note: document.querySelector('.history-view-note')?.textContent?.trim() ?? null }))()",
+      );
+      if (chartCenter) {
+        for (let index = 0; index < 2; index += 1) {
+          window.webContents.sendInputEvent({
+            type: "mouseWheel",
+            x: chartCenter.x,
+            y: chartCenter.y,
             deltaX: 0,
             deltaY: -120,
             canScroll: true,
           });
-          await wait(24);
+          await wait(50);
         }
         await wait(150);
       }
-      const fullDayChart = await window.webContents.executeJavaScript(`(() => ({
-        mode: document.querySelector(".history-chart-plot")?.dataset.mode ?? null,
-        range: document.querySelector(".history-heading p")?.textContent?.trim() ?? null,
-        blinkBars: document.querySelectorAll(
-          ".history-blink-aggregate.recharts-rectangle",
-        ).length,
-        yawnBars: document.querySelectorAll(
-          ".history-yawn-aggregate.recharts-rectangle",
-        ).length,
-        blinkDots: document.querySelectorAll(".history-blink-dot").length,
-        yawnDots: document.querySelectorAll(".history-yawn-dot").length,
-        decisionAnnotations: document.querySelectorAll(".history-annotation--decision").length,
-        actionAnnotations: document.querySelectorAll(".history-annotation--action").length,
-      }))()`);
-      const zoomTarget = await window.webContents.executeJavaScript(`(() => {
-        const plot = document.querySelector(".history-chart-plot")?.getBoundingClientRect();
-        if (!plot) {
-          return null;
-        }
-        const chartWidth = plot.width - 42 - 34;
-        const targetMinute = 9 * 60 + 32 + 0.4;
-        return {
-          x: Math.round(plot.left + 42 + chartWidth * (targetMinute / (24 * 60))),
-          y: Math.round(plot.top + plot.height / 2),
-        };
-      })()`);
-      if (zoomTarget) {
-        for (let index = 0; index < 5; index += 1) {
-          window.webContents.sendInputEvent({
-            type: "mouseWheel",
-            x: zoomTarget.x,
-            y: zoomTarget.y,
-            deltaX: 0,
-            deltaY: 120,
-            canScroll: true,
-          });
-          await wait(24);
-        }
-        await wait(150);
-      }
-      const minuteResolution = await window.webContents.executeJavaScript(`(() => ({
-        mode: document.querySelector(".history-chart-plot")?.dataset.mode ?? null,
-        range: document.querySelector(".history-heading p")?.textContent?.trim() ?? null,
-        blinkBars: document.querySelectorAll(
-          ".history-blink-aggregate.recharts-rectangle",
-        ).length,
-        yawnBars: document.querySelectorAll(
-          ".history-yawn-aggregate.recharts-rectangle",
-        ).length,
-        blinkDots: document.querySelectorAll(".history-blink-dot").length,
-        yawnDots: document.querySelectorAll(".history-yawn-dot").length,
-        metricUnits: Array.from(document.querySelectorAll(".history-series-toggle small"))
-          .map((element) => element.textContent?.trim()),
-      }))()`);
-      if (zoomTarget) {
-        for (let index = 5; index < 30; index += 1) {
-          window.webContents.sendInputEvent({
-            type: "mouseWheel",
-            x: zoomTarget.x,
-            y: zoomTarget.y,
-            deltaX: 0,
-            deltaY: 120,
-            canScroll: true,
-          });
-          await wait(24);
-        }
-        await wait(300);
-      }
-      const screenHoverTarget = await window.webContents.executeJavaScript(`(() => {
-        const plot = document.querySelector(".history-chart-plot")?.getBoundingClientRect();
-        if (!plot) {
-          return null;
-        }
-        return {
-          x: Math.round(plot.left + 42 + (plot.width - 42 - 34) * 0.45),
-          y: Math.round(plot.top + plot.height / 2),
-        };
-      })()`);
-      if (screenHoverTarget) {
-        window.webContents.sendInputEvent({
-          type: "mouseMove",
-          x: screenHoverTarget.x,
-          y: screenHoverTarget.y,
-        });
-        await wait(100);
-      }
-      const secondResolution = await window.webContents.executeJavaScript(`(() => ({
-        mode: document.querySelector(".history-chart-plot")?.dataset.mode ?? null,
-        range: document.querySelector(".history-heading p")?.textContent?.trim() ?? null,
-        metricUnits: Array.from(document.querySelectorAll(".history-series-toggle small"))
-          .map((element) => element.textContent?.trim()),
-        summaryValues: Array.from(document.querySelectorAll(".history-summary dd"))
-          .map((element) => element.textContent?.trim()),
-        tooltipCount: document.querySelectorAll(".history-tooltip").length,
-        tooltipText: document.querySelector(".history-tooltip")?.textContent?.trim() ?? null,
-        crosshairCount: document.querySelectorAll(".recharts-tooltip-cursor").length,
-        blinkDots: document.querySelectorAll(".history-blink-dot").length,
-        yawnDots: document.querySelectorAll(".history-yawn-dot").length,
-        blinkBars: document.querySelectorAll(
-          ".history-blink-aggregate.recharts-rectangle",
-        ).length,
-        yawnBars: document.querySelectorAll(
-          ".history-yawn-aggregate.recharts-rectangle",
-        ).length,
-        eventLanes: document.querySelectorAll(
-          ".history-blink-event-lane, .history-yawn-event-lane",
-        ).length,
-        tooltipCarriers: document.querySelectorAll(".history-tooltip-carrier").length,
-        decisionAnnotations: document.querySelectorAll(".history-annotation--decision").length,
-        actionAnnotations: document.querySelectorAll(".history-annotation--action").length,
-      }))()`);
-      const filterBefore = await window.webContents.executeJavaScript(`(() => {
-        const plot = document.querySelector(".history-chart-plot")?.getBoundingClientRect();
-        return {
-          durationLines: document.querySelectorAll(".history-duration-line").length,
-          width: plot?.width ?? 0,
-          height: plot?.height ?? 0,
-        };
-      })()`);
-      await window.webContents.executeJavaScript(
-        "document.querySelector('[aria-label=\"显示有效看屏\"]')?.click()",
+      const minuteZoomedChart = await window.webContents.executeJavaScript(
+        "(() => ({ mode: document.querySelector('.history-chart-plot')?.dataset.mode ?? null, viewDurationMs: Number(document.querySelector('.history-chart-plot')?.dataset.viewDurationMs ?? NaN), viewStartAt: Number(document.querySelector('.history-chart-plot')?.dataset.viewStartAt ?? NaN), countBucketMs: Number(document.querySelector('.history-chart-plot')?.dataset.countBucketMs ?? NaN), countPointCount: Number(document.querySelector('.history-chart-plot')?.dataset.countPointCount ?? NaN) }))()",
       );
-      await wait(100);
-      const filterAfter = await window.webContents.executeJavaScript(`(() => {
-        const plot = document.querySelector(".history-chart-plot")?.getBoundingClientRect();
-        return {
-          durationLines: document.querySelectorAll(".history-duration-line").length,
-          width: plot?.width ?? 0,
-          height: plot?.height ?? 0,
-        };
-      })()`);
       await window.webContents.executeJavaScript(
-        "document.querySelector('[aria-label=\"显示有效看屏\"]')?.click()",
+        "Array.from(document.querySelectorAll('.history-metric-switch button')).find((element) => element.textContent?.trim() === '站起')?.click()",
       );
-      await wait(100);
-      const filterRestored = await window.webContents.executeJavaScript(`(() => ({
-        durationLines: document.querySelectorAll(".history-duration-line").length,
-        checked: document.querySelector('[aria-label="显示有效看屏"]')?.checked ?? false,
-      }))()`);
-      const metricFilter = {
-        before: filterBefore,
-        after: filterAfter,
-        restored: filterRestored,
-        stable:
-          filterBefore.width === filterAfter.width &&
-          filterBefore.height === filterAfter.height,
-      };
+      await wait(150);
+      const standUpChart = await window.webContents.executeJavaScript(
+        "(() => ({ selectedMetric: document.querySelector('.history-metric-switch button[aria-pressed=\"true\"]')?.textContent?.trim() ?? null, viewDurationMs: Number(document.querySelector('.history-chart-plot')?.dataset.viewDurationMs ?? NaN), lineCount: document.querySelectorAll('.history-chart-plot .recharts-line-curve').length }))()",
+      );
+      await window.webContents.executeJavaScript(
+        "Array.from(document.querySelectorAll('.history-mode-switch button')).find((element) => element.textContent?.trim() === '事件')?.click()",
+      );
+      await wait(150);
+      const restoredEventChart = await window.webContents.executeJavaScript(
+        "(() => ({ mode: document.querySelector('.history-chart-plot')?.dataset.mode ?? null, viewDurationMs: Number(document.querySelector('.history-chart-plot')?.dataset.viewDurationMs ?? NaN), viewStartAt: Number(document.querySelector('.history-chart-plot')?.dataset.viewStartAt ?? NaN), eventAxisStepMs: Number(document.querySelector('.history-chart-plot')?.dataset.eventAxisStepMs ?? NaN), metricButtons: document.querySelectorAll('.history-metric-switch button').length }))()",
+      );
       const trayShown = panelVisible;
       const storedShown = await window.webContents.executeJavaScript(
         "window.localStorage.getItem('look-me:panel-visible:v1') === 'true'",
@@ -1632,72 +1606,89 @@ function createWindow() {
         expandedHistoryPetAnchor.y === compactHistoryPetAnchor.y &&
         restoredHistoryPetAnchor.x === compactHistoryPetAnchor.x &&
         restoredHistoryPetAnchor.y === compactHistoryPetAnchor.y;
+      const expectedStats = [
+        "近 1 分钟估算",
+        "今日有效看屏",
+        "连续坐姿",
+        "今日久坐时长",
+        "今日起身",
+      ];
+      const expectedLanes = [
+        "眨眼",
+        "坐姿开始",
+        "坐姿结束",
+        "看屏开始",
+        "看屏结束",
+        "打哈欠",
+      ];
       const passed =
         panelShown &&
         panelActionCount === 1 &&
-        statsShown &&
+        statsState.shown &&
+        statsState.labels.join(",") === expectedStats.join(",") &&
         shown &&
         historyWindowExpanded &&
         historyWindowRestored &&
         historyPetAnchorPreserved &&
         historyLayout.fitsViewport &&
-        effectiveScreenTime.label === "有效看屏" &&
-        Boolean(effectiveScreenTime.value) &&
-        historyChart.count === 1 &&
-        historyChart.mode === "aggregate" &&
-        historyChart.durationLines === 1 &&
-        historyChart.blinkDots === 0 &&
-        historyChart.yawnDots === 0 &&
-        historyChart.yAxes === 2 &&
-        historyChart.labels.join(",") === "眨眼,有效看屏,打哈欠" &&
-        historyChart.metricUnits[0]?.startsWith("次/") &&
-        historyChart.metricUnits[1]?.startsWith("秒/") &&
-        historyChart.metricUnits[2]?.startsWith("次/") &&
-        historyChart.checked.every(Boolean) &&
-        historyChart.summaryLabels.join(",") === "眨眼,有效看屏,打哈欠" &&
-        historyChart.viewDurationMs === 60 * 60_000 &&
-        !historyChart.range?.includes("全天") &&
-        historyChart.zoomControls === 0 &&
-        zoomOutTarget &&
-        fullDayChart.mode === "aggregate" &&
-        fullDayChart.range?.includes("全天") &&
-        fullDayChart.blinkBars > 0 &&
-        fullDayChart.yawnBars > 0 &&
-        fullDayChart.blinkDots === 0 &&
-        fullDayChart.yawnDots === 0 &&
-        fullDayChart.decisionAnnotations > 0 &&
-        fullDayChart.actionAnnotations > 0 &&
-        zoomTarget &&
-        minuteResolution.mode === "aggregate" &&
-        minuteResolution.range?.includes("1 分钟粒度") &&
-        minuteResolution.blinkBars > 0 &&
-        minuteResolution.yawnBars > 0 &&
-        minuteResolution.blinkDots === 0 &&
-        minuteResolution.yawnDots === 0 &&
-        minuteResolution.metricUnits.join(",") === "次/1分钟,秒/1分钟,次/1分钟" &&
-        screenHoverTarget &&
-        secondResolution.mode === "events" &&
-        secondResolution.range?.includes("1 秒粒度") &&
-        secondResolution.metricUnits.join(",") === "事件,秒内时长,事件" &&
-        secondResolution.summaryValues[0] !== "0次" &&
-        secondResolution.summaryValues[1] === "1分钟" &&
-        secondResolution.summaryValues[2] === "1次" &&
-        secondResolution.tooltipCount === 1 &&
-        secondResolution.tooltipText?.includes("有效看屏") &&
-        secondResolution.crosshairCount === 1 &&
-        secondResolution.blinkDots > 0 &&
-        secondResolution.yawnDots > 0 &&
-        secondResolution.blinkBars === 0 &&
-        secondResolution.yawnBars === 0 &&
-        secondResolution.eventLanes === 2 &&
-        secondResolution.tooltipCarriers === 2 &&
-        secondResolution.decisionAnnotations > 0 &&
-        secondResolution.actionAnnotations > 0 &&
-        metricFilter.before.durationLines === 1 &&
-        metricFilter.after.durationLines === 0 &&
-        metricFilter.restored.durationLines === 1 &&
-        metricFilter.restored.checked &&
-        metricFilter.stable &&
+        historyPetState.visible &&
+        historyPetState.imageLoaded &&
+        historyPetState.fitsViewport &&
+        initialChart.count === 1 &&
+        initialChart.panelView === "events" &&
+        initialChart.mode === "events" &&
+        initialChart.modeLabels.join(",") === "事件,次数统计" &&
+        initialChart.selectedModes.join(",") === "true,false" &&
+        initialChart.metricButtons === 0 &&
+        initialChart.summaries === 0 &&
+        initialChart.yAxes === 1 &&
+        initialChart.viewDurationMs === 5 * 60_000 &&
+        initialChart.eventAxisStepMs === 10_000 &&
+        !initialChart.range?.includes("全天") &&
+        initialChart.zoomControls === 0 &&
+        chartCenter &&
+        liveEventCursorState.exists &&
+        liveEventCursorState.visible &&
+        liveEventCursorState.transform?.startsWith("translateX(") &&
+        liveEventCursorState.tooltipVisible &&
+        Boolean(liveEventCursorState.tooltipText) &&
+        liveEventState.latestVisibleEventAt === liveEventState.eventAt &&
+        pannedEvents.mode === "events" &&
+        pannedEvents.viewDurationMs === 5 * 60_000 &&
+        pannedEvents.viewStartAt < liveEventState.viewStartAt &&
+        pannedEvents.eventAxisStepMs === 10_000 &&
+        pannedEvents.scatterGroups > 0 &&
+        pannedEvents.eventSymbols > 0 &&
+        expectedLanes.every((label) => pannedEvents.laneLabels.includes(label)) &&
+        draggedEvents.mode === "events" &&
+        draggedEvents.viewDurationMs === 5 * 60_000 &&
+        draggedEvents.viewStartAt < pannedEvents.viewStartAt &&
+        draggedEvents.viewStartAt % 10_000 === 0 &&
+        draggedEvents.eventAxisStepMs === 10_000 &&
+        minuteChart.panelView === "minutes" &&
+        minuteChart.mode === "minutes" &&
+        minuteChart.viewDurationMs === 60 * 60_000 &&
+        minuteChart.eventAxisStep === null &&
+        minuteChart.countBucketMs === 60_000 &&
+        minuteChart.countPointCount > 0 &&
+        minuteChart.metricLabels.join(",") === "眨眼,哈欠,站起,坐下" &&
+        minuteChart.selectedMetric === "眨眼" &&
+        minuteChart.lineCount === 1 &&
+        minuteChart.scatterGroups === 0 &&
+        minuteChart.summaries === 0 &&
+        minuteChart.note?.includes("自动聚合") &&
+        minuteZoomedChart.mode === "minutes" &&
+        minuteZoomedChart.viewDurationMs > minuteChart.viewDurationMs &&
+        minuteZoomedChart.countBucketMs > minuteChart.countBucketMs &&
+        minuteZoomedChart.countPointCount < minuteChart.countPointCount &&
+        standUpChart.selectedMetric === "站起" &&
+        standUpChart.viewDurationMs === minuteZoomedChart.viewDurationMs &&
+        standUpChart.lineCount === 1 &&
+        restoredEventChart.mode === "events" &&
+        restoredEventChart.viewDurationMs === draggedEvents.viewDurationMs &&
+        restoredEventChart.viewStartAt === draggedEvents.viewStartAt &&
+        restoredEventChart.eventAxisStepMs === 10_000 &&
+        restoredEventChart.metricButtons === 0 &&
         trayShown &&
         storedShown &&
         hidden &&
@@ -1705,10 +1696,10 @@ function createWindow() {
         trayStillShown &&
         panelHidden &&
         storedHidden;
-      console.log(`LOOK_ME_HISTORY ${JSON.stringify({
+      console.log("LOOK_ME_HISTORY " + JSON.stringify({
         panelShown,
         panelActionCount,
-        statsShown,
+        statsState,
         shown,
         compactHistoryBounds,
         expandedHistoryBounds,
@@ -1720,15 +1711,18 @@ function createWindow() {
         historyWindowRestored,
         historyPetAnchorPreserved,
         historyLayout,
-        effectiveScreenTime,
-        historyChart,
-        zoomOutTarget,
-        fullDayChart,
-        zoomTarget,
-        minuteResolution,
-        screenHoverTarget,
-        secondResolution,
-        metricFilter,
+        historyPetState,
+        initialChart,
+        chartCenter,
+        eventCursorState,
+        liveEventCursorState,
+        liveEventState,
+        pannedEvents,
+        draggedEvents,
+        minuteChart,
+        minuteZoomedChart,
+        standUpChart,
+        restoredEventChart,
         trayShown,
         storedShown,
         hidden,
@@ -1737,7 +1731,7 @@ function createWindow() {
         panelHidden,
         storedHidden,
         passed,
-      })}`);
+      }));
       app.exit(passed ? 0 : 1);
       return;
     }
@@ -2290,6 +2284,8 @@ ipcMain.on("look-me:quit", () => {
 app.whenReady().then(() => {
   if (process.platform === "darwin") {
     app.setActivationPolicy("accessory");
+  } else if (process.platform === "win32") {
+    app.setAppUserModelId(APP_ID);
   }
   registerRendererProtocol();
   configureMediaPermissions();
@@ -2302,6 +2298,10 @@ app.whenReady().then(() => {
 
 app.on("before-quit", () => {
   isQuitting = true;
+  if (screenLockPollTimer !== null) {
+    clearInterval(screenLockPollTimer);
+    screenLockPollTimer = null;
+  }
 });
 
 app.on("window-all-closed", () => {
