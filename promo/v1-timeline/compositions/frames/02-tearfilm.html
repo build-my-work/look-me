@@ -1,0 +1,234 @@
+<template>
+  <style>
+    @font-face { font-family: "PingFang SC"; src: local("PingFang SC"); }
+    @font-face { font-family: "SF Mono"; src: local("SF Mono"), local("Menlo"), local("monospace"); }
+    #root {
+      position: absolute; inset: 0; width: 1920px; height: 1080px; overflow: hidden;
+      font-family: "PingFang SC", sans-serif; color: #1e3f45;
+    }
+
+    /* ---- Scene A: cream workspace + capsule stat card ---- */
+    #root .tf-a {
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(1100px 500px at 80% -120px, rgba(226, 239, 236, .9) 0%, transparent 60%),
+        #eef5f3;
+      will-change: transform, filter, opacity;
+    }
+    #root .tf-desk { position: absolute; inset: 0; opacity: .16; filter: saturate(.7); }
+    #root .tf-desk img { width: 100%; height: 100%; object-fit: cover; object-position: center 38%; }
+    #root .tf-card {
+      position: absolute; left: 320px; top: 265px; width: 660px; padding: 34px 40px 30px;
+      background: rgba(247, 251, 248, .92);
+      border: 1px solid rgba(255, 255, 255, .85); border-radius: 24px;
+      box-shadow: 0 18px 40px -18px rgba(36, 77, 83, .4);
+      opacity: 0;
+    }
+    #root .tf-cap-title {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 24px; color: #78908d; letter-spacing: .05em;
+    }
+    #root .tf-live { width: 12px; height: 12px; border-radius: 50%; background: #5a9e6f; }
+    #root .tf-count-row { display: flex; align-items: baseline; gap: 18px; margin-top: 6px; }
+    #root .tf-counter {
+      display: inline-block;
+      font-family: "SF Mono", monospace; font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      font-size: 176px; line-height: 1; color: #1e3f45;
+      transform-origin: center center;
+    }
+    #root .tf-suffix {
+      font-size: 30px; color: #78908d; opacity: 0;
+    }
+    #root .tf-sub {
+      margin-top: 22px; padding-top: 16px; border-top: 1px dashed #c9dad6;
+      font-family: "SF Mono", monospace; font-size: 25px; color: #4c6663;
+      display: flex; justify-content: space-between; opacity: 0;
+    }
+    #root .tf-sub b { color: #1e3f45; font-weight: 600; }
+    #root .tf-pet-a {
+      position: absolute; right: 300px; bottom: 120px; width: 300px; height: 375px;
+      opacity: 0;
+      filter: drop-shadow(0 18px 22px rgba(36, 77, 83, .28));
+    }
+    #root .tf-pet-a img { width: 100%; height: 100%; object-fit: contain; object-position: bottom; }
+
+    /* ---- Scene B: navy dark stage + tear-film bars + rail descent ---- */
+    #root .tf-b {
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(900px 480px at 50% 118%, rgba(30, 63, 69, .85) 0%, transparent 65%),
+        #181615;
+      color: #eaf1ee;
+      will-change: transform, filter, opacity;
+    }
+    #root .tf-line1, #root .tf-line2 {
+      position: absolute; left: 0; right: 0; text-align: center;
+      font-size: 46px; font-weight: 400; letter-spacing: .01em; opacity: 0;
+    }
+    #root .tf-line1 { top: 168px; color: #eaf1ee; }
+    #root .tf-line2 { top: 236px; color: #d8a08c; }
+    #root .tf-film { position: absolute; left: 560px; top: 400px; width: 800px; opacity: 0; }
+    #root .tf-film .flabel {
+      font-family: "SF Mono", monospace; font-size: 20px; color: #8fb0ab;
+      letter-spacing: .12em; margin-bottom: 14px;
+    }
+    #root .tf-film .ftrack {
+      position: relative; height: 26px; border-radius: 8px;
+      background: rgba(255, 255, 255, .08); border: 1px solid rgba(255, 255, 255, .12);
+      overflow: hidden; margin-bottom: 22px;
+    }
+    #root .tf-film .ffill {
+      width: 100%; height: 100%; transform: scaleX(0); transform-origin: left center;
+      background: #8fd0a4;
+    }
+    #root .tf-film .fbreak {
+      position: absolute; left: 58%; top: -7px; bottom: -7px; width: 0;
+      border-left: 3px dashed #9b563f; opacity: .85;
+    }
+    #root .tf-film .ftrack.broken .ffill { background: #c07a5e; }
+    #root .tf-rail { position: absolute; inset: 0; }
+    #root .tf-pet-b {
+      position: absolute; right: 470px; top: 60px; width: 156px; height: 195px;
+      opacity: 0; will-change: transform;
+    }
+    #root .tf-pet-b .shell { position: relative; width: 100%; height: 100%; }
+    #root .tf-pet-b img.base { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+    #root .tf-pet-b img.tstream {
+      position: absolute; left: 8.8%; top: 31.7%; width: 5.4%; opacity: 0;
+    }
+    #root .tf-pet-b img.tdrop {
+      position: absolute; left: 12.3%; top: 35.4%; width: 4.2%; opacity: 0;
+    }
+    #root .tf-board {
+      position: absolute; left: 700px; top: 690px; padding: 20px 40px;
+      background: rgba(247, 251, 248, .94); border-radius: 18px;
+      font-size: 40px; color: #1e3f45;
+      box-shadow: 0 18px 44px -16px rgba(0, 0, 0, .55);
+      opacity: 0;
+    }
+  </style>
+
+  <div id="root" data-composition-id="02-tearfilm" data-width="1920" data-height="1080" data-duration="10.5">
+    <svg width="0" height="0" aria-hidden="true" style="position:absolute">
+      <filter id="tf-streak-a" x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur id="tf-blur-a" in="SourceGraphic" stdDeviation="0 0" />
+      </filter>
+      <filter id="tf-streak-b" x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur id="tf-blur-b" in="SourceGraphic" stdDeviation="0 0" />
+      </filter>
+    </svg>
+
+    <!-- Scene A (0–4.8s): capsule stat card -->
+    <div id="02-tearfilm-a" class="clip tf-a" data-start="0" data-duration="4.8" data-track-index="0">
+      <div class="tf-desk"><img src="assets/preview-workspace.webp" alt=""></div>
+      <div class="tf-card" id="02-tearfilm-card">
+        <div class="tf-cap-title"><span class="tf-live" id="02-tearfilm-live"></span>近 1 分钟眨眼</div>
+        <div class="tf-count-row">
+          <span class="tf-counter" id="02-tearfilm-counter" data-layout-allow-overlap>0</span>
+          <span class="tf-suffix" id="02-tearfilm-suffix">次 / 分钟</span>
+        </div>
+        <div class="tf-sub" id="02-tearfilm-sub"><span>有效看屏 <b>12:41</b></span><span>坐姿 <b>26 分钟</b></span></div>
+      </div>
+      <div class="tf-pet-a" id="02-tearfilm-peta"><img src="assets/kanshan-distance-break.png" alt=""></div>
+    </div>
+
+    <!-- Scene B (4.4–10s): dark stage, film bars, rail descent -->
+    <div id="02-tearfilm-b" class="clip tf-b" data-start="4.4" data-duration="6.1" data-track-index="1">
+      <div class="tf-line1" id="02-tearfilm-line1">盯屏超过 25 秒没眨眼</div>
+      <div class="tf-line2" id="02-tearfilm-line2">—— 泪膜已经破了两次</div>
+      <div class="tf-film" id="02-tearfilm-film">
+        <div class="flabel">TEAR FILM · 一层泪膜的保持</div>
+        <div class="ftrack" id="02-tearfilm-track1"><div class="ffill" id="02-tearfilm-fill1"></div><div class="fbreak"></div></div>
+        <div class="ftrack" id="02-tearfilm-track2"><div class="ffill" id="02-tearfilm-fill2"></div><div class="fbreak"></div></div>
+      </div>
+      <svg class="tf-rail" id="02-tearfilm-rail" viewBox="0 0 1920 1080" fill="none">
+        <path id="02-tearfilm-railpath" d="M 1420 130 L 1360 320 L 1300 560 L 1268 680"
+          stroke="rgba(143,176,171,.5)" stroke-width="3" stroke-dasharray="10 12" stroke-linecap="round"/>
+      </svg>
+      <div class="tf-pet-b" id="02-tearfilm-petb">
+        <div class="shell">
+          <img class="base" src="assets/kanshan-distance-break.png" alt="">
+          <img class="tstream" id="02-tearfilm-tstream" src="assets/kanshan-tear.png" alt="">
+          <img class="tdrop" id="02-tearfilm-tdrop" src="assets/kanshan-tear.png" alt="">
+        </div>
+      </div>
+      <div class="tf-board" id="02-tearfilm-board">陪我慢慢眨 2 下</div>
+    </div>
+  </div>
+
+  <script>
+    window.__timelines = window.__timelines || {};
+    (function () {
+      var $ = function (id) { return document.getElementById(id); };
+      var tl = gsap.timeline({ paused: true, defaults: { ease: "power3.out" } });
+      var sceneA = $("02-tearfilm-a"), sceneB = $("02-tearfilm-b");
+
+      // Scene 1 (0.0–1.2s): capsule card floats up beside the pet; live dot pulses (finite)
+      tl.fromTo($("02-tearfilm-card"), { opacity: 0, y: 46 }, { opacity: 1, y: 0, duration: 0.8 }, 0.05);
+      tl.fromTo($("02-tearfilm-peta"), { opacity: 0, y: 26 }, { opacity: 0.95, y: 0, duration: 0.9 }, 0.2);
+      var live = { p: 0 }, liveEl = $("02-tearfilm-live");
+      tl.to(live, {
+        p: Math.PI * 2 * 3, duration: 3.4, ease: "none",
+        onUpdate: function () { liveEl.style.opacity = String(0.45 + 0.55 * Math.abs(Math.sin(live.p))); },
+      }, 0.3);
+
+      // Scene 2 (1.2–3.6s): value-scaled count-up 0→14, then the mono sub-row lands
+      var counter = $("02-tearfilm-counter"), count = { v: 0 };
+      tl.to(count, {
+        v: 14, duration: 2.2, ease: "power2.out",
+        onUpdate: function () { counter.textContent = String(Math.round(count.v)); },
+      }, 1.2);
+      tl.fromTo(counter, { scale: 0.55 }, { scale: 1, duration: 2.2, ease: "power2.out" }, 1.2);
+      tl.to($("02-tearfilm-suffix"), { opacity: 1, duration: 0.4 }, 3.35);
+      tl.to($("02-tearfilm-sub"), { opacity: 1, duration: 0.45 }, 3.45);
+
+      // Scene 3 (3.6–6.0s): push-through — A scales up + blurs out (velocity-matched), B arrives from large
+      var blurA = { v: 0 }, nodeA = $("tf-blur-a"), blurB = { v: 14 }, nodeB = $("tf-blur-b");
+      sceneA.style.filter = "url(#tf-streak-a)";
+      sceneB.style.filter = "url(#tf-streak-b)";
+      tl.to(sceneA, { scale: 1.6, duration: 0.85, ease: "expo.out" }, 3.6);
+      tl.to(blurA, {
+        v: 15, duration: 0.85, ease: "power3.out",
+        onUpdate: function () { nodeA.setAttribute("stdDeviation", blurA.v + " " + blurA.v); },
+      }, 3.6);
+      tl.to(sceneA, { opacity: 0, duration: 0.4, ease: "power2.in" }, 4.4);
+      tl.fromTo(sceneB, { scale: 1.45, opacity: 1 }, { scale: 1, duration: 0.95, ease: "power3.out" }, 4.42);
+      tl.to(blurB, {
+        v: 0, duration: 0.95, ease: "power3.out",
+        onUpdate: function () { nodeB.setAttribute("stdDeviation", blurB.v + " " + blurB.v); },
+      }, 4.42);
+
+      // copy lands on its cues
+      tl.fromTo($("02-tearfilm-line1"), { opacity: 0, y: 22 }, { opacity: 1, y: 0, duration: 0.5 }, 4.7);
+      tl.fromTo($("02-tearfilm-film"), { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: 0.5 }, 5.0);
+      // tear-film bars fill, then each breaks past the coral line
+      tl.to($("02-tearfilm-fill1"), { scaleX: 0.66, duration: 0.8, ease: "power2.out" }, 5.3);
+      tl.to($("02-tearfilm-fill1"), { scaleX: 0.55, duration: 0.28, ease: "power2.in" }, 6.1);
+      tl.to($("02-tearfilm-fill1"), { backgroundColor: "#c07a5e", duration: 0.3, ease: "none" }, 6.35);
+      tl.to($("02-tearfilm-fill2"), { scaleX: 0.7, duration: 0.7, ease: "power2.out" }, 6.6);
+      tl.to($("02-tearfilm-fill2"), { scaleX: 0.5, duration: 0.28, ease: "power2.in" }, 7.3);
+      tl.to($("02-tearfilm-fill2"), { backgroundColor: "#c07a5e", duration: 0.3, ease: "none" }, 7.55);
+      tl.fromTo($("02-tearfilm-line2"), { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.5 }, 6.2);
+
+      // Scene 4 (6.0–10.0s): pet descends the rail with tears; board lands; settle hold
+      var rail = $("02-tearfilm-railpath"), LEN = rail.getTotalLength();
+      rail.style.strokeDasharray = "10 12";
+      var rp = { v: 0 };
+      tl.fromTo($("02-tearfilm-petb"), { opacity: 0, y: 0 }, { opacity: 1, duration: 0.4 }, 6.05);
+      tl.to($("02-tearfilm-petb"), { y: 500, duration: 1.7, ease: "power2.inOut" }, 6.35);
+      tl.to($("02-tearfilm-petb"), { x: -120, duration: 1.7, ease: "power1.inOut" }, 6.35);
+      tl.set($("02-tearfilm-tstream"), { opacity: 0.95 }, 6.5);
+      tl.fromTo($("02-tearfilm-tdrop"), { opacity: 0, y: 0 }, { opacity: 1, y: 88, duration: 0.5, ease: "power1.in" }, 6.9);
+      tl.to($("02-tearfilm-tdrop"), { opacity: 0, duration: 0.1 }, 7.4);
+      tl.fromTo($("02-tearfilm-tdrop"), { opacity: 0, y: 0 }, { opacity: 1, y: 88, duration: 0.5, ease: "power1.in" }, 7.7);
+      tl.to($("02-tearfilm-tdrop"), { opacity: 0, duration: 0.1 }, 8.2);
+      tl.fromTo($("02-tearfilm-board"), { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.55 }, 8.2);
+      // subtle finite jitter on the settled pet (the only aliveness in the hold)
+      tl.to($("02-tearfilm-petb"), { y: "-=4", duration: 0.45, ease: "sine.inOut" }, 8.9);
+      tl.to($("02-tearfilm-petb"), { y: "+=4", duration: 0.45, ease: "sine.inOut" }, 9.35);
+
+      window.__timelines["02-tearfilm"] = tl;
+    })();
+  </script>
+</template>

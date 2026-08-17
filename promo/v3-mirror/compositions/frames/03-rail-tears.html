@@ -1,0 +1,152 @@
+<template>
+  <style>
+    @font-face { font-family: "PingFang SC"; src: local("PingFang SC"); }
+    @font-face { font-family: "SF Mono"; src: local("SF Mono"), local("Menlo"), local("monospace"); }
+    #root {
+      position: absolute; inset: 0; width: 1920px; height: 1080px; overflow: hidden;
+      font-family: "PingFang SC", sans-serif; color: #1e3f45;
+    }
+    #root .rt-bg {
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(1000px 500px at 70% -10%, rgba(255, 252, 246, .9) 0%, transparent 60%),
+        linear-gradient(180deg, #f3ead9 0%, #efe9de 100%);
+    }
+    /* the dashed attention rail */
+    #root .rt-rail { position: absolute; inset: 0; }
+    /* the traveling pet */
+    #root .rt-pet {
+      position: absolute; left: 1462px; top: 118px; width: 172px; height: 215px;
+      opacity: 0; will-change: transform, opacity;
+    }
+    #root .rt-pet .base { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+    /* official tear coords on a 260×325 shell: stream (115,103) w14 · drop (124,115) w11 */
+    #root .rt-pet .tstream { position: absolute; left: 44.2%; top: 31.7%; width: 5.4%; }
+    #root .rt-pet .tdrop { position: absolute; left: 47.7%; top: 35.4%; width: 4.2%; }
+    /* your-eye glyph (small, upper left) for the answering blink */
+    #root .rt-you {
+      position: absolute; left: 288px; top: 250px; width: 300px; height: 124px; opacity: 0;
+    }
+    #root .rt-flash {
+      position: absolute; inset: 0; background: #fbf6ee; opacity: 0; pointer-events: none;
+    }
+    #root .rt-copy {
+      position: absolute; left: 0; right: 0; top: 806px; text-align: center;
+      font-size: 44px; font-weight: 400; color: #1e3f45; min-height: 60px;
+    }
+    #root .rt-copy .w { display: inline-block; margin: 0 .13em; opacity: 0; }
+    #root .rt-copy .seg { display: none; }
+    #root .rt-copy .seg.on { display: inline; }
+    #root .rt-timer {
+      position: absolute; right: 240px; top: 138px;
+      font-family: "SF Mono", monospace; font-size: 26px; color: #b69a63;
+      letter-spacing: .18em; opacity: 0;
+    }
+  </style>
+
+  <div id="root" data-composition-id="03-rail-tears" data-width="1920" data-height="1080" data-duration="11.5">
+    <div id="03-rail-tears-bg" class="clip rt-bg" data-start="0" data-duration="11.5" data-track-index="0"></div>
+
+    <svg class="rt-rail clip" id="03-rail-tears-railclip" viewBox="0 0 1920 1080" fill="none" data-start="0" data-duration="11.5" data-track-index="1">
+      <path id="03-rail-tears-path" d="M 1548 230 C 1420 430, 1300 560, 1150 660"
+        stroke="rgba(49, 95, 102, .4)" stroke-width="3" stroke-dasharray="10 12" stroke-linecap="round"/>
+    </svg>
+
+    <div id="03-rail-tears-pet" class="clip rt-pet" data-start="0.8" data-duration="10.7" data-track-index="2">
+      <img class="base" src="assets/kanshan-distance-break.png" alt="">
+      <img class="tstream" id="03-rail-tears-tstream" src="assets/kanshan-tear.png" alt="">
+      <img class="tdrop" id="03-rail-tears-tdrop" src="assets/kanshan-tear.png" alt="">
+    </div>
+
+    <div id="03-rail-tears-timer" class="clip rt-timer" data-start="1.0" data-duration="10.5" data-track-index="3">NO BLINK · 25S</div>
+
+    <div id="03-rail-tears-you" class="clip rt-you" data-start="6.8" data-duration="4.7" data-track-index="4">
+      <svg width="300" height="124" viewBox="0 0 300 124" fill="none">
+        <path d="M 20 62 C 76 14, 224 14, 280 62" stroke="#315f66" stroke-width="6" stroke-linecap="round"/>
+        <path d="M 20 62 C 76 110, 224 110, 280 62" stroke="#315f66" stroke-width="6" stroke-linecap="round"/>
+        <ellipse cx="150" cy="62" rx="34" ry="30" fill="#315f66"/>
+      </svg>
+    </div>
+
+    <div id="03-rail-tears-flash" class="clip rt-flash" data-start="6.9" data-duration="0.6" data-track-index="5"></div>
+
+    <div id="03-rail-tears-copy" class="clip rt-copy" data-start="1.8" data-duration="9.7" data-track-index="6">
+      <span class="seg" id="03-rail-tears-s1">
+        <span class="w">25 秒不眨眼，</span><span class="w">他从屏幕角落缓缓降落</span>
+      </span>
+      <span class="seg" id="03-rail-tears-s2">
+        <span class="w">掉着眼泪提醒你</span>
+      </span>
+      <span class="seg" id="03-rail-tears-s3">
+        <span class="w">你一眨眼——</span>
+      </span>
+      <span class="seg" id="03-rail-tears-s4">
+        <span class="w">他立刻擦泪回升，</span><span class="w">然后安静 25 秒</span>
+      </span>
+    </div>
+  </div>
+
+  <script>
+    window.__timelines = window.__timelines || {};
+    (function () {
+      var $ = function (id) { return document.getElementById(id); };
+      var $$ = function (id) { return Array.prototype.slice.call($(id).querySelectorAll(".w")); };
+      var tl = gsap.timeline({ paused: true, defaults: { ease: "power3.out" } });
+
+      // Scene 1 (0.0–1.6s): the rail draws; the pet appears at the top, tears already on
+      var path = $("03-rail-tears-path"), LEN = path.getTotalLength();
+      path.style.strokeDasharray = "10 12";
+      var draw = { v: 0 };
+      tl.to(draw, {
+        v: 1, duration: 1.2, ease: "power2.out",
+        onUpdate: function () {
+          // reveal along the rail: grow the dash offset so the path appears tip-first
+          path.style.strokeDashoffset = String(LEN * (1 - draw.v));
+        },
+      }, 0.15);
+      tl.set(path, { strokeDashoffset: LEN }, 0);
+      tl.fromTo($("03-rail-tears-pet"), { opacity: 0, y: -30 }, { opacity: 1, y: 0, duration: 0.55 }, 0.8);
+      tl.fromTo($("03-rail-tears-tstream"), { opacity: 0 }, { opacity: 0.95, duration: 0.3 }, 1.15);
+      tl.fromTo($("03-rail-tears-timer"), { opacity: 0 }, { opacity: 0.9, duration: 0.4 }, 1.0);
+
+      // Scene 2 (1.6–5.0s): slow descent along the rail; two finite tear drops; copy ① falls as he does
+      tl.to($("03-rail-tears-pet"), { x: -360, duration: 3.2, ease: "power1.inOut" }, 1.7);
+      tl.to($("03-rail-tears-pet"), { y: 430, duration: 3.2, ease: "power1.inOut" }, 1.7);
+      tl.set($("03-rail-tears-s1"), { display: "inline" }, 1.8);
+      tl.fromTo($$("03-rail-tears-s1"), { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.45, stagger: 0.6 }, 1.9);
+      tl.fromTo($("03-rail-tears-tdrop"), { opacity: 0, y: 0 }, { opacity: 1, y: 82, duration: 0.5, ease: "power1.in" }, 2.5);
+      tl.to($("03-rail-tears-tdrop"), { opacity: 0, duration: 0.12 }, 3.0);
+      tl.fromTo($("03-rail-tears-tdrop"), { opacity: 0, y: 0 }, { opacity: 1, y: 82, duration: 0.5, ease: "power1.in" }, 3.6);
+      tl.to($("03-rail-tears-tdrop"), { opacity: 0, duration: 0.12 }, 4.1);
+
+      // Scene 3 (5.0–6.8s): copy ② swaps in; the landing holds half a beat — the emotional low
+      tl.to($$("03-rail-tears-s1"), { opacity: 0, duration: 0.2, ease: "power2.in" }, 5.1);
+      tl.set($("03-rail-tears-s1"), { display: "none" }, 5.35);
+      tl.set($("03-rail-tears-s2"), { display: "inline" }, 5.36);
+      tl.fromTo($$("03-rail-tears-s2"), { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.4 }, 5.4);
+
+      // Scene 4 (6.8–9.2s): the answer — a soft flash, your eye blinks once, he wipes the tears
+      tl.fromTo($("03-rail-tears-you"), { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.35 }, 6.85);
+      tl.fromTo($("03-rail-tears-flash"), { opacity: 0 }, { opacity: 0.5, duration: 0.09, ease: "power1.in" }, 7.05);
+      tl.to($("03-rail-tears-flash"), { opacity: 0, duration: 0.22 }, 7.14);
+      tl.to($("03-rail-tears-you"), { scaleY: 0.3, duration: 0.11, ease: "power2.in" }, 7.1);
+      tl.to($("03-rail-tears-you"), { scaleY: 1, duration: 0.14 }, 7.21);
+      tl.to($$("03-rail-tears-s2"), { opacity: 0, duration: 0.18, ease: "power2.in" }, 7.5);
+      tl.set($("03-rail-tears-s2"), { display: "none" }, 7.7);
+      tl.set($("03-rail-tears-s3"), { display: "inline" }, 7.71);
+      tl.fromTo($$("03-rail-tears-s3"), { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.4 }, 7.75);
+      tl.to($("03-rail-tears-tstream"), { opacity: 0, duration: 0.4 }, 7.8);
+      tl.to($("03-rail-tears-timer"), { opacity: 0, duration: 0.4 }, 7.8);
+
+      // Scene 5 (9.2–11.0s): he climbs back up the rail; closing half lands; settle hold
+      tl.to($("03-rail-tears-pet"), { y: -300, duration: 1.5, ease: "power2.inOut" }, 8.9);
+      tl.to($("03-rail-tears-pet"), { x: 220, duration: 1.5, ease: "power1.inOut" }, 8.9);
+      tl.to($$("03-rail-tears-s3"), { opacity: 0, duration: 0.18, ease: "power2.in" }, 9.1);
+      tl.set($("03-rail-tears-s3"), { display: "none" }, 9.3);
+      tl.set($("03-rail-tears-s4"), { display: "inline" }, 9.31);
+      tl.fromTo($$("03-rail-tears-s4"), { opacity: 0, y: 16 }, { opacity: 1, y: 0, duration: 0.4, stagger: 0.24 }, 9.35);
+
+      window.__timelines["03-rail-tears"] = tl;
+    })();
+  </script>
+</template>

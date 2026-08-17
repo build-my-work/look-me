@@ -1,0 +1,160 @@
+<template>
+  <style>
+    @font-face { font-family: "PingFang SC"; src: local("PingFang SC"); }
+    @font-face { font-family: "SF Mono"; src: local("SF Mono"), local("Menlo"), local("monospace"); }
+    #root {
+      position: absolute; inset: 0; width: 1920px; height: 1080px; overflow: hidden;
+      font-family: "PingFang SC", sans-serif; color: #eaf1ee;
+    }
+    #root .st-bg {
+      position: absolute; inset: 0; background: #141a1a;
+    }
+    #root .st-bg img {
+      width: 100%; height: 100%; object-fit: cover; object-position: center 38%;
+      opacity: .5; filter: saturate(.45) brightness(.7);
+    }
+    #root .st-veil {
+      position: absolute; inset: 0;
+      background: radial-gradient(1100px 640px at 50% 46%, rgba(20, 26, 26, .2) 0%, rgba(20, 26, 26, .78) 100%);
+    }
+    #root .st-line1 {
+      position: absolute; left: 0; right: 0; top: 116px; text-align: center;
+      font-size: 52px; font-weight: 400; color: #eaf1ee; opacity: 0;
+    }
+    #root .st-bignum {
+      position: absolute; left: 0; right: 0; top: 186px; text-align: center;
+      font-size: 118px; font-weight: 700; color: #e8c9b8; letter-spacing: .01em;
+      font-variant-numeric: tabular-nums; opacity: 0;
+    }
+    /* the monitor card that later morphs into the dry-eye glyph */
+    #root .st-card {
+      position: absolute; left: 580px; top: 400px; width: 760px; height: 380px;
+      background: rgba(24, 22, 21, .88);
+      border: 1px solid rgba(255, 255, 255, .14); border-radius: 18px;
+      box-shadow: 0 30px 70px -30px rgba(0, 0, 0, .8);
+      will-change: transform, opacity;
+    }
+    #root .st-card .bar {
+      display: flex; align-items: center; gap: 8px; padding: 14px 18px;
+      border-bottom: 1px solid rgba(255, 255, 255, .08);
+    }
+    #root .st-card .bar i { width: 11px; height: 11px; border-radius: 50%; }
+    #root .st-card .bar i:nth-child(1) { background: #f6c4c0; }
+    #root .st-card .bar i:nth-child(2) { background: #f7ddab; }
+    #root .st-card .bar i:nth-child(3) { background: #c4e8c6; }
+    #root .st-card .bar span {
+      font-family: "SF Mono", monospace; font-size: 15px; color: #8fb0ab; margin-left: 10px;
+    }
+    #root .st-wave { display: block; margin: 26px 40px 0; }
+    #root .st-peak { fill: none; stroke: #8fd0a4; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; }
+    #root .st-flat { fill: none; stroke: #8fb0ab; stroke-width: 4; stroke-linecap: round; opacity: 0; }
+    #root .st-filmwrap { margin: 30px 40px 0; }
+    #root .st-flabel {
+      font-family: "SF Mono", monospace; font-size: 16px; color: #8fb0ab; letter-spacing: .12em; margin-bottom: 10px;
+    }
+    #root .st-ftrack {
+      position: relative; height: 20px; border-radius: 7px; overflow: hidden;
+      background: rgba(255, 255, 255, .08); border: 1px solid rgba(255, 255, 255, .12);
+    }
+    #root .st-ffill {
+      width: 100%; height: 100%; transform: scaleX(0); transform-origin: left center; background: #8fd0a4;
+    }
+    #root .st-fbreak {
+      position: absolute; left: 58%; top: -6px; bottom: -6px; width: 0; border-left: 3px dashed #c07a5e;
+    }
+    /* the dry-eye glyph revealed by the morph */
+    #root .st-eye { position: absolute; left: 50%; top: 468px; width: 560px; height: 260px; transform: translateX(-50%); opacity: 0; }
+    /* beat-slam words */
+    #root .st-words { position: absolute; left: 0; right: 0; top: 800px; display: flex; justify-content: center; gap: 64px; }
+    #root .st-words span {
+      font-size: 56px; font-weight: 600; color: #e8c9b8; opacity: 0; will-change: transform, opacity;
+    }
+  </style>
+
+  <div id="root" data-composition-id="03-staring" data-width="1920" data-height="1080" data-duration="10.6">
+    <div id="03-staring-bg" class="clip st-bg" data-start="0" data-duration="10.6" data-track-index="0">
+      <img src="assets/preview-workspace.webp" alt="">
+    </div>
+    <div id="03-staring-veil" class="clip st-veil" data-start="0" data-duration="10.6" data-track-index="1"></div>
+
+    <div id="03-staring-line1" class="clip st-line1" data-start="0.4" data-duration="10.2" data-track-index="2">盯屏入神时</div>
+    <div id="03-staring-bignum" class="clip st-bignum" data-start="2.2" data-duration="8.4" data-track-index="3">30–60 秒，忘记眨眼</div>
+
+    <div id="03-staring-card" class="clip st-card" data-start="0.3" data-duration="7.4" data-track-index="4">
+      <div class="bar"><i></i><i></i><i></i><span>blink monitor · gaze lock</span></div>
+      <svg class="st-wave" width="680" height="120" viewBox="0 0 680 120">
+        <path id="03-staring-peak1" class="st-peak" d="M 40 95 L 40 40 L 58 40 L 66 95" opacity="0"/>
+        <path id="03-staring-peak2" class="st-peak" d="M 150 95 L 150 40 L 168 40 L 176 95" opacity="0"/>
+        <path id="03-staring-peak3" class="st-peak" d="M 260 95 L 260 40 L 278 40 L 286 95" opacity="0"/>
+        <path id="03-staring-flatline" class="st-flat" d="M 40 96 L 640 96"/>
+      </svg>
+      <div class="st-filmwrap">
+        <div class="st-flabel">TEAR FILM · 一层泪膜的保持</div>
+        <div class="st-ftrack"><div class="st-ffill" id="03-staring-ffill"></div><div class="st-fbreak"></div></div>
+      </div>
+    </div>
+
+    <div id="03-staring-eye" class="clip st-eye" data-start="5.0" data-duration="5.6" data-track-index="5">
+      <svg width="560" height="260" viewBox="0 0 560 260" fill="none">
+        <path id="03-staring-lidtop" d="M 30 130 C 140 30, 420 30, 530 130"
+          stroke="#eaf1ee" stroke-width="6" stroke-linecap="round"/>
+        <path id="03-staring-lidbot" d="M 30 130 C 140 230, 420 230, 530 130"
+          stroke="#eaf1ee" stroke-width="6" stroke-linecap="round"/>
+        <path id="03-staring-film1" d="M 130 130 L 240 130" stroke="#c07a5e" stroke-width="6" stroke-linecap="round" stroke-dasharray="16 14"/>
+        <path id="03-staring-film2" d="M 330 130 L 440 130" stroke="#c07a5e" stroke-width="6" stroke-linecap="round" stroke-dasharray="16 14"/>
+      </svg>
+    </div>
+
+    <div id="03-staring-words" class="clip st-words" data-start="7.5" data-duration="3.1" data-track-index="6">
+      <span id="03-staring-w1">干涩</span><span id="03-staring-w2">异物感</span><span id="03-staring-w3">视疲劳</span>
+    </div>
+  </div>
+
+  <script>
+    window.__timelines = window.__timelines || {};
+    (function () {
+      var $ = function (id) { return document.getElementById(id); };
+      var tl = gsap.timeline({ paused: true, defaults: { ease: "power3.out" } });
+
+      // Scene 1 (0.0–2.0s): falling into the dark; three blink spikes fire, then the wave flattens and stalls
+      tl.fromTo($("03-staring-card"), { opacity: 0, y: 36, scale: 0.96 }, { opacity: 1, y: 0, scale: 1, duration: 0.7 }, 0.3);
+      tl.fromTo($("03-staring-line1"), { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.45 }, 0.4);
+      [1, 2, 3].forEach(function (n) {
+        tl.fromTo($("03-staring-peak" + n), { opacity: 0, scaleY: 0.3 }, { opacity: 1, scaleY: 1, duration: 0.3 }, 0.55 + (n - 1) * 0.38);
+      });
+      tl.to($("03-staring-flatline"), { opacity: 0.85, duration: 0.5 }, 1.7);
+
+      // Scene 2 (2.0–5.0s): the film bar breaks past the coral line (3 finite flashes); "30–60 秒" slams in by hard cut
+      tl.to($("03-staring-ffill"), { scaleX: 0.64, duration: 0.9, ease: "power2.out" }, 2.0);
+      tl.to($("03-staring-ffill"), { scaleX: 0.5, duration: 0.25, ease: "power2.in" }, 2.95);
+      tl.to($("03-staring-ffill"), { backgroundColor: "#c07a5e", duration: 0.2, ease: "none" }, 3.15);
+      [3.35, 3.65, 3.95].forEach(function (t, i) {
+        tl.to($("03-staring-ffill"), { opacity: 0.35, duration: 0.13, ease: "none" }, t);
+        tl.to($("03-staring-ffill"), { opacity: 1, duration: 0.13, ease: "none" }, t + 0.14);
+      });
+      tl.set($("03-staring-bignum"), { opacity: 1 }, 2.2); // hard cut — discrete-text-sequence
+      tl.fromTo($("03-staring-bignum"), { scale: 1.14 }, { scale: 1, duration: 0.5, ease: "power3.out" }, 2.2);
+      tl.to($("03-staring-line1"), { opacity: 0, duration: 0.25, ease: "power2.in" }, 2.2);
+
+      // Scene 3 (5.0–7.5s): signature morph — the screen card dissolves, the dry-eye glyph draws itself
+      var lids = [$("03-staring-lidtop"), $("03-staring-lidbot"), $("03-staring-film1"), $("03-staring-film2")];
+      lids.forEach(function (p) { var L = p.getTotalLength(); p.style.strokeDasharray = String(L); p.style.strokeDashoffset = String(L); });
+      tl.to($("03-staring-card"), { opacity: 0, scale: 0.82, y: 30, duration: 0.55, ease: "power2.inOut" }, 5.0);
+      tl.fromTo($("03-staring-eye"), { opacity: 0, scale: 0.86 }, { opacity: 1, scale: 1, duration: 0.5 }, 5.35);
+      tl.to($("03-staring-lidtop"), { strokeDashoffset: 0, duration: 0.75, ease: "power2.out" }, 5.45);
+      tl.to($("03-staring-lidbot"), { strokeDashoffset: 0, duration: 0.75, ease: "power2.out" }, 5.65);
+      tl.to($("03-staring-film1"), { strokeDashoffset: 0, duration: 0.5, ease: "power2.out" }, 6.35);
+      tl.to($("03-staring-film2"), { strokeDashoffset: 0, duration: 0.5, ease: "power2.out" }, 6.55);
+      tl.to($("03-staring-bignum"), { y: -60, scale: 0.9, duration: 0.6, ease: "power2.inOut" }, 5.1);
+
+      // Scene 4 (7.5–10.0s): three words slam in one per beat, long-tail settle; darkest hold for the turn
+      ["03-staring-w1", "03-staring-w2", "03-staring-w3"].forEach(function (wid, i) {
+        tl.fromTo($(wid), { opacity: 0, y: 54, scale: 1.1 },
+          { opacity: 1, y: 0, scale: 1, duration: 0.5 }, 7.6 + i * 0.5);
+      });
+      tl.to($("03-staring-veil"), { opacity: 0.72, duration: 1.2, ease: "power2.inOut" }, 8.4);
+
+      window.__timelines["03-staring"] = tl;
+    })();
+  </script>
+</template>

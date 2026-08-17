@@ -1,0 +1,117 @@
+<template>
+  <style>
+    @font-face { font-family: "PingFang SC"; src: local("PingFang SC"); }
+    @font-face { font-family: "SF Mono"; src: local("SF Mono"), local("Menlo"), local("monospace"); }
+    #root {
+      position: absolute; inset: 0; width: 1920px; height: 1080px; overflow: hidden;
+      font-family: "PingFang SC", sans-serif; color: #1e3f45;
+    }
+    #root .mc-bg {
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(1000px 470px at 50% -8%, rgba(255, 255, 255, .85) 0%, transparent 62%),
+        radial-gradient(760px 380px at 10% 108%, rgba(226, 239, 236, .75) 0%, transparent 58%),
+        #eef5f3;
+    }
+    /* pet sits center-left; wordmark holds the right — asymmetric 60/40 */
+    #root .mc-petwrap {
+      position: absolute; left: 420px; top: 246px; width: 330px; height: 412px;
+    }
+    #root .mc-petwrap .stand, #root .mc-petwrap .clap {
+      position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: bottom;
+    }
+    #root .mc-petwrap .clap {
+      background: url("assets/kanshan-clap-sprite.png") 0 0 / 800% 100% no-repeat; opacity: 0;
+    }
+    #root .mc-eyelid {
+      position: absolute; left: 43.08%; top: 27.08%; width: 6.54%; height: 5.85%;
+      border-radius: 50%; background: #f4f4f1;
+      box-shadow: 0 0 3px 2px rgba(244, 244, 241, .92);
+      transform: scaleY(0.35); transform-origin: center; opacity: 0;
+    }
+    #root .mc-lockup { position: absolute; left: 830px; right: 120px; top: 300px; }
+    #root .mc-mark { font-size: 104px; font-weight: 700; letter-spacing: .01em; line-height: 1.05; }
+    #root .mc-mark .w { display: inline-block; margin: 0 .1em; opacity: 0; }
+    #root .mc-mark .cn { opacity: 0; }
+    #root .mc-sub {
+      margin-top: 26px; font-size: 33px; color: #4c6663; opacity: 0; line-height: 1.6;
+    }
+    #root .mc-btns { margin-top: 44px; display: flex; gap: 20px; flex-wrap: wrap; }
+    #root .mc-btn {
+      display: inline-flex; align-items: center; gap: 10px;
+      padding: 17px 34px; border-radius: 999px;
+      background: #315f66; color: #f1f7f5; font-size: 25px; font-weight: 600;
+      box-shadow: 0 14px 30px -14px rgba(49, 95, 102, .6); opacity: 0;
+    }
+    #root .mc-btn .mono { font-family: "SF Mono", monospace; font-size: 18px; color: #c9dad6; }
+    #root .mc-fine {
+      position: absolute; left: 0; right: 0; top: 862px; text-align: center;
+      font-size: 19px; color: #9ab0ac; opacity: 0;
+    }
+  </style>
+
+  <div id="root" data-composition-id="06-cta" data-width="1920" data-height="1080" data-duration="8">
+    <div id="06-cta-bg" class="clip mc-bg" data-start="0" data-duration="8" data-track-index="0"></div>
+
+    <div id="06-cta-petwrap" class="clip mc-petwrap" data-start="0.1" data-duration="7.9" data-track-index="1">
+      <img class="stand" id="06-cta-stand" src="assets/kanshan-distance-break.png" alt="">
+      <span class="clap" id="06-cta-clap"></span>
+      <span class="mc-eyelid" id="06-cta-eyelid"></span>
+    </div>
+
+    <div id="06-cta-lockup" class="clip mc-lockup" data-start="1.0" data-duration="7.0" data-track-index="2">
+      <div class="mc-mark" id="06-cta-mark">
+        <span class="w">Look</span><span class="w">Me</span><span class="cn" id="06-cta-cn">· 看看我</span>
+      </div>
+      <div class="mc-sub" id="06-cta-sub">刘看山住进你的桌面：提醒眨眼、远眺、起身</div>
+      <div class="mc-btns">
+        <span class="mc-btn" id="06-cta-b1">macOS <span class="mono">.dmg</span></span>
+        <span class="mc-btn" id="06-cta-b2">Windows <span class="mono">.exe</span></span>
+        <span class="mc-btn" id="06-cta-b3">Linux <span class="mono">.AppImage</span></span>
+      </div>
+    </div>
+
+    <div id="06-cta-fine" class="clip mc-fine" data-start="5.4" data-duration="2.6" data-track-index="3">
+      个人健康习惯工具 · 不用于诊断或治疗干眼症
+    </div>
+  </div>
+
+  <script>
+    window.__timelines = window.__timelines || {};
+    (function () {
+      var $ = function (id) { return document.getElementById(id); };
+      var tl = gsap.timeline({ paused: true, defaults: { ease: "power3.out" } });
+
+      // Scene 1 (0.0–1.2s): cream field; the pet takes his place center-left
+      tl.fromTo($("06-cta-petwrap"), { opacity: 0, y: 50 }, { opacity: 1, y: 0, duration: 0.8 }, 0.1);
+
+      // Scene 2 (1.2–2.8s): wordmark assembles per-word; one clap Easter egg
+      tl.fromTo("#root .mc-mark .w", { opacity: 0, y: 36 }, { opacity: 1, y: 0, duration: 0.5, stagger: 0.18 }, 1.15);
+      tl.fromTo($("06-cta-cn"), { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.45 }, 1.7);
+      tl.set($("06-cta-clap"), { opacity: 1 }, 1.3);
+      tl.set($("06-cta-stand"), { opacity: 0 }, 1.3);
+      tl.fromTo($("06-cta-clap"),
+        { backgroundPosition: "0% 0%" },
+        { backgroundPosition: "100% 0%", duration: 1.5, ease: "steps(7)" }, 1.3);
+      tl.set($("06-cta-clap"), { opacity: 0 }, 2.85);
+      tl.set($("06-cta-stand"), { opacity: 1 }, 2.85);
+
+      // Scene 3 (2.8–4.6s): lead line and platform buttons light up in sequence
+      tl.fromTo($("06-cta-sub"), { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.5 }, 2.95);
+      ["06-cta-b1", "06-cta-b2", "06-cta-b3"].forEach(function (bid, i) {
+        tl.fromTo($(bid), { opacity: 0, y: 34, scale: 0.88 }, { opacity: 1, y: 0, scale: 1, duration: 0.45 }, 3.45 + i * 0.26);
+      });
+
+      // Scene 4 (4.6–6.4s): settle hold — the full lockup reads still
+      tl.fromTo($("06-cta-fine"), { opacity: 0 }, { opacity: 1, duration: 0.4 }, 5.5);
+
+      // Scene 5 (6.4–8.0s): one last blink — echoing Frame 1 — then hold to the final frame
+      tl.set($("06-cta-eyelid"), { opacity: 1 }, 6.9);
+      tl.to($("06-cta-eyelid"), { scaleY: 1, duration: 0.1, ease: "power2.in" }, 6.95);
+      tl.to($("06-cta-eyelid"), { scaleY: 0.35, duration: 0.16 }, 7.07);
+      tl.to($("06-cta-eyelid"), { opacity: 0, duration: 0.2 }, 7.3);
+
+      window.__timelines["06-cta"] = tl;
+    })();
+  </script>
+</template>

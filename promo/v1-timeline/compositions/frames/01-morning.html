@@ -1,0 +1,499 @@
+<template>
+  <style>
+    @font-face { font-family: "PingFang SC"; src: local("PingFang SC"); }
+    @font-face { font-family: "SF Mono"; src: local("SF Mono"), local("Menlo"), local("monospace"); }
+    /* ============================================================
+       01-morning — 清晨桌面 · Timeline 脊柱 · 三拍字幕
+       Design truth: frame.md (Code editorial / warm cream · ink · coral)
+       All authored ids/classes prefixed m01- (frame 01-morning).
+       ============================================================ */
+    #root {
+      position: relative;
+      width: 1920px;
+      height: 1080px;
+      overflow: hidden;
+      container-type: size;
+      font-family: "PingFang SC", serif;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: geometricPrecision;
+    }
+
+    /* ---------- clip 0 · background workspace (dim ~30% + warm grade) ---------- */
+    #m01-bg {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+    }
+    #m01-bgwrap {
+      position: absolute;
+      inset: 0;
+      opacity: 0; /* fromTo claims it at t=0 */
+    }
+    .m01-bgimg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: 50% 44%;
+      filter: saturate(0.85) brightness(0.97);
+    }
+    .m01-dim {
+      position: absolute;
+      inset: 0;
+      background: rgba(24, 22, 21, 0.3); /* navy dim ~30% */
+    }
+    .m01-warm {
+      position: absolute;
+      inset: 0;
+      background: rgba(182, 154, 99, 0.1); /* tile-strong warm grade */
+    }
+
+    /* ---------- clip 1 · chrome: kicker + Timeline spine + 09:00 glass node ---------- */
+    #m01-chrome {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+    #m01-kicker {
+      position: absolute;
+      top: 72px;
+      left: 80px;
+      display: flex;
+      align-items: baseline;
+      gap: 20px;
+      font-size: 28px;
+      font-size: 1.46cqw;
+      font-weight: 500;
+      letter-spacing: 0.16em;
+      opacity: 0;
+    }
+    .m01-spike {
+      color: #9b563f; /* coral ✱ — brand mark, always coral */
+      letter-spacing: 0;
+    }
+    .m01-ktext {
+      color: rgba(30, 63, 69, 0.85);
+      font-family: "SF Mono", "PingFang SC", monospace;
+    }
+    .m01-spinesvg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+    }
+    .m01-spine {
+      fill: none;
+      stroke: rgba(30, 63, 69, 0.55);
+      stroke-width: 2;
+      stroke-linecap: round;
+    }
+    #m01-node {
+      opacity: 0;
+    }
+    .m01-nodeglass {
+      fill: rgba(238, 245, 243, 0.55);
+      stroke: rgba(30, 63, 69, 0.5);
+      stroke-width: 2;
+    }
+    .m01-nodedot {
+      fill: #1e3f45;
+    }
+    .m01-ring {
+      fill: none;
+      stroke: rgba(30, 63, 69, 0.38);
+      stroke-width: 1.5;
+      transform: rotate(-90deg); /* draw starts at 12 o'clock; GSAP never tweens its transform */
+      transform-origin: 640px 312px;
+    }
+    #m01-pulse {
+      fill: none;
+      stroke: rgba(30, 63, 69, 0.5);
+      stroke-width: 2;
+      opacity: 0;
+    }
+    #m01-ticks {
+      opacity: 0;
+    }
+    .m01-tick {
+      fill: rgba(30, 63, 69, 0.32);
+    }
+    #m01-nlabel {
+      position: absolute;
+      left: 362px;
+      top: 296px;
+      width: 244px;
+      text-align: right;
+      font-family: "SF Mono", "PingFang SC", monospace;
+      font-size: 26px;
+      font-size: 1.35cqw;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      color: rgba(30, 63, 69, 0.8);
+      line-height: 32px;
+      opacity: 0;
+    }
+
+    /* ---------- clip 2 · caption zone (upper third, right of spine) ---------- */
+    #m01-caps {
+      position: absolute;
+      left: 760px;
+      top: 214px;
+      width: 1000px;
+      height: 150px;
+    }
+    .m01-line {
+      position: absolute;
+      left: 0;
+      top: 0;
+      display: flex;
+      align-items: baseline;
+      gap: 17px;
+      gap: 0.9cqw;
+      font-size: 88px;
+      font-size: 4.58cqw;
+      font-weight: 400;
+      line-height: 1.08;
+      letter-spacing: -0.018em;
+      color: #1e3f45;
+      white-space: nowrap;
+    }
+    #m01-lineC {
+      font-size: 116px;
+      font-size: 6.04cqw;
+      letter-spacing: -0.022em;
+    }
+    .m01-w {
+      display: inline-block;
+      opacity: 0;
+      will-change: transform, opacity;
+    }
+    .m01-wi {
+      display: inline-block;
+      transform-origin: 50% 50%;
+      will-change: transform;
+    }
+    #m01-lineB .m01-wi {
+      color: rgba(30, 63, 69, 0.42); /* karaoke rest level */
+    }
+    .m01-now {
+      font-style: italic; /* synthesized slant — payoff register */
+    }
+
+    /* ---------- clip 3 · 看山 standing cutout (down-right stage) ---------- */
+    #m01-ks {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+    #m01-kswrap {
+      position: absolute;
+      left: 1418px;
+      top: 392px;
+      width: 384px;
+      height: 480px; /* 512×640 aspect kept */
+      opacity: 0;
+    }
+    .m01-ksimg {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    .m01-kshadow {
+      position: absolute;
+      left: 67px;
+      bottom: -8px;
+      width: 250px;
+      height: 30px;
+      border-radius: 50%;
+      background: rgba(30, 63, 69, 0.28);
+      filter: blur(9px);
+      opacity: 0;
+    }
+  </style>
+
+  <div
+    id="root"
+    data-composition-id="01-morning"
+    data-start="0"
+    data-duration="9.5"
+    data-width="1920"
+    data-height="1080"
+  >
+    <!-- track 0 · background -->
+    <div id="m01-bg" class="clip" data-start="0" data-duration="9.5" data-track-index="0">
+      <div id="m01-bgwrap">
+        <img
+          class="m01-bgimg"
+          id="m01-bgimg"
+          src="assets/preview-workspace.webp"
+          alt=""
+          draggable="false"
+        />
+        <div class="m01-dim"></div>
+        <div class="m01-warm"></div>
+      </div>
+    </div>
+
+    <!-- track 1 · chrome: kicker, spine, node -->
+    <div id="m01-chrome" class="clip" data-start="0" data-duration="9.5" data-track-index="1">
+      <div id="m01-kicker">
+        <span class="m01-spike">✱</span>
+        <span class="m01-ktext">09:00 · 开工</span>
+      </div>
+      <svg class="m01-spinesvg" viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg">
+        <!-- Timeline spine — 官网签名, self-draws top→bottom at left third -->
+        <path id="m01-spine-path" class="m01-spine" d="M 640 150 L 640 842" />
+        <!-- future ticks (dim, unlabeled — structure hint, later frames light them) -->
+        <g id="m01-ticks">
+          <circle class="m01-tick" cx="640" cy="478" r="4.5" />
+          <circle class="m01-tick" cx="640" cy="645" r="4.5" />
+          <circle class="m01-tick" cx="640" cy="800" r="4.5" />
+        </g>
+        <!-- 09:00 glass node -->
+        <g id="m01-node">
+          <circle class="m01-nodeglass" cx="640" cy="312" r="15" />
+          <circle class="m01-nodedot" cx="640" cy="312" r="4.5" />
+        </g>
+        <circle id="m01-ring" class="m01-ring" cx="640" cy="312" r="26" />
+        <circle id="m01-pulse" cx="640" cy="312" r="26" />
+      </svg>
+      <div id="m01-nlabel">09:00</div>
+    </div>
+
+    <!-- track 2 · caption beats (in-place word-swap relay) -->
+    <div id="m01-caps" class="clip" data-start="1.6" data-duration="7.9" data-track-index="2">
+      <div class="m01-line" id="m01-lineA">
+        <span class="m01-w">屏幕</span><span class="m01-w">知道</span><span class="m01-w"
+          >你在</span
+        ><span class="m01-w">看它</span>
+      </div>
+      <div class="m01-line" id="m01-lineB">
+        <span class="m01-w"><span class="m01-wi" data-w="b1">但</span></span><span class="m01-w"
+          ><span class="m01-wi" data-w="b2">没人</span></span
+        ><span class="m01-w"><span class="m01-wi" data-w="b3">在意</span></span
+        ><span class="m01-w"><span class="m01-wi" data-w="b4">你的</span></span
+        ><span class="m01-w"><span class="m01-wi" data-w="b5">眼睛</span></span>
+      </div>
+      <div class="m01-line" id="m01-lineC">
+        <span class="m01-w"><span class="m01-wi">直到</span></span
+        ><span class="m01-w"><span class="m01-wi m01-now">现在</span></span>
+      </div>
+    </div>
+
+    <!-- track 3 · 看山 cutout -->
+    <div id="m01-ks" class="clip" data-start="0.5" data-duration="9" data-track-index="3">
+      <div id="m01-kswrap">
+        <div class="m01-kshadow" id="m01-kshadow"></div>
+        <img
+          class="m01-ksimg"
+          id="m01-ksimg"
+          src="assets/kanshan-distance-break.png"
+          alt=""
+          draggable="false"
+        />
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+  <script>
+    window.__timelines = window.__timelines || {};
+    const tl = gsap.timeline({ paused: true });
+
+    /* ============================================================
+       SCENE 1 (0.0–1.6s) — 底图渐显 · 脊柱 self-draw · 玻璃节点 · 看山落位
+       ============================================================ */
+
+    // Background fade-in + slow macro settle (two finite scale moves, sequential)
+    tl.fromTo("#m01-bgwrap", { opacity: 0 }, { opacity: 1, duration: 1.15, ease: "power2.out" }, 0);
+    tl.fromTo("#m01-bgimg", { scale: 1.07 }, { scale: 1, duration: 3.4, ease: "power2.out" }, 0);
+
+    // Timeline spine — svg-path-draw: measured dasharray/dashoffset, power2.out
+    const spinePath = document.getElementById("m01-spine-path");
+    const ringEl = document.getElementById("m01-ring");
+    const spineLen = spinePath.getTotalLength();
+    const ringLen = ringEl.getTotalLength();
+    spinePath.style.strokeDasharray = String(spineLen);
+    spinePath.style.strokeDashoffset = String(spineLen);
+    ringEl.style.strokeDasharray = String(ringLen);
+    ringEl.style.strokeDashoffset = String(ringLen);
+    tl.fromTo(
+      spinePath,
+      { strokeDashoffset: spineLen },
+      { strokeDashoffset: 0, duration: 0.85, ease: "power2.out" },
+      0.4,
+    );
+
+    // Kicker (kicker-spike chrome)
+    tl.fromTo(
+      "#m01-kicker",
+      { opacity: 0, y: 10 },
+      { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" },
+      0.85,
+    );
+
+    // 09:00 glass node — pop as the stroke passes, then hairline ring draws around it
+    tl.fromTo(
+      "#m01-node",
+      { opacity: 0, scale: 0.4 },
+      { opacity: 1, scale: 1, duration: 0.45, ease: "power3.out", svgOrigin: "640 312" },
+      0.95,
+    );
+    tl.fromTo(
+      ringEl,
+      { strokeDashoffset: ringLen },
+      { strokeDashoffset: 0, duration: 0.45, ease: "power2.out" },
+      1.0,
+    );
+    tl.fromTo("#m01-ticks", { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "power1.out" }, 1.15);
+    tl.fromTo(
+      "#m01-nlabel",
+      { opacity: 0, y: 12 },
+      { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" },
+      1.1,
+    );
+
+    // 看山 — spring-pop-entrance, anchored at the ground, long-tail power3 settle
+    tl.fromTo(
+      "#m01-kswrap",
+      { scale: 0, opacity: 0, y: 30 },
+      {
+        scale: 1,
+        opacity: 1,
+        y: 0,
+        duration: 0.75,
+        ease: "power3.out",
+        transformOrigin: "50% 100%",
+      },
+      0.55,
+    );
+    tl.fromTo("#m01-kshadow", { opacity: 0 }, { opacity: 1, duration: 0.45, ease: "power1.out" }, 0.7);
+
+    /* ============================================================
+       SCENE 2 (1.6–4.0s) — 字幕① per-word staggered drop
+       ============================================================ */
+    const lineA = document.querySelectorAll("#m01-lineA .m01-w");
+    lineA.forEach((el, i) => {
+      tl.fromTo(
+        el,
+        { y: -40, opacity: 0 },
+        { y: 0, opacity: 1, duration: 0.55, ease: "power3.out" },
+        1.72 + i * 0.15,
+      );
+    });
+
+    /* ============================================================
+       SCENE 3 (4.0–6.4s) — ①→② hard-cut word-swap + coral keyword glow
+       ============================================================ */
+    // discrete-text-sequence: instant states at thresholds — ① words vanish word-by-word
+    lineA.forEach((el, i) => {
+      tl.set(el, { opacity: 0 }, 4.02 + i * 0.05);
+    });
+
+    // ② drops in per-word at the same position (word-beat relay)
+    const lineB = document.querySelectorAll("#m01-lineB .m01-w");
+    lineB.forEach((el, i) => {
+      tl.fromTo(
+        el,
+        { y: -52, opacity: 0 },
+        { y: 0, opacity: 1, duration: 0.45, ease: "power3.out" },
+        4.12 + i * 0.1,
+      );
+    });
+
+    // asr-keyword-glow (karaoke) — one linear driver sweeps all of ②'s words;
+    // 「没人」「在意」 are the coral keywords, others breathe in ink.
+    const GLOW = {
+      b1: { start: 0.12, end: 0.34, key: false },
+      b2: { start: 0.46, end: 1.15, key: true }, // 没人 — coral
+      b3: { start: 1.22, end: 1.9, key: true }, //  在意 — coral
+      b4: { start: 1.98, end: 2.16, key: false },
+      b5: { start: 2.22, end: 2.42, key: false },
+    };
+    const GLOW_ATTACK = 0.12;
+    const GLOW_RELEASE = 0.45;
+    const GLOW_REST = 0.12;
+    const glowWords = document.querySelectorAll("#m01-lineB .m01-wi");
+    const driver = { t: 0 };
+
+    function glowEnv(t, s, e) {
+      if (t < s) return 0;
+      if (t < e) return Math.min((t - s) / GLOW_ATTACK, 1);
+      const releaseEnd = e + GLOW_RELEASE;
+      if (t < releaseEnd) return 1 - ((t - e) / GLOW_RELEASE) * (1 - GLOW_REST);
+      return GLOW_REST;
+    }
+    function renderGlow() {
+      glowWords.forEach((el) => {
+        const g = GLOW[el.dataset.w];
+        if (!g) return;
+        const v = glowEnv(driver.t, g.start, g.end);
+        el.style.color = "rgba(30,63,69," + (0.42 + 0.58 * v).toFixed(3) + ")";
+        if (g.key) {
+          // coral glow hugs the glyphs; scale boost 0.15 at peak (karaoke column)
+          el.style.textShadow = "0 0 " + (34 * v).toFixed(1) + "px rgba(155,86,63," + (0.85 * v).toFixed(3) + ")";
+          el.style.transform = "scale(" + (1 + 0.15 * v).toFixed(4) + ")";
+        } else {
+          el.style.transform = "scale(" + (1 + 0.06 * v).toFixed(4) + ")";
+        }
+      });
+    }
+    tl.to(
+      driver,
+      { t: 2.5, duration: 2.5, ease: "none", onUpdate: renderGlow },
+      4.0,
+    );
+
+    /* ============================================================
+       SCENE 4 (6.4–9.0s) — ③ short drop · node pulse · blink · settle
+       ============================================================ */
+    lineB.forEach((el, i) => {
+      tl.set(el, { opacity: 0 }, 6.48 + i * 0.045);
+    });
+    const lineC = document.querySelectorAll("#m01-lineC .m01-w");
+    lineC.forEach((el, i) => {
+      tl.fromTo(
+        el,
+        { y: -64, opacity: 0 },
+        { y: 0, opacity: 1, duration: 0.5, ease: "power3.out" },
+        6.55 + i * 0.12,
+      );
+    });
+
+    // second macro drift — keeps the back half alive under the payoff
+    tl.to("#m01-bgimg", { scale: 1.035, duration: 4.9, ease: "power1.inOut" }, 4.1);
+
+    // 09:00 node pulse — one finite expanding ring on the payoff beat.
+    // immediateRender:false — a fromTo here would pre-apply opacity 0.55 at build
+    // and the ring would glow from t=0; CSS keeps it hidden until the cue.
+    tl.fromTo(
+      "#m01-pulse",
+      { opacity: 0.55, scale: 1 },
+      {
+        opacity: 0,
+        scale: 1.55,
+        duration: 0.75,
+        ease: "power2.out",
+        svgOrigin: "640 312",
+        immediateRender: false,
+      },
+      6.95,
+    );
+
+    // 看山 blink — one finite scaleY squint around the eye band
+    tl.to(
+      "#m01-ksimg",
+      { scaleY: 0.9, duration: 0.11, ease: "power2.in", transformOrigin: "50% 30%" },
+      7.35,
+    );
+    tl.to("#m01-ksimg", { scaleY: 1, duration: 0.16, ease: "power2.out" }, 7.46);
+
+    // settle hold — at most a subtle 3px breath, finite, ends at 9.0
+    tl.to("#m01-kswrap", { y: -3, duration: 0.7, ease: "sine.inOut" }, 7.65);
+    tl.to("#m01-kswrap", { y: 0, duration: 0.65, ease: "sine.inOut" }, 8.35);
+
+    window.__timelines["01-morning"] = tl;
+  </script>
+</template>

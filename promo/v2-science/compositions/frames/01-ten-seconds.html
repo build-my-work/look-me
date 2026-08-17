@@ -1,0 +1,115 @@
+<template>
+  <style>
+    @font-face { font-family: "PingFang SC"; src: local("PingFang SC"); }
+    @font-face { font-family: "SF Mono"; src: local("SF Mono"), local("Menlo"), local("monospace"); }
+
+    #root {
+      position: absolute; inset: 0; width: 1920px; height: 1080px; overflow: hidden;
+      font-family: "PingFang SC", sans-serif;
+    }
+
+    /* full-bleed ink-teal navy field — the frame's only ground (never painted on #root) */
+    #root .ts-bg {
+      position: absolute; inset: 0;
+      background:
+        radial-gradient(1500px 920px at 50% 44%, rgba(36, 77, 83, 0.30) 0%, rgba(24, 22, 21, 0) 62%),
+        #181615;
+    }
+    #root .ts-stage { position: absolute; inset: 0; }
+    #root .ts-lockup { position: absolute; left: 0; top: 0; width: 1920px; height: 880px; }
+
+    /* number-hero — PingFang SC 400 figure, tabular-nums + fixed-width box (no shift 0 → 10).
+       Final size is static CSS; GSAP animates transform scale only. */
+    #root .ts-counter {
+      position: absolute; left: 760px; top: 214px; width: 400px;
+      text-align: center;
+      font-size: 180px; font-weight: 400; line-height: 0.95; letter-spacing: -0.025em;
+      font-variant-numeric: tabular-nums;
+      color: #eef5f3;
+      transform-origin: center center;
+      will-change: transform;
+    }
+
+    /* mono unit strip — the Scene-1 anchor: 「— 秒 —」 in hairline gray, centered */
+    #root .ts-unit-row {
+      position: absolute; left: 0; top: 480px; width: 1920px; height: 40px;
+      display: flex; align-items: center; justify-content: center; gap: 30px;
+    }
+    #root .ts-rule { width: 170px; height: 1px; background: rgba(238, 245, 243, 0.14); }
+    #root .ts-rule.l { transform-origin: right center; }
+    #root .ts-rule.r { transform-origin: left center; }
+    #root .ts-unit {
+      font-family: "SF Mono", "PingFang SC", monospace;
+      font-size: 40px; font-weight: 500; line-height: 1; letter-spacing: 0.02em;
+      color: rgba(238, 245, 243, 0.38);
+      will-change: transform;
+    }
+
+    /* the fact — lead line, slides up once the number freezes */
+    #root .ts-sub {
+      position: absolute; left: 0; top: 584px; width: 1920px;
+      text-align: center;
+      font-size: 40px; font-weight: 400; line-height: 1.5; letter-spacing: 0.02em;
+      color: rgba(238, 245, 243, 0.82);
+    }
+  </style>
+
+  <div id="root" data-composition-id="01-ten-seconds" data-width="1920" data-height="1080" data-duration="7.5">
+    <!-- full-duration ground, lowest track -->
+    <div id="01-ten-seconds-bg" class="clip ts-bg" data-start="0" data-duration="7.5" data-track-index="0"></div>
+
+    <!-- the lockup: figure / unit anchor / fact — number and fact only -->
+    <div id="01-ten-seconds-stage" class="clip ts-stage" data-start="0" data-duration="7.5" data-track-index="1">
+      <div class="ts-lockup" id="01-ten-seconds-lockup">
+        <div class="ts-counter" id="01-ten-seconds-counter">0</div>
+        <div class="ts-unit-row">
+          <span class="ts-rule l" id="01-ten-seconds-ruleL"></span>
+          <span class="ts-unit" id="01-ten-seconds-unit">秒</span>
+          <span class="ts-rule r" id="01-ten-seconds-ruleR"></span>
+        </div>
+        <div class="ts-sub" id="01-ten-seconds-sub">一层泪膜保护眼睛的极限时间</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+  <script>
+    window.__timelines = window.__timelines || {};
+    (function () {
+      var $ = function (id) { return document.getElementById(id); };
+      var tl = gsap.timeline({ paused: true, defaults: { ease: "power3.out" } });
+
+      // Scene 1 (0.0–0.8s): quiet anchor — the mono unit 「秒」 settles at center in hairline gray,
+      // flanking hairlines draw outward from it
+      tl.fromTo($("01-ten-seconds-unit"), { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.5 }, 0);
+      tl.fromTo($("01-ten-seconds-ruleL"), { scaleX: 0 }, { scaleX: 1, duration: 0.5 }, 0.12);
+      tl.fromTo($("01-ten-seconds-ruleR"), { scaleX: 0 }, { scaleX: 1, duration: 0.5 }, 0.12);
+
+      // Scene 2 (0.8–3.6s): value-scaled count-up 0 → 10 — value and scale share one ease at one
+      // position (counting-dynamic-scale); nothing else enters during the count
+      var counterEl = $("01-ten-seconds-counter"), count = { v: 0 };
+      tl.fromTo(counterEl, { opacity: 0 }, { opacity: 1, duration: 0.35, ease: "power2.out" }, 0.8);
+      tl.fromTo(counterEl, { scale: 0.45 }, { scale: 0.84, duration: 2.8 }, 0.8);
+      tl.to(count, {
+        v: 10, duration: 2.8,
+        onUpdate: function () { counterEl.textContent = String(Math.round(count.v)); },
+      }, 0.8);
+
+      // Scene 3 (3.6–5.4s): the count lands — the figure freezes enlarged with a slight lean-in
+      // settle (no bounce on the data); the unit takes its suffix beat and turns coral (the one
+      // voltage moment); the fact line slides up from below
+      tl.fromTo(counterEl, { scale: 0.84, y: 10 }, { scale: 1.06, y: 0, duration: 0.55, immediateRender: false }, 3.6);
+      tl.fromTo($("01-ten-seconds-unit"), { scale: 0.88 }, { scale: 1, duration: 0.45, ease: "back.out(1.7)", immediateRender: false }, 3.6);
+      tl.to($("01-ten-seconds-unit"), { color: "#cf8265", duration: 0.35, ease: "power2.out" }, 3.62);
+      tl.to([$("01-ten-seconds-ruleL"), $("01-ten-seconds-ruleR")],
+        { scaleX: 1.35, backgroundColor: "rgba(238, 245, 243, 0.28)", duration: 0.6 }, 3.65);
+      tl.fromTo($("01-ten-seconds-sub"), { opacity: 0, y: 34 }, { opacity: 1, y: 0, duration: 0.75 }, 3.95);
+
+      // Scene 4 (5.4–7.0s): still hold — the first silence of the film; one imperceptible breath
+      // on the lockup keeps the frame alive, nothing else moves
+      tl.to($("01-ten-seconds-lockup"), { scale: 1.014, duration: 1.5, ease: "power1.out" }, 5.4);
+
+      window.__timelines["01-ten-seconds"] = tl;
+    })();
+  </script>
+</template>
