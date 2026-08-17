@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Look Me 看看我 · 刘看山护眼陪伴</title>
+<meta name="description" content="刘看山住进菜单栏：本地视觉护眼陪伴，提醒眨眼、远眺、起身。看山 Coding 挑战赛参赛作品。">
+<link rel="icon" type="image/png" href="assets/kanshan-distance-break.png">
+<style>
+/* ============ tokens ============ */
+:root{
+  --ink:#244d53;          /* 墨青 · 标题 */
+  --teal:#315f66;         /* 深青 · 主色 */
+  --teal-deep:#1e3f45;
+  --sage:#78908d;         /* 灰绿 · 次级文字 */
+  --mist:#eef5f3;         /* 雾白 · 页面底 */
+  --glass:rgba(247,251,248,.92);
+  --line:#c9dad6;
+  --sand:#f6ecdd;         /* 暖木沙 · 陪伴段落 */
+  --clay:#9b563f;         /* 陶土红 · 点睛 */
+  --amber:#b69a63;
+  --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  --maxw:1060px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+body{
+  font-family:var(--sans);
+  color:var(--ink);
+  background:
+    radial-gradient(1200px 500px at 85% -100px,#e2efec 0%,transparent 60%),
+    radial-gradient(900px 420px at -10% 30%,#e8f1ee 0%,transparent 55%),
+    var(--mist);
+  line-height:1.75;
+  -webkit-font-smoothing:antialiased;
+}
+::selection{background:#315f66;color:#fff}
+a{color:var(--teal)}
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 28px}
+:focus-visible{outline:2px solid var(--teal);outline-offset:3px;border-radius:4px}
+
+/* ============ timeline spine（页面签名：一条 Timeline 贯穿全页） ============ */
+.spine{position:relative}
+.spine::before{
+  content:"";position:absolute;left:31px;top:12px;bottom:12px;width:2px;
+  background:linear-gradient(180deg,transparent,var(--line) 60px,var(--line) calc(100% - 60px),transparent);
+}
+section.event{position:relative;padding:72px 0 8px}
+.node{
+  position:absolute;left:0;top:82px;width:64px;height:64px;border-radius:50%;
+  background:var(--glass);border:2px solid var(--line);
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:10px;color:var(--teal);font-weight:600;
+  box-shadow:0 2px 10px rgba(36,77,83,.06);
+}
+section.event .body{padding-left:104px}
+@media (max-width:860px){
+  .spine::before{display:none}
+  section.event .body{padding-left:0}
+  .node{position:static;margin-bottom:14px}
+}
+
+/* eyebrow：事件类型 / 章节标签 */
+.eyebrow{
+  display:inline-flex;align-items:center;gap:8px;
+  font-family:var(--mono);font-size:12px;letter-spacing:.08em;
+  color:var(--sage);margin-bottom:14px;
+}
+.eyebrow .tag{
+  background:var(--teal);color:#eaf4f1;border-radius:6px;
+  padding:2px 8px;font-size:11px;letter-spacing:.04em;
+}
+.eyebrow .time{color:var(--amber);font-size:11px}
+h2{font-size:clamp(26px,4vw,36px);font-weight:650;letter-spacing:.01em;margin-bottom:10px;line-height:1.3}
+.lede{color:var(--sage);font-size:16.5px;max-width:640px;margin-bottom:34px}
+
+/* ============ cards ============ */
+.grid{display:grid;gap:18px}
+.g3{grid-template-columns:repeat(3,1fr)}
+.g4{grid-template-columns:repeat(4,1fr)}
+.g2{grid-template-columns:repeat(2,1fr)}
+@media (max-width:960px){.g4{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:860px){.g3{grid-template-columns:1fr}.g2{grid-template-columns:1fr}}
+@media (max-width:560px){.g4{grid-template-columns:1fr}}
+.card{
+  background:var(--glass);border:1px solid rgba(201,218,214,.65);border-radius:22px;
+  padding:26px 24px;backdrop-filter:blur(14px);
+  box-shadow:0 10px 30px -18px rgba(36,77,83,.25);
+}
+.card h3{font-size:17.5px;font-weight:650;margin-bottom:8px;display:flex;align-items:center;gap:9px}
+.card p{font-size:14px;color:#4c6663}
+.card .num{
+  font-family:var(--mono);font-size:11.5px;color:var(--teal);
+  background:#e3eeeb;border-radius:6px;padding:1px 7px;font-weight:600;white-space:nowrap;
+}
+.icon{
+  width:34px;height:34px;border-radius:11px;flex:none;
+  display:inline-flex;align-items:center;justify-content:center;
+  background:#dcece8;color:var(--teal);
+}
+.icon svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+/* ============ top bar ============ */
+.topbar{
+  position:sticky;top:0;z-index:50;
+  background:rgba(238,245,243,.82);backdrop-filter:blur(16px);
+  border-bottom:1px solid rgba(201,218,214,.55);
+}
+.topbar .row{display:flex;align-items:center;justify-content:space-between;height:58px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:650;font-size:15px;color:var(--ink);text-decoration:none}
+.brand img{width:26px;height:32px;object-fit:contain}
+.topnav{display:flex;gap:26px;font-size:13.5px}
+.topnav a{color:var(--sage);text-decoration:none;transition:color .2s}
+.topnav a:hover{color:var(--teal)}
+@media (max-width:720px){.topnav{display:none}}
+
+/* ============ hero ============ */
+.hero{padding:84px 0 30px;text-align:center;position:relative}
+.hero .kicker{
+  display:flex;align-items:center;justify-content:center;gap:14px;
+  font-size:15px;font-weight:600;color:var(--teal);letter-spacing:.14em;
+  margin-bottom:24px;
+}
+.hero .kicker::before,.hero .kicker::after{
+  content:"";width:38px;height:1.5px;background:var(--line);border-radius:2px;
+}
+.hero h1{
+  font-size:clamp(34px,6vw,58px);font-weight:700;letter-spacing:.015em;line-height:1.22;
+  max-width:760px;margin:0 auto 18px;
+}
+.hero h1 .hl{color:var(--teal);position:relative;white-space:nowrap}
+.hero h1 .hl::after{
+  content:"";position:absolute;left:0;right:0;bottom:6px;height:10px;
+  background:rgba(182,154,99,.28);border-radius:3px;z-index:-1;
+}
+.hero .name-line{
+  font-family:var(--mono);font-size:14px;color:var(--sage);margin-bottom:30px;letter-spacing:.05em;
+}
+.hero .name-line b{color:var(--teal);font-weight:600}
+.hero .cta{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-bottom:20px}
+.btn{
+  display:inline-flex;align-items:center;gap:8px;border-radius:99px;text-decoration:none;
+  font-size:15px;font-weight:600;padding:13px 30px;transition:transform .18s,box-shadow .18s;
+}
+.btn:active{transform:scale(.97)}
+.btn.primary{background:var(--teal);color:#f1f7f5;box-shadow:0 12px 26px -12px rgba(49,95,102,.55)}
+.btn.primary:hover{box-shadow:0 16px 32px -12px rgba(49,95,102,.65);transform:translateY(-1px)}
+.btn.ghost{background:var(--glass);color:var(--teal);border:1.5px solid var(--line)}
+.btn.ghost:hover{border-color:var(--teal)}
+/* —— hero 桌面舞台 —— */
+.stage-wrap{max-width:880px;margin:52px auto 0;padding:0 20px;position:relative}
+.stage{
+  position:relative;border-radius:26px;overflow:hidden;
+  border:1px solid rgba(201,218,214,.8);
+  box-shadow:0 40px 80px -30px rgba(36,77,83,.38),0 4px 14px rgba(36,77,83,.10);
+  aspect-ratio:1440/760;
+  background:url("assets/preview-workspace.webp") center 38%/cover no-repeat;
+}
+.stage::after{ /* 屏幕玻璃反光 */
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(115deg,rgba(255,255,255,.16) 0%,transparent 28%);
+  pointer-events:none;
+}
+.traffic{position:absolute;top:16px;left:18px;display:flex;gap:8px;z-index:5}
+.traffic i{width:12px;height:12px;border-radius:50%;border:1px solid rgba(0,0,0,.12)}
+.traffic i:nth-child(1){background:#f6c4c0}.traffic i:nth-child(2){background:#f7ddab}.traffic i:nth-child(3){background:#c4e8c6}
+/* 菜单栏小图标 */
+.menubar-pet{
+  position:absolute;top:12px;right:26%;width:17px;height:21px;z-index:4;
+  object-fit:contain;opacity:.9;filter:drop-shadow(0 1px 1px rgba(0,0,0,.12));
+}
+/* 立绘：站姿底图 + 拍手精灵叠层 */
+.pet-anchor{position:absolute;right:9%;bottom:6%;width:17%;min-width:120px;aspect-ratio:512/640;z-index:3}
+.pet-anchor .base,.pet-anchor .sprite{
+  position:absolute;inset:0;width:100%;height:100%;
+  object-fit:contain;object-position:bottom;display:block;
+}
+.pet-anchor .base{filter:drop-shadow(0 18px 22px rgba(36,77,83,.28))}
+.pet-anchor .sprite{opacity:0}
+/* 悬浮胶囊：复现应用真实统计卡 */
+.capsule{
+  position:absolute;left:12%;top:22%;z-index:3;
+  background:var(--glass);backdrop-filter:blur(18px);
+  border:1px solid rgba(255,255,255,.85);border-radius:20px;
+  padding:14px 18px;min-width:212px;
+  box-shadow:0 18px 40px -18px rgba(36,77,83,.4);
+  animation:floaty 6.5s ease-in-out infinite;
+}
+.capsule .cap-title{font-size:11px;color:var(--sage);letter-spacing:.05em;display:flex;align-items:center;gap:6px}
+.capsule .cap-title .live{width:6px;height:6px;border-radius:50%;background:#5a9e6f;animation:pulse 2.4s infinite}
+.capsule .cap-num{font-family:var(--mono);font-size:30px;font-weight:600;color:var(--teal);line-height:1.25}
+.capsule .cap-num small{font-size:13px;color:var(--sage);font-weight:400;margin-left:4px}
+.capsule .cap-sub{font-size:11.5px;color:var(--sage);border-top:1px dashed var(--line);margin-top:9px;padding-top:8px;display:flex;justify-content:space-between;gap:10px}
+.capsule .cap-sub b{color:var(--ink);font-weight:600}
+/* 远眺提示卡：静静停在舞台另一角 */
+.horizon-tip{
+  position:absolute;left:38%;bottom:9%;z-index:2;
+  display:flex;align-items:center;gap:10px;
+  background:var(--glass);border:1px solid rgba(255,255,255,.85);border-radius:16px;
+  padding:9px 14px;font-size:12px;color:var(--ink);
+  box-shadow:0 14px 30px -16px rgba(36,77,83,.4);
+  opacity:0;animation:tipIn 1.2s ease 5.8s forwards;
+}
+.horizon-tip .ring{
+  width:26px;height:26px;border-radius:50%;flex:none;
+  background:conic-gradient(var(--amber) 0 62%,#e7e0d0 62% 100%);
+  display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:9px;color:#fff;
+}
+@keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes tipIn{to{opacity:1}}
+@media (prefers-reduced-motion:reduce){
+  .capsule,.capsule .cap-title .live{animation:none}
+  .horizon-tip{animation:none;opacity:1}
+}
+
+/* ============ stats strip ============ */
+.stats{margin:64px 0 6px}
+.stats .row{
+  display:grid;grid-template-columns:repeat(4,1fr);
+  border-block:1px solid var(--line);padding:22px 0;gap:12px;
+}
+.stats .cell{text-align:center}
+.stats .v{font-family:var(--mono);font-size:clamp(22px,3vw,30px);font-weight:600;color:var(--teal)}
+.stats .k{font-size:12px;color:var(--sage);letter-spacing:.06em;margin-top:2px;text-wrap:balance}
+@media (max-width:640px){.stats .row{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:880px){.stats .row{grid-template-columns:repeat(2,1fr);row-gap:24px}}
+
+/* ============ 远眺场景条 ============ */
+.horizon{
+  margin:64px 0 10px;border-radius:24px;overflow:hidden;position:relative;
+  border:1px solid rgba(201,218,214,.8);box-shadow:0 24px 50px -28px rgba(36,77,83,.35);
+}
+.horizon img{width:100%;display:block}
+.horizon .cap{
+  position:absolute;left:22px;bottom:18px;background:var(--glass);backdrop-filter:blur(12px);
+  border-radius:14px;padding:10px 16px;font-size:13px;color:var(--ink);
+  border:1px solid rgba(255,255,255,.8);
+}
+.horizon .cap b{color:var(--teal)}
+
+/* ============ 陪伴·精灵剧场 ============ */
+.sand-section{position:relative}
+.sand-section .body{position:relative}
+.theater{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:26px}
+@media (max-width:640px){.theater{grid-template-columns:repeat(3,1fr);gap:10px}}
+.tile{
+  position:relative;border-radius:20px;overflow:hidden;
+  background:linear-gradient(180deg,#fbf6ee,#f3ead9);
+  border:1px solid rgba(182,154,99,.35);
+  box-shadow:inset 0 2px 12px rgba(182,154,99,.14),0 14px 30px -20px rgba(36,77,83,.3);
+}
+.tile .screen{
+  position:relative;height:200px;display:flex;align-items:flex-end;justify-content:center;overflow:hidden;
+}
+.tile .screen::before{ /* 地面 */
+  content:"";position:absolute;left:8%;right:8%;bottom:26px;height:1.5px;
+  background:rgba(49,95,102,.22);border-radius:2px;
+}
+.tile .pet{width:118px;height:148px;position:relative;margin-bottom:26px}
+.tile .pet .sprite{position:absolute;inset:0;width:100%;height:100%;display:block}
+.tile .label{
+  padding:10px 14px 13px;border-top:1px solid rgba(182,154,99,.25);
+  font-size:12.5px;color:#6e5a3c;background:rgba(255,252,246,.7);
+  display:flex;justify-content:space-between;align-items:center;
+}
+.tile .label .mono{font-family:var(--mono);font-size:10.5px;color:var(--amber)}
+/* 精灵动画：与应用内同款 steps() 硬切帧技术 */
+@keyframes clapPlay{
+  0%{background-position:0% 0%}100%{background-position:100% 0%}
+}
+.sprite-clap{background:url("assets/kanshan-clap-sprite.png") 0 0/800% 100% no-repeat;
+  animation:clapPlay 3.2s steps(7,end) infinite}
+.sprite-sit{background:url("assets/kanshan-sit-sprite.png") 0 0/800% 100% no-repeat;
+  animation:clapPlay 2.4s steps(7,end) infinite}
+.sprite-spin{background:url("assets/kanshan-spin-sprite.png") 0 0/1100% 100% no-repeat;
+  animation:clapPlay 2.6s steps(10,end) infinite}
+.tile .pet .sprite{background-position:0 0}
+@media (prefers-reduced-motion:reduce){
+  .sprite-clap,.sprite-sit,.sprite-spin{animation:none;background-position:0 0}
+}
+
+/* 分钟桶示意（纯 CSS 迷你图） */
+.minute-demo{
+  display:grid;grid-template-columns:repeat(24,1fr);gap:4px;align-items:end;
+  height:88px;margin-top:8px;
+}
+.minute-demo i{border-radius:3px 3px 2px 2px;background:#a8c5bf;min-height:4px}
+.minute-demo i.zero{background:#d7e5e1;height:4px}
+.minute-demo i.blank{background:repeating-linear-gradient(135deg,#e3ecea 0 4px,#f2f7f5 4px 8px);height:4px}
+.minute-demo i.hot{background:var(--teal)}
+.minute-legend{display:flex;gap:18px;margin-top:12px;font-size:11.5px;color:var(--sage);flex-wrap:wrap}
+.minute-legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+
+/* ============ 宠物演示：应用同款 pet shell ============
+   260×325 壳 + 覆盖层用应用源码原始 px 坐标（眼睑 112,88 · 嘴 142,127 · 泪 115,103），
+   外层 transform: scale() 整体缩放，与应用的小/大档宠物同一机制 */
+.pet-stage{
+  width:184px;height:220px;margin:14px auto 0;padding:16px;
+  background:linear-gradient(180deg,#fbf6ee,#f3ead9);
+  border:1px solid rgba(182,154,99,.35);border-radius:16px;
+  box-shadow:inset 0 2px 10px rgba(182,154,99,.14),0 10px 24px -18px rgba(36,77,83,.3);
+}
+.pet-box{position:relative;width:150px;height:188px;margin:0 auto}
+.pet-shell{position:absolute;top:0;left:0;width:260px;height:325px;transform:scale(.577);transform-origin:top left}
+.pet-shell .pet-base{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block}
+.pet-mouth{
+  position:absolute;left:142px;top:127px;width:28px;height:44px;opacity:0;display:block;
+  transform:scale(.84,.08);transform-origin:center 18%;
+}
+.pet-eyelid{
+  position:absolute;left:112px;top:88px;width:17px;height:19px;border-radius:50%;
+  opacity:0;background:#f4f4f1;box-shadow:0 0 3px 2px rgba(244,244,241,.92);
+  transform:scaleY(.35);transform-origin:center;
+}
+.pet-eyelid::after{
+  content:"";position:absolute;left:4px;top:9px;width:9px;height:2px;
+  border-radius:999px;background:#171718;transform:rotate(3deg);
+}
+.tear-stream{position:absolute;left:115px;top:103px;width:14px;height:auto;display:block;opacity:0}
+.tear-drop{position:absolute;left:124px;top:115px;width:11px;height:auto;display:block;opacity:0}
+
+/* 动画 keyframes 照搬自 app/src/styles.css */
+.pet-blinking .pet-eyelid{animation:petMirrorBlinkDemo 2.4s ease-in-out infinite}
+.pet-yawning .pet-mouth{animation:petYawnMouthDemo 3.6s ease-in-out infinite}
+.pet-yawning .pet-eyelid{animation:petYawnEyeDemo 3.6s ease-in-out infinite}
+.pet-weeping{animation:petCrying 2.4s ease-in-out infinite}
+@keyframes petMirrorBlinkDemo{
+  0%,9%,100%{opacity:0;transform:scaleY(.35)}
+  3.5%,6.5%{opacity:1;transform:scaleY(1)}
+}
+@keyframes petYawnMouthDemo{
+  0%,18%,88%,100%{opacity:0;transform:scale(.84,.08)}
+  28%,78%{opacity:1;transform:scale(.94,.4)}
+  42%,64%{opacity:1;transform:scale(1)}
+}
+@keyframes petYawnEyeDemo{
+  0%,24%,84%,100%{opacity:0;transform:scaleY(.35)}
+  36%,72%{opacity:1;transform:scaleY(1)}
+}
+@keyframes petCrying{
+  0%,100%{transform:translateY(0) rotate(1deg)}
+  50%{transform:translateY(2px) rotate(2.2deg)}
+}
+@media (prefers-reduced-motion:reduce){
+  .pet-blinking .pet-eyelid,.pet-yawning .pet-mouth,.pet-yawning .pet-eyelid,.pet-weeping{animation:none}
+  .pet-yawning .pet-mouth{opacity:1;transform:scale(.94,.4)}
+}
+
+/* 注意力轨道：迷你屏幕实景（降落 → 落泪 → 回升） */
+.rail-demo{
+  position:relative;width:184px;height:220px;border-radius:16px;overflow:hidden;margin:14px auto 0;
+  background:linear-gradient(180deg,#fbf6ee,#f3ead9);
+  border:1px solid rgba(182,154,99,.35);
+  box-shadow:inset 0 2px 10px rgba(182,154,99,.14),0 10px 24px -18px rgba(36,77,83,.3);
+}
+.rail-demo::before{
+  content:"";position:absolute;right:4px;top:12px;bottom:12px;width:2px;border-radius:2px;
+  background:repeating-linear-gradient(180deg,rgba(49,95,102,.32) 0 6px,transparent 6px 12px);
+}
+.rail-demo .pet{
+  position:absolute;right:14px;width:80px;height:100px;
+  animation:railRun 8s ease-in-out infinite;
+}
+.rail-demo .pet .pet-shell{transform:scale(.308)}
+.rail-demo .tear-stream{opacity:1;animation:tearShow 8s ease-in-out infinite}
+.rail-demo .tear-drop{animation:dropFall 8s ease-in infinite}
+@keyframes railRun{
+  0%,6%{top:4px}
+  40%,76%{top:calc(100% - 106px)}
+  90%,100%{top:4px}
+}
+@keyframes tearShow{
+  0%,38%{opacity:0}
+  42%,74%{opacity:1}
+  78%,100%{opacity:0}
+}
+@keyframes dropFall{
+  0%,42%{opacity:0;transform:translateY(0)}
+  46%{opacity:1}
+  54%{opacity:0;transform:translateY(90px)}
+  58%{opacity:0;transform:translateY(0)}
+  62%{opacity:1}
+  70%{opacity:0;transform:translateY(90px)}
+  74%,100%{opacity:0;transform:translateY(0)}
+}
+@media (prefers-reduced-motion:reduce){
+  .rail-demo .pet{top:calc(100% - 106px)}
+  .rail-demo .tear-stream{opacity:1}
+  .rail-demo .pet,.rail-demo .tear-stream,.rail-demo .tear-drop{animation:none}
+}
+.companion-cards .card{display:flex;flex-direction:column}
+.companion-cards .card>p{margin-bottom:18px}
+.companion-cards .card>.pet-stage,.companion-cards .card>.rail-demo{margin:auto auto 0}
+
+/* ============ 隐私对照 ============ */
+.privacy .col h3{font-size:15px;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.privacy ul{list-style:none}
+.privacy li{
+  font-size:14px;padding:9px 0 9px 26px;position:relative;color:#4c6663;
+  border-bottom:1px dashed rgba(201,218,214,.7);
+}
+.privacy li:last-child{border-bottom:none}
+.privacy li::before{
+  content:"";position:absolute;left:0;top:16px;width:15px;height:15px;border-radius:50%;
+  background-position:center;background-repeat:no-repeat;background-size:10px;
+}
+.privacy .yes li::before{background-color:#e0efe7;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233f7d54' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E")}
+.privacy .no li::before{background-color:#f6e3dc;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239b563f' stroke-width='3.4' stroke-linecap='round'%3E%3Cline x1='5' y1='5' x2='19' y2='19'/%3E%3Cline x1='19' y1='5' x2='5' y2='19'/%3E%3C/svg%3E")}
+
+/* ============ CLI 版块 ============ */
+.cli-card{position:relative;overflow:hidden}
+.cli-card::before{
+  content:"CLI";position:absolute;right:-14px;top:-26px;font-family:var(--mono);
+  font-size:120px;font-weight:700;color:rgba(49,95,102,.06);letter-spacing:-.05em;pointer-events:none;
+}
+
+/* ============ 开关卡 ============ */
+.switches-card{grid-column:1/-1}
+.switch-layout{display:flex;gap:26px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.switch-copy{flex:1;min-width:280px}
+.switch-demo{display:flex;flex-direction:column;gap:10px;align-items:flex-end}
+@media (max-width:700px){.switch-demo{align-items:flex-start}}
+.sw{
+  display:inline-flex;align-items:center;gap:10px;
+  background:rgba(255,255,255,.92);border:1px solid var(--line);border-radius:99px;
+  padding:8px 15px;font-size:13px;font-weight:600;color:var(--ink);
+  cursor:pointer;font-family:inherit;
+  box-shadow:0 2px 6px -3px rgba(36,77,83,.25);
+  transition:color .2s;
+}
+.sw .knob{
+  width:30px;height:17px;border-radius:99px;background:var(--teal);
+  position:relative;flex:none;transition:background .2s;
+}
+.sw .knob::after{
+  content:"";position:absolute;right:2px;top:2px;width:13px;height:13px;border-radius:50%;
+  background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:left .18s,right .18s;
+}
+.sw[aria-pressed="false"]{color:var(--sage)}
+.sw[aria-pressed="false"] .knob{background:#c9d8d5}
+.sw[aria-pressed="false"] .knob::after{left:2px;right:auto}
+.switch-hint{font-size:11.5px;color:var(--amber)}
+
+/* ============ demo / 终端 ============ */
+.term{
+  background:#22383c;border-radius:18px;overflow:hidden;
+  box-shadow:0 26px 54px -26px rgba(30,63,69,.5);
+  margin-top:8px;
+}
+.term .bar{
+  display:flex;align-items:center;gap:8px;padding:12px 16px;
+  background:rgba(255,255,255,.05);border-bottom:1px solid rgba(255,255,255,.07);
+}
+.term .bar i{width:11px;height:11px;border-radius:50%}
+.term .bar i:nth-child(1){background:#f6c4c0}.term .bar i:nth-child(2){background:#f7ddab}.term .bar i:nth-child(3){background:#c4e8c6}
+.term .bar span{font-family:var(--mono);font-size:11px;color:#8fb0ab;margin-left:8px}
+.term pre{
+  font-family:var(--mono);font-size:13px;line-height:2.05;color:#cfe6df;
+  padding:20px 24px;overflow-x:auto;
+}
+.term .c{color:#6f938e}
+.term .g{color:#8fd0a4}
+
+/* ============ 下载卡 ============ */
+.dl-card{padding:30px 28px}
+.dl-row{display:flex;gap:14px;flex-wrap:wrap;justify-content:center}
+.dl-btn{padding:14px 26px;font-size:14.5px}
+.dl-meta{margin-top:16px;text-align:center;font-size:12px;color:var(--sage)}
+.src-run{margin-top:18px}
+.src-run summary{
+  cursor:pointer;font-size:13.5px;color:var(--teal);font-weight:600;
+  user-select:none;display:inline-flex;align-items:center;gap:6px;list-style:none;
+}
+.src-run summary::-webkit-details-marker{display:none}
+.src-run summary::before{content:"›";transition:transform .2s;font-size:16px}
+.src-run[open] summary::before{transform:rotate(90deg)}
+.src-run .term{margin-top:14px}
+
+/* ============ footer ============ */
+footer{margin-top:90px;border-top:1px solid var(--line);padding:44px 0 60px;color:var(--sage)}
+footer .cols{display:grid;grid-template-columns:1.4fr 1fr;gap:30px;font-size:13px}
+@media (max-width:720px){footer .cols{grid-template-columns:1fr}}
+footer h4{font-size:13px;color:var(--ink);margin-bottom:12px;font-weight:650}
+footer p{margin-bottom:8px}
+footer .fin{margin-top:38px;text-align:center;font-family:var(--mono);font-size:11.5px;letter-spacing:.08em}
+
+/* ============ 滚动浮现 ============ */
+.reveal{opacity:0;transform:translateY(22px);transition:opacity .7s ease,transform .7s ease}
+.reveal.in{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}}
+</style>
+</head>
+<body>
+
+<!-- ================= 顶栏 ================= -->
+<header class="topbar">
+  <div class="wrap row">
+    <a class="brand" href="#top">
+      <img src="assets/kanshan-distance-break.png" alt="刘看山">
+      <span>Look Me <span style="color:var(--sage);font-weight:400">· 看看我</span></span>
+    </a>
+    <nav class="topnav">
+      <a href="#why">为什么做</a>
+      <a href="#care">他为你做的事</a>
+      <a href="#companion">看山的陪伴</a>
+      <a href="#diary">陪伴日记</a>
+      <a href="#cli">CLI 能力</a>
+      <a href="#demo">体验 Demo</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ================= HERO ================= -->
+<div class="hero" id="top">
+  <div class="wrap">
+    <div class="kicker reveal in">干眼症的福音 · 久坐党的救星</div>
+    <h1 class="reveal in">泪膜只能撑<span class="hl">10 秒</span><br>别等眼睛干掉</h1>
+    <div class="name-line reveal in">Look Me（看看我）—— <b>刘看山住进菜单栏：本地视觉护眼陪伴，提醒眨眼、远眺、起身，通过看山随时直答</b></div>
+    <div class="cta reveal in">
+      <a class="btn primary" href="#demo">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3" fill="currentColor" stroke="none"/></svg>
+        体验 Demo
+      </a>
+    </div>
+
+    <!-- 桌面舞台：真实素材复现「桌面上的一天」 -->
+    <div class="stage-wrap reveal in" aria-label="Look Me 桌面效果示意">
+      <div class="stage">
+        <div class="traffic" aria-hidden="true"><i></i><i></i><i></i></div>
+        <img class="menubar-pet" src="assets/kanshan-distance-break.png" alt="" aria-hidden="true">
+        <div class="capsule" role="img" aria-label="眨眼统计胶囊示意：近 1 分钟 14 次眨眼，有效看屏 12 分钟">
+          <div class="cap-title"><span class="live"></span>近 1 分钟眨眼</div>
+          <div class="cap-num">14<small>次 / 分钟</small></div>
+          <div class="cap-sub"><span>有效看屏 <b>12:41</b></span><span>坐姿 <b>26 分钟</b></span></div>
+        </div>
+        <div class="horizon-tip">
+          <span class="ring">12s</span>
+          <span>看山喊你远眺 20 秒 —— 还剩 12 秒</span>
+        </div>
+        <div class="pet-anchor" id="heroPet">
+          <img class="base" src="assets/kanshan-distance-break.png" alt="刘看山站在桌面右下角">
+          <span class="sprite sprite-clap" id="heroSprite" aria-hidden="true"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= 数据条 ================= -->
+<div class="stats wrap">
+  <div class="row reveal">
+    <div class="cell"><div class="v">10 秒</div><div class="k">一层泪膜保护眼睛的极限时间</div></div>
+    <div class="cell"><div class="v">4 秒</div><div class="k">正常情况下，你平均多久眨一次眼</div></div>
+    <div class="cell"><div class="v">30–60 秒</div><div class="k">盯屏入神时，人可以一直不眨眼</div></div>
+    <div class="cell"><div class="v">25 秒</div><div class="k">看山出手的时机——赶在伤害累积之前</div></div>
+  </div>
+</div>
+
+<!-- ================= 时间轴主体 ================= -->
+<main class="wrap spine">
+
+  <!-- ---- 为什么做 ---- -->
+  <section class="event" id="why">
+    <div class="node" aria-hidden="true">09:00</div>
+    <div class="body">
+      <div class="eyebrow reveal">为什么做 Look Me</div>
+      <h2 class="reveal">屏幕知道你在看它，<br>但没人在意你的眼睛</h2>
+      <p class="lede reveal">先说清楚一件事：眨眼的意义，从来不是「多眨眼」本身。</p>
+      <div class="grid g3">
+        <div class="card reveal">
+          <h3><span class="icon"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>眨眼，是眼睛的自我保护</h3>
+          <p>每眨一次眼，泪膜就重新铺满眼球表面——锁住水分、滋养角膜。泪膜只能撑 10 秒左右，而正常人每 4 秒眨一次，刚好赶在它破裂前续上。这是一套精密的天然保湿机制。</p>
+        </div>
+        <div class="card reveal">
+          <h3><span class="icon"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></span>盯屏时，这套机制会失灵</h3>
+          <p>聚精会神看屏幕时，人会 30–60 秒忘记眨眼。泪膜破了，角膜就开始「裸奔」——干涩、异物感、视疲劳随之而来，长年累月，便是干眼。顺便，一坐一下午的肩颈也在抗议。</p>
+        </div>
+        <div class="card reveal">
+          <h3><span class="icon"><svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></span>所以，换一种提醒</h3>
+          <p>不是「多眨眼」的唠叨，也不是装了又卸的计时器——而是一只真的看得见你的刘看山：在泪膜告急之前把你拉回来，坐得太久时喊你起身。安静地陪着你，只在该出现的时候出现。</p>
+        </div>
+      </div>
+      <p class="reveal" style="font-size:12.5px;color:var(--sage);margin-top:18px">泪膜与眨眼的机制，参考知乎专栏 <a href="https://zhuanlan.zhihu.com/p/260480206" target="_blank" rel="noopener">《认识干眼症》</a>（眼科医生科普）</p>
+    </div>
+  </section>
+
+  <!-- ---- 他为你做的事 ---- -->
+  <section class="event" id="care">
+    <div class="node" aria-hidden="true">10:24</div>
+    <div class="body" id="how">
+      <div class="eyebrow reveal">他为你做的事</div>
+      <h2 class="reveal">他真的看得见你，<br>所以提醒来得刚刚好</h2>
+      <p class="lede reveal">定时弹窗式的提醒，迟早会被你关掉。Look Me 的提醒建立在一个事实上：他看得见你的状态——该出现时出现，不该打扰时，一个字都不说。</p>
+      <div class="grid g2">
+        <div class="card reveal">
+          <h3><span class="icon"><svg viewBox="0 0 24 24"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg></span>守护你的泪膜 <span class="num">25 秒 · 眨 2 下</span></h3>
+          <p>盯屏超过 25 秒没眨眼——这期间你的泪膜可能已经破了两次。他会举着小牌子「陪我慢慢眨 2 下」：眨一次眼，就是给眼睛重新镀上一层保护膜。眨满两次他才安心走开，之后 90 秒绝不唠叨；看不到你的时候，他会停下来等，绝不瞎计时、瞎提醒。</p>
+        </div>
+        <div class="card reveal">
+          <h3><span class="icon"><svg viewBox="0 0 24 24"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/></svg></span>带你远眺 <span class="num">20-20-20 法则</span></h3>
+          <p><b>20-20-20</b> 是目前放松睫状肌最好的动作：每看屏 <b>20 分钟</b>，望向 <b>20 英尺</b>（约 6 米）外，坚持 <b>20 秒</b>。盯近处时，睫状肌一直紧绷着，只有望向远处才能真正松开——这也是眼科医生最常推荐的护眼法则。节奏看山替你记着：满 20 分钟，他就为你展开一扇 20 秒的远眺小窗；不想远眺随时跳过，他记着下次再叫你。</p>
+        </div>
+        <div class="card reveal">
+          <h3><span class="icon"><svg viewBox="0 0 24 24"><path d="M18 8h1a4 4 0 0 1 0 8h-1M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/></svg></span>喊你起身 <span class="num">默认 30 分钟 · 可调</span></h3>
+          <p>他认得你起身离开的样子：真的站起来才记一次，你侧个身、摄像头晃一下都不会被冤枉。坐得太久他会轻轻提醒，你说「知道了」，这一程他就不再打扰。1 到 600 分钟，随你调。</p>
+        </div>
+        <div class="card reveal">
+          <h3><span class="icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 15s1.5-2 4-2 4 2 4 2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></span>陪你打哈欠 <span class="num">小彩蛋</span></h3>
+          <p>检测到你真的打了个哈欠——不是说话时张了张嘴——他会跟着张嘴打一个。你困的时候，他先困给你看。</p>
+        </div>
+        <div class="card switches-card reveal">
+          <div class="switch-layout">
+            <div class="switch-copy">
+              <h3><span class="icon"><svg viewBox="0 0 24 24"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg></span>所有提醒，都听你的</h3>
+              <p>菜单栏一个「监测与提醒」总开关，眨眼、远眺、久坐各有独立开关——关掉谁都不影响另外两个；只关提醒，统计照记。锁屏、睡眠、或不在你设定的监测时段（默认 09:00–21:00），他会自动休息并释放摄像头。你的电脑，你说了算。</p>
+            </div>
+            <div class="switch-demo">
+              <button class="sw" type="button" aria-pressed="true">眨眼提醒<span class="knob"></span></button>
+              <button class="sw" type="button" aria-pressed="true">远眺提醒<span class="knob"></span></button>
+              <button class="sw" type="button" aria-pressed="true">久坐提醒<span class="knob"></span></button>
+              <p class="switch-hint">试试点看，真的能关</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ---- 远眺场景 ---- -->
+  <section class="event" style="padding-bottom:0">
+    <div class="body">
+      <div class="horizon reveal">
+        <img src="assets/horizon-break.webp" alt="20 秒远眺场景：窗外的地平线" loading="lazy">
+        <div class="cap"><b>20-20-20：放松睫状肌最好的动作</b>，每 20 分钟，望向 20 英尺（约 6 米）的地方保持 20 秒</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ---- 陪伴 ---- -->
+  <section class="event sand-section" id="companion">
+    <div class="node" aria-hidden="true">14:07</div>
+    <div class="body">
+      <div class="eyebrow reveal">看山的陪伴</div>
+      <h2 class="reveal">提醒之外，他真的是活的</h2>
+      <p class="lede reveal">工作间隙抬头一看，他可能正在自己玩——也可能，正着急地提醒你。</p>
+      <div class="grid g3 companion-cards">
+        <div class="card reveal">
+          <h3><span class="icon"><svg viewBox="0 0 24 24"><path d="M23 6l-9.5 9.5-5-5L1 18"/><path d="M17 6h6v6"/></svg></span>眨眼镜像</h3>
+          <p>每当你完整地眨一次眼，他都跟着眨一次。你看不见自己的眼睛，他替你看着——他眨了，就说明你刚才真的眨了。</p>
+          <div class="pet-stage">
+            <div class="pet-box pet-blinking" aria-hidden="true">
+              <div class="pet-shell">
+                <img class="pet-base" src="assets/kanshan-distance-break.png" alt="">
+                <span class="pet-eyelid"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card reveal">
+          <h3><span class="icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 15s1.5-2 4-2 4 2 4 2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></span>陪你打哈欠</h3>
+          <p>你打了个哈欠，他也跟着张嘴打一个。你困的时候，他先困给你看。</p>
+          <div class="pet-stage">
+            <div class="pet-box pet-yawning" aria-hidden="true">
+              <div class="pet-shell">
+                <img class="pet-base" src="assets/kanshan-distance-break.png" alt="">
+                <img class="pet-mouth" src="assets/kanshan-yawn-mouth.png" alt="">
+                <span class="pet-eyelid"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card reveal">
+          <h3><span class="icon"><svg viewBox="0 0 24 24"><path d="M12 2l1.4 4.4L18 5l-2.6 3.6L19 12l-3.6 1.4L18 19l-4.6-1.4L12 22l-1.4-4.4L6 19l2.6-3.6L5 12l3.6-1.4L6 5l4.6 1.4z"/></svg></span>注意力轨道</h3>
+          <p>25 秒不眨眼，他会从屏幕右上角顺轨道缓缓降落、掉着眼泪提醒你；你一眨眼，他立刻擦泪回升，然后安静 25 秒。</p>
+          <div class="rail-demo" aria-hidden="true">
+            <div class="pet pet-weeping">
+              <div class="pet-shell">
+                <img class="pet-base" src="assets/kanshan-distance-break.png" alt="">
+                <img class="tear-stream" src="assets/kanshan-tear.png" alt="">
+                <img class="tear-drop" src="assets/kanshan-tear.png" alt="">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="theater reveal" aria-label="看山待机小剧场：拍手、坐下、转圈">
+        <div class="tile">
+          <div class="screen"><div class="pet"><span class="sprite sprite-clap" aria-hidden="true"></span></div></div>
+          <div class="label"><span>拍手 · 一次 6 连拍</span></div>
+        </div>
+        <div class="tile">
+          <div class="screen"><div class="pet"><span class="sprite sprite-sit" aria-hidden="true"></span></div></div>
+          <div class="label"><span>坐下 · 再站起来</span></div>
+        </div>
+        <div class="tile">
+          <div class="screen"><div class="pet"><span class="sprite sprite-spin" aria-hidden="true"></span></div></div>
+          <div class="label"><span>原地转圈圈</span></div>
+        </div>
+      </div>
+      <p class="reveal" style="font-size:12.5px;color:var(--sage);margin-top:12px">没人理他的时候，他也会自己玩：拍手、坐下、转圈——设置里可以指定最爱的一项，或让他自动轮换。</p>
+    </div>
+  </section>
+
+  <!-- ---- 陪伴日记 ---- -->
+  <section class="event" id="diary">
+    <div class="node" aria-hidden="true">18:30</div>
+    <div class="body">
+      <div class="eyebrow reveal">你的陪伴日记</div>
+      <h2 class="reveal">他记得你的每一天，<br>但日记只锁在你电脑里</h2>
+      <p class="lede reveal">每一次眨眼、每一次起身、每一段看屏，他都悄悄记下——今天眨了多少次眼、坐了多久、起来了几趟，打开就一目了然。这本日记 30 天后自动翻篇，从不上传，也永远不会变成给别人看的数据。</p>
+      <div class="grid g2">
+        <div class="card reveal">
+          <h3><span class="icon"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 14l4-6 4 3 5-8"/></svg></span>回头看看这一天</h3>
+          <p><b>事件视图</b>：一天里每件事的精确落点，六条泳道各自排开。<b>分钟视图</b>：眨眼、哈欠、站起、坐下，任选一件看这一天的节奏。滚轮一转，从一整天缩放到一分钟以内。</p>
+          <div class="minute-demo" aria-hidden="true">
+            <i class="blank"></i><i class="blank"></i><i class="zero"></i><i></i><i></i><i class="zero"></i><i></i><i class="hot"></i><i></i><i></i><i class="zero"></i><i></i><i></i><i></i><i class="hot"></i><i></i><i class="zero"></i><i class="blank"></i><i class="blank"></i><i class="zero"></i><i></i><i></i><i class="zero"></i><i></i>
+          </div>
+          <div class="minute-legend">
+            <span><i style="background:#a8c5bf"></i>在陪着你 · 有事件</span>
+            <span><i style="background:#d7e5e1"></i>在陪着你 · 0 次</span>
+            <span><i style="background:repeating-linear-gradient(135deg,#e3ecea 0 4px,#f2f7f5 4px 8px)"></i>那会儿没开 · 留空</span>
+          </div>
+        </div>
+        <div class="card reveal privacy">
+          <h3><span class="icon"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>他看得见你，但守口如瓶</h3>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:4px">
+            <div class="col yes">
+              <h3 style="color:#3f7d54">他在本机看的</h3>
+              <ul>
+                <li>你的脸在不在画面里</li>
+                <li>眼睛有没有闭上</li>
+                <li>你有没有起身</li>
+              </ul>
+            </div>
+            <div class="col no">
+              <h3 style="color:var(--clay)">他永远不会</h3>
+              <ul>
+                <li>保存任何一帧画面</li>
+                <li>把画面传出你的电脑</li>
+                <li>偷看你的屏幕内容</li>
+              </ul>
+            </div>
+          </div>
+          <p style="margin-top:14px">他记住的只是「几点眨了眼、几点起了身」这样的小事——不评分、不打卡、不搞连续签到，健康习惯不需要被审判。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ---- CLI 版块：接入后把下方单卡替换为真实能力介绍（可拆多卡 + 展示真实 CLI 调用） ---- -->
+  <section class="event" id="cli">
+    <div class="node" aria-hidden="true">CLI</div>
+    <div class="body">
+      <div class="eyebrow reveal"><span class="tag">zhihu-open-cli</span><span>看山素材 + 开放平台</span></div>
+      <h2 class="reveal">看山不止在桌面陪你</h2>
+      <p class="lede reveal">除了护眼陪伴，他还在通过知乎开放平台学会一些新本领——解锁中，敬请期待。</p>
+      <div class="card cli-card reveal">
+        <h3><span class="icon"><svg viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></span>与知乎开放平台的直达连接</h3>
+        <p>桌面上的看山已经会用开放平台的 CLI 为你办事——新能力正在路上。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ---- 体验 Demo ---- -->
+  <!-- TODO(build)：下载地址为占位路径，构建产物放到 site/downloads/ 下；
+       文件名变化时全局替换 downloads/ 路径即可。 -->
+  <section class="event" id="demo">
+    <div class="node" aria-hidden="true">现在</div>
+    <div class="body">
+      <div class="eyebrow reveal"><span>下载即用 · 全平台</span></div>
+      <h2 class="reveal">亲手体验</h2>
+      <p class="lede reveal">一台带摄像头的电脑就行。首次运行请允许摄像头权限——他只在本机看，不看别的。</p>
+      <div class="card dl-card reveal">
+        <div class="dl-row">
+          <a class="btn primary dl-btn" href="downloads/LookMe-mac-universal.zip" download>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            macOS
+          </a>
+          <a class="btn primary dl-btn" href="downloads/LookMe-setup-x64.exe" download>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Windows
+          </a>
+          <a class="btn primary dl-btn" href="downloads/LookMe-linux-x64.AppImage" download>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Linux
+          </a>
+        </div>
+        <div class="dl-meta">v0.1.0 · 未签名应用：macOS 首次打开请在系统设置中允许，Windows 可能弹出 SmartScreen，选「仍要运行」</div>
+      </div>
+      <details class="src-run reveal">
+        <summary>想从源码跑？三步起开发版</summary>
+        <div class="term">
+          <div class="bar" aria-hidden="true"><i></i><i></i><i></i><span>Terminal — look-me</span></div>
+          <pre><span class="c"># 1. 克隆仓库</span>
+git clone &lt;仓库地址&gt; look-me <span class="g">&amp;&amp;</span> cd look-me/app
+<span class="c"># 2. 安装依赖</span>
+npm install
+<span class="c"># 3. 启动桌面版（Vite + Electron）</span>
+npm run dev:desktop</pre>
+        </div>
+      </details>
+    </div>
+  </section>
+
+</main>
+
+<!-- ================= footer ================= -->
+<footer>
+  <div class="wrap">
+    <div class="cols">
+      <div>
+        <h4>Look Me · 看看我</h4>
+        <p>刘看山住进菜单栏：本地视觉护眼陪伴，提醒眨眼、远眺、起身。</p>
+        <p style="font-size:12px">个人健康习惯陪伴工具，不用于诊断或治疗干眼症等任何疾病；眼部持续不适，请咨询眼科医生。</p>
+      </div>
+      <div>
+        <h4>快速上手</h4>
+        <p><a href="#top">产品主页（本页）</a></p>
+        <p><a href="#demo">三步跑起来 · 或直接用打包版</a></p>
+        <p><a href="#companion">先看看他会什么</a></p>
+      </div>
+    </div>
+    <div class="fin">LOOK ME · 看看我 · 2026</div>
+  </div>
+</footer>
+
+<script>
+/* 滚动浮现 */
+(function(){
+  var els=document.querySelectorAll('.reveal');
+  if(!('IntersectionObserver' in window)||window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+    els.forEach(function(el){el.classList.add('in')});return;
+  }
+  var io=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target);}})
+  },{threshold:.12,rootMargin:'0px 0px -6% 0px'});
+  els.forEach(function(el){io.observe(el)});
+})();
+
+/* Hero 立绘：站姿 ↔ 偶尔拍手（同一精灵图技术） */
+(function(){
+  var pet=document.getElementById('heroPet'),sp=document.getElementById('heroSprite');
+  if(!pet||!sp||window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+  var base=pet.querySelector('.base');
+  function clapOnce(){
+    sp.style.opacity=1;base.style.opacity=0;
+    sp.style.animation='none';void sp.offsetWidth; /* 重启动画 */
+    sp.style.animation='clapPlay 3.2s steps(7,end) 1 forwards';
+    setTimeout(function(){sp.style.opacity=0;base.style.opacity=1;},3260);
+  }
+  setTimeout(clapOnce,1600);
+  setInterval(clapOnce,11000);
+})();
+
+/* 开关卡：点击即切换，模拟应用内的独立提醒开关 */
+(function(){
+  document.querySelectorAll('.sw').forEach(function(b){
+    b.addEventListener('click',function(){
+      b.setAttribute('aria-pressed',b.getAttribute('aria-pressed')==='true'?'false':'true');
+    });
+  });
+})();
+</script>
+</body>
+</html>
