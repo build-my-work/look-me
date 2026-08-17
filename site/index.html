@@ -765,8 +765,7 @@ footer .fin{margin-top:38px;text-align:center;font-family:var(--mono);font-size:
   </section>
 
   <!-- ---- 体验 Demo ---- -->
-  <!-- TODO(build)：下载地址为占位路径，构建产物放到 site/downloads/ 下；
-       文件名变化时全局替换 downloads/ 路径即可。 -->
+  <!-- 下载统一指向内部 GitLab Releases 最新版，用户按平台自选安装包。 -->
   <section class="event" id="demo">
     <div class="node" aria-hidden="true">现在</div>
     <div class="body">
@@ -775,20 +774,20 @@ footer .fin{margin-top:38px;text-align:center;font-family:var(--mono);font-size:
       <p class="lede reveal">一台带摄像头的电脑就行。首次运行请允许摄像头权限——他只在本机看，不看别的。</p>
       <div class="card dl-card reveal">
         <div class="dl-row">
-          <a class="btn primary dl-btn" href="downloads/LookMe-mac-universal.zip" download>
+          <a class="btn primary dl-btn" href="https://git.in.zhihu.com/tianfawei/look-me/-/releases/permalink/latest" target="_blank" rel="noopener">
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             macOS
           </a>
-          <a class="btn primary dl-btn" href="downloads/LookMe-setup-x64.exe" download>
+          <a class="btn primary dl-btn" href="https://git.in.zhihu.com/tianfawei/look-me/-/releases/permalink/latest" target="_blank" rel="noopener">
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             Windows
           </a>
-          <a class="btn primary dl-btn" href="downloads/LookMe-linux-x64.AppImage" download>
+          <a class="btn primary dl-btn" href="https://git.in.zhihu.com/tianfawei/look-me/-/releases/permalink/latest" target="_blank" rel="noopener">
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             Linux
           </a>
         </div>
-        <div class="dl-meta">v0.1.0 · 未签名应用：macOS 首次打开请在系统设置中允许，Windows 可能弹出 SmartScreen，选「仍要运行」</div>
+        <div class="dl-meta">v0.1.0 · 点击进入 Releases 页选择对应平台安装包 · 未签名应用：macOS 首次打开请在系统设置中允许，Windows 可能弹出 SmartScreen，选「仍要运行」</div>
       </div>
       <details class="src-run reveal">
         <summary>想从源码跑？三步起开发版</summary>
