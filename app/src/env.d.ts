@@ -40,10 +40,6 @@ interface LookMeSystemAvailability {
   systemSuspended: boolean;
 }
 
-type LookMeZhihuDirectResult =
-  | { ok: true; answer: string }
-  | { ok: false; error: { code: string; message: string } };
-
 interface LookMeBridge {
   isDesktop: true;
   setPointerEvents: (enabled: boolean) => void;
@@ -57,13 +53,13 @@ interface LookMeBridge {
   syncPetSize: (size: LookMePetSize) => void;
   syncMonitoringEnabled: (enabled: boolean) => void;
   syncCameraSettingsOpen: (open: boolean) => void;
+  syncCameraSettingsHeight: (height: number) => void;
   syncHistoryOpen: (open: boolean) => void;
-  syncZhihuDirectOpen: (open: boolean) => void;
-  askZhihuDirect: (query: string) => Promise<LookMeZhihuDirectResult>;
   syncPetPersistence: (enabled: boolean) => void;
   syncPetAttention: (attention: LookMePetAttention) => void;
   syncPanelVisibility: (visible: boolean) => void;
   getSystemAvailability: () => Promise<LookMeSystemAvailability>;
+  forceLock: () => void;
   onSystemAvailability: (
     listener: (availability: LookMeSystemAvailability) => void,
   ) => () => void;

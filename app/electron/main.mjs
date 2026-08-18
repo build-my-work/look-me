@@ -12,11 +12,11 @@ import {
   Tray,
 } from "electron";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
-import { writeFile } from "node:fs/promises";
+import { appendFile, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { runZhihuDirect } from "./zhihu-cli.mjs";
 
 const ELECTRON_DIR = path.dirname(fileURLToPath(import.meta.url));
 const APP_ROOT = path.dirname(ELECTRON_DIR);
@@ -27,9 +27,9 @@ const WINDOW_WIDTH = 760;
 const WINDOW_HEIGHT = 390;
 const SETTINGS_WINDOW_WIDTH = 900;
 const SETTINGS_WINDOW_HEIGHT = 400;
+const MAX_SETTINGS_WINDOW_HEIGHT_RATIO = 0.8;
 const HISTORY_WINDOW_WIDTH = 1120;
 const HISTORY_WINDOW_HEIGHT = 680;
-const ZHIHU_DIRECT_WINDOW_HEIGHT = 680;
 const PET_DRAG_HANDLE = Object.freeze({ x: 18, y: 62, width: 194, height: 230 });
 const PET_DRAG_HANDLE_TOPS = Object.freeze({ small: 22, standard: 62, large: 62 });
 const PET_SIZES = new Set(["small", "standard", "large"]);
@@ -44,7 +44,7 @@ const SMOKE_ENV_KEYS = [
   "LOOK_ME_PET_SETTINGS_SMOKE",
   "LOOK_ME_RAIL_DRAG_SMOKE",
   "LOOK_ME_SMOKE",
-  "LOOK_ME_ZHIHU_DIRECT_SMOKE",
+  "LOOK_ME_SETTINGS_HEIGHT_SMOKE",
 ];
 const PET_ATTENTION_PHASES = new Set([
   "parked",
@@ -57,6 +57,37 @@ const PET_ATTENTION_PHASES = new Set([
   "cooldown",
 ]);
 
+// 崩溃与异常日志：写入 userData/logs/main.log，应用挂掉后可据此排查。
+const MAIN_LOG_DIR = path.join(app.getPath("userData"), "logs");
+const MAIN_LOG_FILE = path.join(MAIN_LOG_DIR, "main.log");
+
+function appendMainLog(line) {
+  const entry = `[${new Date().toISOString()}] ${line}\n`;
+  console.log(entry.trimEnd());
+  mkdir(MAIN_LOG_DIR, { recursive: true })
+    .then(() => appendFile(MAIN_LOG_FILE, entry, "utf8"))
+    .catch(() => {
+      // 日志系统自身失败时不影响应用运行。
+    });
+}
+
+process.on("uncaughtException", (error) => {
+  appendMainLog(`uncaughtException: ${error?.stack ?? error}`);
+});
+process.on("unhandledRejection", (reason) => {
+  appendMainLog(`unhandledRejection: ${reason instanceof Error ? reason.stack : reason}`);
+});
+app.on("render-process-gone", (_event, details) => {
+  appendMainLog(
+    `render-process-gone: reason=${details.reason} exitCode=${details.exitCode}`,
+  );
+});
+app.on("child-process-gone", (_event, details) => {
+  appendMainLog(
+    `child-process-gone: type=${details.type} reason=${details.reason} exitCode=${details.exitCode}`,
+  );
+});
+
 let mainWindow = null;
 let tray = null;
 let settingsMenu = null;
@@ -67,9 +98,8 @@ let petPersistent = false;
 let panelVisible = false;
 let panelPetSide = null;
 let cameraSettingsOpen = false;
+let settingsWindowHeight = SETTINGS_WINDOW_HEIGHT;
 let historyOpen = false;
-let zhihuDirectOpen = false;
-let zhihuDirectRestoreBounds = null;
 let currentWindowSize = { width: WINDOW_WIDTH, height: WINDOW_HEIGHT };
 let rendererSettingsReady = false;
 let monitoringSettingsReady = false;
@@ -163,16 +193,12 @@ function configureMediaPermissions() {
 function getWindowSize(
   settingsOpen = cameraSettingsOpen,
   timelineOpen = historyOpen,
-  directOpen = zhihuDirectOpen,
 ) {
   if (settingsOpen) {
-    return { width: SETTINGS_WINDOW_WIDTH, height: SETTINGS_WINDOW_HEIGHT };
+    return { width: SETTINGS_WINDOW_WIDTH, height: settingsWindowHeight };
   }
   if (timelineOpen) {
     return { width: HISTORY_WINDOW_WIDTH, height: HISTORY_WINDOW_HEIGHT };
-  }
-  if (directOpen) {
-    return { width: WINDOW_WIDTH, height: ZHIHU_DIRECT_WINDOW_HEIGHT };
   }
   return { width: WINDOW_WIDTH, height: WINDOW_HEIGHT };
 }
@@ -188,7 +214,6 @@ function getPetHitBoundsForSide(
   side,
   windowSize = currentWindowSize,
   activePanelSide = panelPetSide,
-  directOpen = zhihuDirectOpen,
 ) {
   const dragHandle = getPetDragHandle();
   const scale = PET_SCALES[petSize] ?? PET_SCALES.standard;
@@ -200,9 +225,7 @@ function getPetHitBoundsForSide(
     x: side === "right"
       ? windowSize.width - dragHandle.x - width - panelInset
       : dragHandle.x + panelInset,
-    y: directOpen
-      ? dragHandle.y + dragHandle.height - height
-      : windowSize.height - handleBottom - height,
+    y: windowSize.height - handleBottom - height,
     width,
     height,
   };
@@ -276,12 +299,9 @@ function resizeWindowForExpandedPanel(window, nextState) {
   const nextCameraSettingsOpen =
     nextState.cameraSettingsOpen ?? cameraSettingsOpen;
   const nextHistoryOpen = nextState.historyOpen ?? historyOpen;
-  const nextZhihuDirectOpen =
-    nextState.zhihuDirectOpen ?? zhihuDirectOpen;
   if (
     cameraSettingsOpen === nextCameraSettingsOpen &&
-    historyOpen === nextHistoryOpen &&
-    zhihuDirectOpen === nextZhihuDirectOpen
+    historyOpen === nextHistoryOpen
   ) {
     return;
   }
@@ -296,7 +316,6 @@ function resizeWindowForExpandedPanel(window, nextState) {
     petSide,
     previousSize,
     panelPetSide,
-    zhihuDirectOpen,
   );
   const petCenter = {
     x: Math.round(previousBounds.x + previousPetBounds.x + previousPetBounds.width / 2),
@@ -307,7 +326,6 @@ function resizeWindowForExpandedPanel(window, nextState) {
   const requestedSize = getWindowSize(
     nextCameraSettingsOpen,
     nextHistoryOpen,
-    nextZhihuDirectOpen,
   );
   const nextSize = {
     width: Math.min(requestedSize.width, workArea.width),
@@ -317,7 +335,6 @@ function resizeWindowForExpandedPanel(window, nextState) {
     petSide,
     nextSize,
     panelPetSide,
-    nextZhihuDirectOpen,
   );
   const preferredX = Math.round(
     previousBounds.x + previousPetBounds.x - nextPetBounds.x,
@@ -327,28 +344,11 @@ function resizeWindowForExpandedPanel(window, nextState) {
   );
   const maximumX = workArea.x + Math.max(0, workArea.width - nextSize.width);
   const maximumY = workArea.y + Math.max(0, workArea.height - nextSize.height);
-  if (!zhihuDirectOpen && nextZhihuDirectOpen) {
-    zhihuDirectRestoreBounds = previousBounds;
-  }
-  const restoringDirectOrigin = Boolean(
-    zhihuDirectRestoreBounds &&
-    !nextCameraSettingsOpen &&
-    !nextHistoryOpen &&
-    !nextZhihuDirectOpen,
-  );
-  const nextX = restoringDirectOrigin
-    ? Math.min(maximumX, Math.max(workArea.x, zhihuDirectRestoreBounds.x))
-    : Math.min(maximumX, Math.max(workArea.x, preferredX));
-  const nextY = restoringDirectOrigin
-    ? Math.min(maximumY, Math.max(workArea.y, zhihuDirectRestoreBounds.y))
-    : Math.min(maximumY, Math.max(workArea.y, preferredY));
+  const nextX = Math.min(maximumX, Math.max(workArea.x, preferredX));
+  const nextY = Math.min(maximumY, Math.max(workArea.y, preferredY));
 
   cameraSettingsOpen = nextCameraSettingsOpen;
   historyOpen = nextHistoryOpen;
-  zhihuDirectOpen = nextZhihuDirectOpen;
-  if (restoringDirectOrigin) {
-    zhihuDirectRestoreBounds = null;
-  }
   currentWindowSize = nextSize;
   window.setBounds({ x: nextX, y: nextY, ...nextSize }, false);
   if (petAttentionMode === "rail") {
@@ -1233,122 +1233,250 @@ async function runPanelAnchorSmoke(window) {
   app.exit(passed ? 0 : 1);
 }
 
-async function runZhihuDirectSmoke(window) {
+async function runSettingsHeightSmoke(window) {
   window.show();
-  await wait(250);
-  const requestedPetSize = PET_SIZES.has(process.env.LOOK_ME_PET_SIZE)
-    ? process.env.LOOK_ME_PET_SIZE
-    : "standard";
-  window.webContents.send("look-me:command", `pet-size:${requestedPetSize}`);
-  await wait(150);
-  window.webContents.send("look-me:command", "panel:show:left");
-  await wait(250);
+  await wait(300);
+  window.webContents.send("look-me:command", "camera-settings:show");
+  await wait(900);
 
-  const initialBounds = window.getBounds();
-  const initialPetBounds = await window.webContents.executeJavaScript(`(() => {
-    const bounds = document.querySelector(".coach-pet-shell")?.getBoundingClientRect();
-    return bounds
-      ? { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height }
-      : null;
-  })()`);
-  const opened = await window.webContents.executeJavaScript(`(() => {
-    const entry = document.querySelector(".zhihu-direct-entry");
-    entry?.click();
-    return Boolean(entry);
-  })()`);
-  await wait(450);
-
-  const expandedBounds = window.getBounds();
-  const expandedState = await window.webContents.executeJavaScript(`(() => {
-    const capsule = document.querySelector(".idle-companion")?.getBoundingClientRect();
-    const chart = document.querySelector(".icon-button")?.getBoundingClientRect();
-    const entry = document.querySelector(".zhihu-direct-entry")?.getBoundingClientRect();
-    const panel = document.querySelector(".zhihu-direct-panel")?.getBoundingClientRect();
-    const pet = document.querySelector(".coach-pet-shell")?.getBoundingClientRect();
-    const petImage = document.querySelector(".coach-pet");
+  const measure = () => window.webContents.executeJavaScript(`(() => {
+    const panel = document.querySelector(".camera-settings-panel");
+    const addButton = document.querySelector(".camera-time-add");
+    const timeEntries = document.querySelectorAll(".camera-time-entry").length;
     return {
-      capsule: capsule && { x: capsule.x, y: capsule.y, width: capsule.width, height: capsule.height },
-      chart: chart && { x: chart.x, y: chart.y, width: chart.width, height: chart.height },
-      entry: entry && { x: entry.x, y: entry.y, width: entry.width, height: entry.height },
-      panel: panel && { x: panel.x, y: panel.y, width: panel.width, height: panel.height },
-      pet: pet && { x: pet.x, y: pet.y, width: pet.width, height: pet.height },
-      petLoaded: Boolean(petImage?.complete && petImage?.naturalWidth),
       viewport: { width: innerWidth, height: innerHeight },
-      directOpen: document.querySelector(".coach-stage")?.dataset.zhihuDirectOpen === "true",
-      entryInsideCapsule: Boolean(document.querySelector(".zhihu-direct-entry")?.closest(".idle-companion")),
+      panel: panel
+        ? {
+            clientHeight: panel.clientHeight,
+            scrollHeight: panel.scrollHeight,
+            rect: (() => {
+              const rect = panel.getBoundingClientRect();
+              return { x: rect.x, y: rect.y, width: rect.width, height: rect.height };
+            })(),
+          }
+        : null,
+      addButton: addButton
+        ? (() => {
+            const rect = addButton.getBoundingClientRect();
+            return { bottom: rect.bottom, top: rect.top };
+          })()
+        : null,
+      timeEntries,
+      expanded: Boolean(document.querySelector(".camera-time-entry")),
     };
   })()`);
 
-  const submitted = await window.webContents.executeJavaScript(`(() => {
-    const input = document.querySelector("#zhihu-direct-question");
-    const form = document.querySelector(".zhihu-direct-composer");
-    if (!input || !form) return false;
-    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
-    setter?.call(input, "久坐后怎么快速放松？");
-    input.dispatchEvent(new Event("input", { bubbles: true }));
-    form.requestSubmit();
-    return true;
-  })()`);
-  await wait(450);
-  const responseText = await window.webContents.executeJavaScript(
-    `Array.from(document.querySelectorAll(".zhihu-direct-message"), (node) => node.textContent ?? "").join("|")`,
+  const collapsed = await measure();
+  const collapsedWindow = window.getBounds();
+
+  // 打开监测总开关后时段开关才可用；开启时段会自动展开列表。
+  window.webContents.send("look-me:command", "monitoring:on");
+  await wait(300);
+  await window.webContents.executeJavaScript(
+    `document.querySelector(".camera-schedule-heading input[type=checkbox]")?.click()`,
   );
-  const screenshotPath = path.join(tmpdir(), "look-me-zhihu-direct-smoke.png");
-  await writeFile(screenshotPath, (await window.capturePage()).toPNG());
+  await wait(900);
+  const expanded = await measure();
+  const expandedWindow = window.getBounds();
+
+  const shotDir = process.env.LOOK_ME_SMOKE_SHOT_DIR;
+  const captureShot = async (name) => {
+    if (!shotDir) return;
+    const { writeFileSync, mkdirSync } = await import("node:fs");
+    mkdirSync(shotDir, { recursive: true });
+    const image = await window.webContents.capturePage();
+    writeFileSync(`${shotDir}/${name}.png`, image.toPNG());
+  };
+  await captureShot("expanded");
+
+  // 加满到 5 个时段，验证上限钳制与滚动兜底。
+  for (let index = 0; index < 4; index += 1) {
+    await window.webContents.executeJavaScript(
+      `document.querySelector(".camera-time-add")?.click()`,
+    );
+    await wait(200);
+  }
+  await wait(900);
+  const maxed = await measure();
+  const maxedWindow = window.getBounds();
+  await captureShot("maxed");
+
+  // 找出实际裁剪面板的祖先容器（rect 比面板小的最近祖先）。
+  const clipDebug = await window.webContents.executeJavaScript(`(() => {
+    const panel = document.querySelector(".camera-settings-panel");
+    if (!panel) return null;
+    const panelRect = panel.getBoundingClientRect();
+    const chain = [];
+    let node = panel.parentElement;
+    while (node && node !== document.body) {
+      const rect = node.getBoundingClientRect();
+      const style = getComputedStyle(node);
+      chain.push({
+        cls: node.className,
+        rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+        overflow: style.overflow,
+        overflowY: style.overflowY,
+        height: style.height,
+        maxHeight: style.maxHeight,
+        position: style.position,
+        clips: rect.bottom < panelRect.bottom - 1 || rect.top > panelRect.top + 1,
+      });
+      node = node.parentElement;
+    }
+    return { panelRect: { y: panelRect.y, bottom: panelRect.bottom }, chain };
+  })()`);
+  console.log(`LOOK_ME_CLIP_DEBUG ${JSON.stringify(clipDebug)}`);
+  // 任何 overflow 裁剪型祖先若比面板矮，面板就会被视觉裁切（rect 断言测不出来）。
+  const panelVisuallyClipped = Boolean(
+    clipDebug &&
+    clipDebug.chain.some((entry) =>
+      entry.clips && ["hidden", "clip", "scroll", "auto"].includes(entry.overflowY),
+    ),
+  );
+
+  // 锁屏链路自检：helper 只解析符号（--check），不真正锁屏。
+  const lockCommand = resolveForceLockCommand();
+  const lockCheck = lockCommand.file.endsWith("look-me-lock-screen")
+    ? await new Promise((resolve) => {
+        execFile(lockCommand.file, ["--check"], (error, stdout) => {
+          resolve({
+            file: lockCommand.file,
+            ok: !error,
+            output: String(stdout).trim(),
+          });
+        });
+      })
+    : { file: lockCommand.file, ok: existsSync(lockCommand.file), output: "fallback" };
+  const lockCommandReady = Boolean(lockCheck.ok);
+  const maxedScrollable = await window.webContents.executeJavaScript(`(() => {
+    const panel = document.querySelector(".camera-settings-panel");
+    if (!panel) return null;
+    panel.scrollTop = 60;
+    return panel.scrollTop;
+  })()`);
 
   await window.webContents.executeJavaScript(
-    `document.querySelector(".zhihu-direct-close")?.click()`,
+    `document.querySelector(".camera-schedule-toggle")?.click()`,
   );
-  await wait(450);
-  const restoredBounds = window.getBounds();
-  const restoredState = await window.webContents.executeJavaScript(`(() => {
-    const pet = document.querySelector(".coach-pet-shell")?.getBoundingClientRect();
+  await wait(900);
+  const recollapsed = await measure();
+  const recollapsedWindow = window.getBounds();
+
+  // 开启定时锁屏并关闭设置，验证带倒计时的胶囊在右/左锚定下都不被窗口裁切。
+  await window.webContents.executeJavaScript(
+    `document.querySelector('[data-reminder="force-lock"] input[type="checkbox"]')?.click()`,
+  );
+  await wait(300);
+  const forceLockDebug = await window.webContents.executeJavaScript(`(() => {
+    const checkbox = document.querySelector('[data-reminder="force-lock"] input[type="checkbox"]');
+    return { checked: checkbox ? checkbox.checked : null };
+  })()`);
+  await window.webContents.executeJavaScript(
+    `document.querySelector(".camera-settings-close")?.click()`,
+  );
+  await wait(900);
+
+  const measureCompanion = () => window.webContents.executeJavaScript(`(() => {
+    const el = document.querySelector(".idle-companion");
+    if (!el) return null;
+    const rect = el.getBoundingClientRect();
     return {
-      panelClosed: !document.querySelector(".zhihu-direct-panel"),
-      pet: pet && { x: pet.x, y: pet.y, width: pet.width, height: pet.height },
+      x: rect.x,
+      width: rect.width,
+      right: rect.right,
+      viewport: innerWidth,
+      text: (el.textContent || "").slice(0, 40),
     };
   })()`);
 
-  const controlsBalanced =
-    Math.abs(expandedState.chart?.height - expandedState.entry?.height) <= 1;
-  const panelFits =
-    expandedState.panel &&
-    expandedState.capsule &&
-    expandedState.panel.y >= expandedState.capsule.y + expandedState.capsule.height &&
-    expandedState.panel.x >= 0 &&
-    expandedState.panel.y >= 0 &&
-    expandedState.panel.x + expandedState.panel.width <= expandedState.viewport.width &&
-    expandedState.panel.y + expandedState.panel.height <= expandedState.viewport.height;
-  const restored =
-    restoredBounds.x === initialBounds.x &&
-    restoredBounds.y === initialBounds.y &&
-    restoredBounds.width === WINDOW_WIDTH &&
-    restoredBounds.height === WINDOW_HEIGHT &&
-    restoredState.panelClosed;
-  const passed = Boolean(
-    opened &&
-    submitted &&
-    expandedBounds.height === ZHIHU_DIRECT_WINDOW_HEIGHT &&
-    expandedState.directOpen &&
-    expandedState.entryInsideCapsule &&
-    expandedState.petLoaded &&
-    controlsBalanced &&
-    panelFits &&
-    responseText.includes("知乎直答测试响应：久坐后怎么快速放松？") &&
-    restored,
+  // freeze=1 会跳过主计时器，倒计时不会真实出现；注入等宽假胶囊模拟倒计时加宽。
+  const injectFakeCountdown = () => window.webContents.executeJavaScript(`(() => {
+    const companion = document.querySelector(".idle-companion");
+    const actions = companion?.querySelector(".idle-actions");
+    if (!companion || !actions || companion.querySelector(".lock-countdown")) return false;
+    const pill = document.createElement("span");
+    pill.className = "lock-countdown";
+    pill.textContent = "45:00";
+    companion.insertBefore(pill, actions);
+    return true;
+  })()`);
+
+  window.webContents.send("look-me:command", "panel:show:right");
+  await wait(900);
+  const companionRight = await measureCompanion();
+  await injectFakeCountdown();
+  await wait(300);
+  const companionRightWide = await measureCompanion();
+  window.webContents.send("look-me:command", "panel:show:left");
+  await wait(900);
+  const companionLeftWide = await measureCompanion();
+
+  const companionFits = (entry) => Boolean(
+    entry &&
+    entry.width > 0 &&
+    entry.x >= -1 &&
+    entry.right <= entry.viewport + 1,
   );
-  console.log(`LOOK_ME_ZHIHU_DIRECT ${JSON.stringify({
-    requestedPetSize,
-    initialBounds,
-    initialPetBounds,
-    expandedBounds,
-    expandedState,
-    controlsBalanced,
-    panelFits,
-    responseText,
-    restoredBounds,
-    restoredState,
-    screenshotPath,
+  const companionRightFits = companionFits(companionRight) &&
+    companionFits(companionRightWide) &&
+    (companionRightWide?.width ?? 0) > (companionRight?.width ?? 0) + 30;
+  const companionLeftFits = companionFits(companionLeftWide);
+
+  const grewOnExpand = expandedWindow.height > collapsedWindow.height;
+  const expandedFullyVisible = Boolean(
+    expanded.panel &&
+    expanded.addButton &&
+    expanded.panel.scrollHeight <= expanded.panel.clientHeight + 1 &&
+    expanded.addButton.bottom <= expanded.viewport.height &&
+    expanded.panel.rect.y + expanded.panel.rect.height <= expanded.viewport.height + 1,
+  );
+  const shrankOnCollapse =
+    recollapsedWindow.height < expandedWindow.height &&
+    Boolean(recollapsed.panel) &&
+    recollapsed.panel.scrollHeight <= recollapsed.panel.clientHeight + 1;
+  const maxedVisible = Boolean(
+    maxed.panel &&
+    maxed.timeEntries === 5 &&
+    maxed.panel.rect.y >= 0 &&
+    maxed.panel.rect.y + maxed.panel.rect.height <= maxed.viewport.height + 1 &&
+    // 内容超高时面板必须可滚动（scrollTop 生效），不高时则无需滚动。
+    (maxed.panel.scrollHeight <= maxed.panel.clientHeight + 1 ||
+      (maxedScrollable ?? 0) > 0),
+  );
+  const passed = Boolean(
+    collapsed.panel &&
+    grewOnExpand &&
+    expanded.expanded &&
+    expandedFullyVisible &&
+    maxedVisible &&
+    shrankOnCollapse &&
+    !panelVisuallyClipped &&
+    lockCommandReady &&
+    companionRightFits &&
+    companionLeftFits,
+  );
+  console.log(`LOOK_ME_SETTINGS_HEIGHT ${JSON.stringify({
+    collapsedWindow,
+    collapsed,
+    expandedWindow,
+    expanded,
+    maxedWindow,
+    maxed,
+    maxedScrollable,
+    recollapsedWindow,
+    recollapsed,
+    grewOnExpand,
+    expandedFullyVisible,
+    maxedVisible,
+    shrankOnCollapse,
+    panelVisuallyClipped,
+    lockCheck,
+    companionRight,
+    companionRightWide,
+    companionLeftWide,
+    companionRightFits,
+    companionLeftFits,
+    forceLockDebug,
     passed,
   })}`);
   app.exit(passed ? 0 : 1);
@@ -1357,17 +1485,16 @@ async function runZhihuDirectSmoke(window) {
 async function loadRenderer(window) {
   const demoQuery = process.env.LOOK_ME_MONITORING_SMOKE === "1"
     ? "?state=blink"
-    : process.env.LOOK_ME_ZHIHU_DIRECT_SMOKE === "1"
-      ? "?state=idle&freeze=1"
-      : process.env.LOOK_ME_HISTORY_SMOKE === "1"
-        ? "?state=idle&freeze=1&historyData=1"
-        : process.env.LOOK_ME_RAIL_DRAG_SMOKE === "1"
-          ? "?state=idle&freeze=1&petCry=1"
-          : process.env.LOOK_ME_PANEL_ANCHOR_SMOKE === "1"
-            ? "?state=idle&freeze=1"
-            : process.env.LOOK_ME_DEMO === "1"
-              ? "?state=distance&freeze=1"
-              : "";
+    : process.env.LOOK_ME_HISTORY_SMOKE === "1"
+      ? "?state=idle&freeze=1&historyData=1"
+      : process.env.LOOK_ME_RAIL_DRAG_SMOKE === "1"
+        ? "?state=idle&freeze=1&petCry=1"
+        : process.env.LOOK_ME_PANEL_ANCHOR_SMOKE === "1" ||
+            process.env.LOOK_ME_SETTINGS_HEIGHT_SMOKE === "1"
+          ? "?state=idle&freeze=1"
+          : process.env.LOOK_ME_DEMO === "1"
+            ? "?state=distance&freeze=1"
+            : "";
   if (process.env.LOOK_ME_DEV_URL) {
     const url = new URL(process.env.LOOK_ME_DEV_URL);
     if (demoQuery) {
@@ -1384,8 +1511,6 @@ function createWindow() {
   monitoringSettingsReady = false;
   cameraSettingsOpen = false;
   historyOpen = false;
-  zhihuDirectOpen = false;
-  zhihuDirectRestoreBounds = null;
   currentWindowSize = { width: WINDOW_WIDTH, height: WINDOW_HEIGHT };
   petAttentionMode = "parked";
   petAttentionPhase = "parked";
@@ -1418,6 +1543,23 @@ function createWindow() {
   });
 
   mainWindow = window;
+  window.webContents.on("console-message", (_event, level, message, line, sourceId) => {
+    if (level >= 3) {
+      appendMainLog(
+        `renderer console.error: ${message} (${sourceId}:${line})`,
+      );
+    }
+  });
+  window.webContents.on("render-process-gone", (_event, details) => {
+    appendMainLog(
+      `window render-process-gone: reason=${details.reason} exitCode=${details.exitCode}`,
+    );
+  });
+  window.webContents.on("did-fail-load", (_event, code, desc, url, isMain) => {
+    if (isMain) {
+      appendMainLog(`did-fail-load: ${code} ${desc} ${url}`);
+    }
+  });
   if (process.platform === "darwin") {
     window.setAlwaysOnTop(true, "floating");
     window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
@@ -1455,8 +1597,8 @@ function createWindow() {
       await runPanelAnchorSmoke(window);
       return;
     }
-    if (process.env.LOOK_ME_ZHIHU_DIRECT_SMOKE === "1") {
-      await runZhihuDirectSmoke(window);
+    if (process.env.LOOK_ME_SETTINGS_HEIGHT_SMOKE === "1") {
+      await runSettingsHeightSmoke(window);
       return;
     }
     if (process.env.LOOK_ME_MONITORING_SMOKE === "1") {
@@ -2279,7 +2421,7 @@ ipcMain.on("look-me:window-drag", (event, payload) => {
         petRailWindowX = null;
       }
       activeWindowDrag = null;
-      if (panelVisible && rendererSettingsReady && !zhihuDirectOpen) {
+      if (panelVisible && rendererSettingsReady) {
         showPanelBesidePet(window);
       }
     }
@@ -2347,8 +2489,7 @@ ipcMain.on("look-me:pet-attention", (event, payload) => {
       panelVisible &&
       rendererSettingsReady &&
       !cameraSettingsOpen &&
-      !historyOpen &&
-      !zhihuDirectOpen
+      !historyOpen
     ) {
       showPanelBesidePet(window);
     }
@@ -2360,8 +2501,7 @@ ipcMain.on("look-me:pet-attention", (event, payload) => {
     panelVisible &&
     rendererSettingsReady &&
     !cameraSettingsOpen &&
-    !historyOpen &&
-    !zhihuDirectOpen
+    !historyOpen
   ) {
     showPanelBesidePet(window);
   }
@@ -2398,34 +2538,76 @@ ipcMain.on("look-me:camera-settings-open", (event, open) => {
   resizeWindowForExpandedPanel(window, { cameraSettingsOpen: open });
 });
 
+ipcMain.on("look-me:camera-settings-height", (event, height) => {
+  const window = BrowserWindow.fromWebContents(event.sender);
+  if (!window || window !== mainWindow) {
+    return;
+  }
+  const parsedHeight = Number(height);
+  if (!Number.isFinite(parsedHeight)) {
+    return;
+  }
+  const displayWorkArea = screen.getDisplayMatching(window.getBounds()).workArea;
+  const maxSettingsHeight = Math.max(
+    SETTINGS_WINDOW_HEIGHT,
+    Math.floor(displayWorkArea.height * MAX_SETTINGS_WINDOW_HEIGHT_RATIO),
+  );
+  const nextHeight = Math.max(
+    SETTINGS_WINDOW_HEIGHT,
+    Math.min(Math.ceil(parsedHeight), maxSettingsHeight),
+  );
+  if (nextHeight === settingsWindowHeight) {
+    return;
+  }
+  settingsWindowHeight = nextHeight;
+  if (!cameraSettingsOpen) {
+    return;
+  }
+  // 保持看山锚点不变，仅按新的面板内容高度调整窗口尺寸。
+  const previousBounds = window.getBounds();
+  const previousSize = {
+    width: previousBounds.width,
+    height: previousBounds.height,
+  };
+  const petSide = panelPetSide ?? (petAttentionMode === "rail" ? "right" : "left");
+  const previousPetBounds = getPetHitBoundsForSide(
+    petSide,
+    previousSize,
+    panelPetSide,
+  );
+  const petCenter = {
+    x: Math.round(previousBounds.x + previousPetBounds.x + previousPetBounds.width / 2),
+    y: Math.round(previousBounds.y + previousPetBounds.y + previousPetBounds.height / 2),
+  };
+  const workArea = screen.getDisplayNearestPoint(petCenter).workArea;
+  const nextSize = {
+    width: Math.min(SETTINGS_WINDOW_WIDTH, workArea.width),
+    height: Math.min(settingsWindowHeight, workArea.height),
+  };
+  const nextPetBounds = getPetHitBoundsForSide(
+    petSide,
+    nextSize,
+    panelPetSide,
+  );
+  const nextX = Math.min(
+    Math.max(workArea.x, Math.round(previousBounds.x + previousPetBounds.x - nextPetBounds.x)),
+    Math.max(workArea.x, workArea.x + workArea.width - nextSize.width),
+  );
+  const nextY = Math.min(
+    Math.max(workArea.y, Math.round(previousBounds.y + previousPetBounds.y - nextPetBounds.y)),
+    Math.max(workArea.y, workArea.y + workArea.height - nextSize.height),
+  );
+  currentWindowSize = nextSize;
+  window.setBounds({ x: nextX, y: nextY, ...nextSize }, false);
+  updatePointerHitTest(window);
+});
+
 ipcMain.on("look-me:history-open", (event, open) => {
   const window = BrowserWindow.fromWebContents(event.sender);
   if (!window || window !== mainWindow || typeof open !== "boolean") {
     return;
   }
   resizeWindowForExpandedPanel(window, { historyOpen: open });
-});
-
-ipcMain.on("look-me:zhihu-direct-open", (event, open) => {
-  const window = BrowserWindow.fromWebContents(event.sender);
-  if (!window || window !== mainWindow || typeof open !== "boolean") {
-    return;
-  }
-  resizeWindowForExpandedPanel(window, { zhihuDirectOpen: open });
-});
-
-ipcMain.handle("look-me:zhihu-direct-answer", async (event, query) => {
-  const window = BrowserWindow.fromWebContents(event.sender);
-  if (!window || window !== mainWindow) {
-    return {
-      ok: false,
-      error: { code: "UNTRUSTED_SENDER", message: "无法验证知乎直答请求来源。" },
-    };
-  }
-  if (process.env.LOOK_ME_ZHIHU_DIRECT_SMOKE === "1") {
-    return { ok: true, answer: `知乎直答测试响应：${String(query).trim()}` };
-  }
-  return runZhihuDirect(query);
 });
 
 ipcMain.on("look-me:pet-persistence", (event, enabled) => {
@@ -2471,6 +2653,47 @@ ipcMain.handle("look-me:get-system-availability", (event) => {
     return { screenLocked: true, systemSuspended: true };
   }
   return systemAvailability;
+});
+
+// macOS 26 删除了 CGSession 命令行工具；优先用打包进来的 helper
+// （调用 LoginUIKit 的 SACLockScreenImmediate），老系统回落 CGSession，
+// 最后兜底 pmset displaysleepnow（依赖“唤醒后要求输入密码”设置）。
+const LOCK_SCREEN_HELPER_PATH = path
+  .join(ELECTRON_DIR, "bin", "look-me-lock-screen")
+  .replace("app.asar", "app.asar.unpacked");
+const CGSESSION_PATH =
+  "/System/Library/CoreServices/Menu Extras/User.menu/Contents/Resources/CGSession";
+
+function resolveForceLockCommand() {
+  if (process.platform === "darwin") {
+    if (existsSync(LOCK_SCREEN_HELPER_PATH)) {
+      return { file: LOCK_SCREEN_HELPER_PATH, args: [] };
+    }
+    if (existsSync(CGSESSION_PATH)) {
+      return { file: CGSESSION_PATH, args: ["-suspend"] };
+    }
+    return { file: "/usr/bin/pmset", args: ["displaysleepnow"] };
+  }
+  if (process.platform === "win32") {
+    return { file: "rundll32.exe", args: ["user32.dll,LockWorkStation"] };
+  }
+  return { file: "loginctl", args: ["lock-session"] };
+}
+
+ipcMain.on("look-me:force-lock", (event) => {
+  const window = BrowserWindow.fromWebContents(event.sender);
+  if (!window || window !== mainWindow) {
+    return;
+  }
+  const command = resolveForceLockCommand();
+  appendMainLog(`force lock requested, running ${command.file}`);
+  execFile(command.file, command.args, (error) => {
+    if (error) {
+      appendMainLog(`force lock failed: ${error.message}`);
+    } else {
+      appendMainLog("force lock command exited cleanly");
+    }
+  });
 });
 
 ipcMain.on("look-me:quit", () => {

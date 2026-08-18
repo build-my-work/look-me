@@ -25,14 +25,11 @@ contextBridge.exposeInMainWorld("lookMe", {
   syncCameraSettingsOpen(open) {
     ipcRenderer.send("look-me:camera-settings-open", open);
   },
+  syncCameraSettingsHeight(height) {
+    ipcRenderer.send("look-me:camera-settings-height", height);
+  },
   syncHistoryOpen(open) {
     ipcRenderer.send("look-me:history-open", open);
-  },
-  syncZhihuDirectOpen(open) {
-    ipcRenderer.send("look-me:zhihu-direct-open", open);
-  },
-  askZhihuDirect(query) {
-    return ipcRenderer.invoke("look-me:zhihu-direct-answer", query);
   },
   syncPetPersistence(enabled) {
     ipcRenderer.send("look-me:pet-persistence", enabled);
@@ -45,6 +42,9 @@ contextBridge.exposeInMainWorld("lookMe", {
   },
   getSystemAvailability() {
     return ipcRenderer.invoke("look-me:get-system-availability");
+  },
+  forceLock() {
+    ipcRenderer.send("look-me:force-lock");
   },
   onSystemAvailability(listener) {
     const handler = (_event, availability) => listener(availability);

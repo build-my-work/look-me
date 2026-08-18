@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   type CameraMonitoringSettings,
   DEFAULT_CAMERA_MONITORING_SETTINGS,
+  getNextMonitoringWindowStart,
   isValidMonitoringWindow,
   isWithinMonitoringWindow,
   parseCameraMonitoringSettings,
@@ -23,8 +24,7 @@ describe("camera monitoring settings", () => {
       distanceReminderEnabled: true,
       sedentaryReminderEnabled: true,
       sedentaryReminderMinutes: 30,
-      startTime: "09:00",
-      endTime: "21:00",
+      windows: [{ startTime: "09:00", endTime: "21:00" }],
     });
     expect(parseCameraMonitoringSettings("not json")).toEqual(
       DEFAULT_CAMERA_MONITORING_SETTINGS,
@@ -44,7 +44,7 @@ describe("camera monitoring settings", () => {
     ).toEqual(DEFAULT_CAMERA_MONITORING_SETTINGS);
   });
 
-  it("keeps reminder preferences on when migrating legacy settings", () => {
+  it("migrates legacy single-window settings into a window list", () => {
     expect(
       parseCameraMonitoringSettings(
         JSON.stringify({
@@ -60,10 +60,55 @@ describe("camera monitoring settings", () => {
       distanceReminderEnabled: true,
       sedentaryReminderEnabled: true,
       sedentaryReminderMinutes: 30,
+      forceLockEnabled: false,
+      forceLockMinutes: 45,
       scheduleEnabled: false,
-      startTime: "09:00",
-      endTime: "18:00",
+      windows: [{ startTime: "09:00", endTime: "18:00" }],
     });
+  });
+
+  it("restores multiple stored monitoring windows", () => {
+    expect(
+      parseCameraMonitoringSettings(
+        JSON.stringify({
+          enabled: true,
+          scheduleEnabled: true,
+          windows: [
+            { startTime: "09:00", endTime: "12:00" },
+            { startTime: "14:00", endTime: "18:00" },
+          ],
+        }),
+      ),
+    ).toMatchObject({
+      windows: [
+        { startTime: "09:00", endTime: "12:00" },
+        { startTime: "14:00", endTime: "18:00" },
+      ],
+    });
+  });
+
+  it("fails closed when any stored window entry is invalid", () => {
+    expect(
+      parseCameraMonitoringSettings(
+        JSON.stringify({
+          enabled: true,
+          scheduleEnabled: true,
+          windows: [
+            { startTime: "09:00", endTime: "12:00" },
+            { startTime: "20:00", endTime: "18:00" },
+          ],
+        }),
+      ),
+    ).toEqual(DEFAULT_CAMERA_MONITORING_SETTINGS);
+    expect(
+      parseCameraMonitoringSettings(
+        JSON.stringify({
+          enabled: true,
+          scheduleEnabled: true,
+          windows: [],
+        }),
+      ),
+    ).toEqual(DEFAULT_CAMERA_MONITORING_SETTINGS);
   });
 
   it("restores a saved distance reminder preference", () => {
@@ -73,8 +118,7 @@ describe("camera monitoring settings", () => {
           enabled: true,
           distanceReminderEnabled: false,
           scheduleEnabled: false,
-          startTime: "09:00",
-          endTime: "18:00",
+          windows: [{ startTime: "09:00", endTime: "18:00" }],
         }),
       ),
     ).toMatchObject({ distanceReminderEnabled: false });
@@ -88,8 +132,7 @@ describe("camera monitoring settings", () => {
           blinkReminderEnabled: false,
           distanceReminderEnabled: true,
           scheduleEnabled: false,
-          startTime: "09:00",
-          endTime: "18:00",
+          windows: [{ startTime: "09:00", endTime: "18:00" }],
         }),
       ),
     ).toMatchObject({ blinkReminderEnabled: false });
@@ -104,8 +147,7 @@ describe("camera monitoring settings", () => {
           distanceReminderEnabled: true,
           sedentaryReminderEnabled: false,
           scheduleEnabled: false,
-          startTime: "09:00",
-          endTime: "18:00",
+          windows: [{ startTime: "09:00", endTime: "18:00" }],
         }),
       ),
     ).toMatchObject({ sedentaryReminderEnabled: false });
@@ -118,8 +160,7 @@ describe("camera monitoring settings", () => {
           enabled: true,
           sedentaryReminderMinutes: 45,
           scheduleEnabled: false,
-          startTime: "09:00",
-          endTime: "18:00",
+          windows: [{ startTime: "09:00", endTime: "18:00" }],
         }),
       ),
     ).toMatchObject({ sedentaryReminderMinutes: 45 });
@@ -133,8 +174,7 @@ describe("camera monitoring settings", () => {
             enabled: true,
             sedentaryReminderMinutes,
             scheduleEnabled: false,
-            startTime: "09:00",
-            endTime: "18:00",
+            windows: [{ startTime: "09:00", endTime: "18:00" }],
           }),
         ),
       ).toMatchObject({ sedentaryReminderMinutes });
@@ -149,8 +189,7 @@ describe("camera monitoring settings", () => {
             enabled: true,
             sedentaryReminderMinutes,
             scheduleEnabled: false,
-            startTime: "09:00",
-            endTime: "18:00",
+            windows: [{ startTime: "09:00", endTime: "18:00" }],
           }),
         ),
       ).toEqual(DEFAULT_CAMERA_MONITORING_SETTINGS);
@@ -164,11 +203,61 @@ describe("camera monitoring settings", () => {
           enabled: true,
           sedentaryReminderMinutes: 31,
           scheduleEnabled: false,
-          startTime: "09:00",
-          endTime: "18:00",
+          windows: [{ startTime: "09:00", endTime: "18:00" }],
         }),
       ),
     ).toMatchObject({ sedentaryReminderMinutes: 31 });
+  });
+
+  it("defaults force lock to disabled with a 45 minute interval", () => {
+    expect(
+      parseCameraMonitoringSettings(
+        JSON.stringify({
+          enabled: true,
+          scheduleEnabled: false,
+          windows: [{ startTime: "09:00", endTime: "18:00" }],
+        }),
+      ),
+    ).toMatchObject({ forceLockEnabled: false, forceLockMinutes: 45 });
+  });
+
+  it("restores saved force lock settings", () => {
+    expect(
+      parseCameraMonitoringSettings(
+        JSON.stringify({
+          enabled: true,
+          forceLockEnabled: true,
+          forceLockMinutes: 60,
+          scheduleEnabled: false,
+          windows: [{ startTime: "09:00", endTime: "18:00" }],
+        }),
+      ),
+    ).toMatchObject({ forceLockEnabled: true, forceLockMinutes: 60 });
+  });
+
+  it("rejects force lock settings outside the supported shape", () => {
+    for (const forceLockMinutes of [0, 601, 45.5]) {
+      expect(
+        parseCameraMonitoringSettings(
+          JSON.stringify({
+            enabled: true,
+            forceLockMinutes,
+            scheduleEnabled: false,
+            windows: [{ startTime: "09:00", endTime: "18:00" }],
+          }),
+        ),
+      ).toEqual(DEFAULT_CAMERA_MONITORING_SETTINGS);
+    }
+    expect(
+      parseCameraMonitoringSettings(
+        JSON.stringify({
+          enabled: true,
+          forceLockEnabled: "yes",
+          scheduleEnabled: false,
+          windows: [{ startTime: "09:00", endTime: "18:00" }],
+        }),
+      ),
+    ).toEqual(DEFAULT_CAMERA_MONITORING_SETTINGS);
   });
 
   it("accepts one same-day monitoring window", () => {
@@ -185,9 +274,13 @@ describe("camera monitoring policy", () => {
     distanceReminderEnabled: true,
     sedentaryReminderEnabled: true,
     sedentaryReminderMinutes: 30,
+    forceLockEnabled: false,
+    forceLockMinutes: 45,
     scheduleEnabled: true,
-    startTime: "09:00",
-    endTime: "21:00",
+    windows: [
+      { startTime: "09:00", endTime: "12:00" },
+      { startTime: "14:00", endTime: "18:00" },
+    ],
   };
 
   it("includes the start minute and excludes the end minute", () => {
@@ -200,13 +293,46 @@ describe("camera monitoring policy", () => {
     expect(
       isWithinMonitoringWindow(
         settings,
-        new Date(2026, 7, 13, 20, 59).getTime(),
+        new Date(2026, 7, 13, 11, 59).getTime(),
       ),
     ).toBe(true);
     expect(
       isWithinMonitoringWindow(
         settings,
-        new Date(2026, 7, 13, 21, 0).getTime(),
+        new Date(2026, 7, 13, 12, 0).getTime(),
+      ),
+    ).toBe(false);
+  });
+
+  it("monitors during any configured window and pauses between them", () => {
+    expect(
+      isWithinMonitoringWindow(
+        settings,
+        new Date(2026, 7, 13, 10, 0).getTime(),
+      ),
+    ).toBe(true);
+    expect(
+      isWithinMonitoringWindow(
+        settings,
+        new Date(2026, 7, 13, 13, 0).getTime(),
+      ),
+    ).toBe(false);
+    expect(
+      isWithinMonitoringWindow(
+        settings,
+        new Date(2026, 7, 13, 16, 30).getTime(),
+      ),
+    ).toBe(true);
+    expect(
+      isWithinMonitoringWindow(
+        settings,
+        new Date(2026, 7, 13, 22, 0).getTime(),
+      ),
+    ).toBe(false);
+    expect(
+      isWithinMonitoringWindow(
+        settings,
+        new Date(2026, 7, 13, 7, 30).getTime(),
       ),
     ).toBe(false);
   });
@@ -218,6 +344,37 @@ describe("camera monitoring policy", () => {
         new Date(2026, 7, 13, 23, 30).getTime(),
       ),
     ).toBe(true);
+  });
+
+  it("reports the next window start while outside every window", () => {
+    // Between windows: the second window resumes today.
+    expect(
+      getNextMonitoringWindowStart(
+        settings,
+        new Date(2026, 7, 13, 13, 0).getTime(),
+      ),
+    ).toBe("14:00");
+    // Before all windows: the first window resumes today.
+    expect(
+      getNextMonitoringWindowStart(
+        settings,
+        new Date(2026, 7, 13, 7, 30).getTime(),
+      ),
+    ).toBe("09:00");
+    // After all windows: the earliest window resumes tomorrow.
+    expect(
+      getNextMonitoringWindowStart(
+        settings,
+        new Date(2026, 7, 13, 22, 0).getTime(),
+      ),
+    ).toBe("09:00");
+    // Windows are read in time order regardless of stored order.
+    expect(
+      getNextMonitoringWindowStart(
+        { ...settings, windows: [...settings.windows].reverse() },
+        new Date(2026, 7, 13, 13, 0).getTime(),
+      ),
+    ).toBe("14:00");
   });
 
   it("requires the master switch and every runtime gate", () => {

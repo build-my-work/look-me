@@ -1,21 +1,29 @@
 import {
   ArrowsClockwise,
   Camera,
+  CaretDown,
+  CaretUp,
   Clock,
   GearSix,
   HandsClapping,
   MoonStars,
   PersonSimple,
+  Plus,
   Prohibit,
   Shuffle,
   Sparkle,
+  Trash,
   X,
 } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
 import {
+  MAX_FORCE_LOCK_MINUTES,
+  MAX_MONITORING_WINDOWS,
   MAX_SEDENTARY_REMINDER_MINUTES,
+  MIN_FORCE_LOCK_MINUTES,
   MIN_SEDENTARY_REMINDER_MINUTES,
   type CameraMonitoringSettings,
+  type MonitoringWindow,
   isValidMonitoringWindow,
 } from "./camera-monitoring";
 import type { PetIdleActionPreference } from "./pet-idle-action";
@@ -41,6 +49,11 @@ const PET_ACTION_OPTIONS = [
   Icon: typeof Shuffle;
 }>;
 
+const NEW_MONITORING_WINDOW: MonitoringWindow = {
+  startTime: "14:00",
+  endTime: "18:00",
+};
+
 interface CameraSettingsPanelProps {
   settings: CameraMonitoringSettings;
   statusLabel: string;
@@ -60,10 +73,13 @@ export function CameraSettingsPanel({
   onPetActionChange,
   onClose,
 }: CameraSettingsPanelProps) {
-  const [startTime, setStartTime] = useState(settings.startTime);
-  const [endTime, setEndTime] = useState(settings.endTime);
+  const [windows, setWindows] = useState(settings.windows);
+  const [scheduleExpanded, setScheduleExpanded] = useState(false);
   const [sedentaryMinutes, setSedentaryMinutes] = useState(
     String(settings.sedentaryReminderMinutes),
+  );
+  const [forceLockMinutes, setForceLockMinutes] = useState(
+    String(settings.forceLockMinutes),
   );
   const settingsRef = useRef(settings);
 
@@ -72,15 +88,17 @@ export function CameraSettingsPanel({
   }, [settings]);
 
   useEffect(() => {
-    setStartTime(settings.startTime);
-    setEndTime(settings.endTime);
-  }, [settings.endTime, settings.startTime]);
+    setWindows(settings.windows);
+  }, [settings.windows]);
 
   useEffect(() => {
     setSedentaryMinutes(String(settings.sedentaryReminderMinutes));
   }, [settings.sedentaryReminderMinutes]);
 
-  const validWindow = isValidMonitoringWindow(startTime, endTime);
+  useEffect(() => {
+    setForceLockMinutes(String(settings.forceLockMinutes));
+  }, [settings.forceLockMinutes]);
+
   const scheduleControlsEnabled = settings.enabled && settings.scheduleEnabled;
   const parsedSedentaryMinutes = Number(sedentaryMinutes);
   const validSedentaryMinutes =
@@ -88,23 +106,103 @@ export function CameraSettingsPanel({
     Number.isInteger(parsedSedentaryMinutes) &&
     parsedSedentaryMinutes >= MIN_SEDENTARY_REMINDER_MINUTES &&
     parsedSedentaryMinutes <= MAX_SEDENTARY_REMINDER_MINUTES;
+  const parsedForceLockMinutes = Number(forceLockMinutes);
+  const validForceLockMinutes =
+    forceLockMinutes !== "" &&
+    Number.isInteger(parsedForceLockMinutes) &&
+    parsedForceLockMinutes >= MIN_FORCE_LOCK_MINUTES &&
+    parsedForceLockMinutes <= MAX_FORCE_LOCK_MINUTES;
+
+  const updateWindow = (index: number, patch: Partial<MonitoringWindow>) => {
+    setWindows((previous) =>
+      previous.map((window, windowIndex) =>
+        windowIndex === index ? { ...window, ...patch } : window,
+      ),
+    );
+  };
+
+  const removeWindow = (index: number) => {
+    setWindows((previous) =>
+      previous.length <= 1
+        ? previous
+        : previous.filter((_, windowIndex) => windowIndex !== index),
+    );
+  };
+
+  const addWindow = () => {
+    setWindows((previous) =>
+      previous.length >= MAX_MONITORING_WINDOWS
+        ? previous
+        : [...previous, { ...NEW_MONITORING_WINDOW }],
+    );
+  };
 
   useEffect(() => {
-    if (!isValidMonitoringWindow(startTime, endTime)) {
-      return;
-    }
-    const currentSettings = settingsRef.current;
+    const currentWindows = settingsRef.current.windows;
     if (
-      startTime === currentSettings.startTime &&
-      endTime === currentSettings.endTime
+      windows.length === currentWindows.length &&
+      windows.every(
+        (window, index) =>
+          window.startTime === currentWindows[index].startTime &&
+          window.endTime === currentWindows[index].endTime,
+      )
     ) {
       return;
     }
-    onChange({ ...currentSettings, startTime, endTime });
-  }, [endTime, onChange, startTime]);
+    if (
+      windows.length === 0 ||
+      windows.some(
+        (window) => !isValidMonitoringWindow(window.startTime, window.endTime),
+      )
+    ) {
+      return;
+    }
+    onChange({ ...settingsRef.current, windows });
+  }, [onChange, windows]);
+
+  // 桌面端窗口高度跟随面板内容：时段行数变化时上报所需高度，主进程调整窗口。
+  // 上报内容高度（scrollHeight + 底部留白 14px），与窗口位置无关，
+  // 避免窗口移动后重测底边坐标造成的高度振荡。
+  // 注意：面板有 max-height 兜底，内容增多时面板盒子可能不变，
+  // 所以除了观察面板本身，还要观察内容区并在折叠切换时主动重报。
+  const panelRef = useRef<HTMLElement | null>(null);
+  const reportHeightRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (!panel || typeof ResizeObserver === "undefined") {
+      return;
+    }
+    let frame = 0;
+    const report = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const neededHeight = Math.ceil(panel.scrollHeight) + 14;
+        if (Number.isFinite(neededHeight) && neededHeight > 0) {
+          window.lookMe?.syncCameraSettingsHeight(neededHeight);
+        }
+      });
+    };
+    reportHeightRef.current = report;
+    const observer = new ResizeObserver(report);
+    observer.observe(panel);
+    const body = panel.querySelector(".camera-settings-body");
+    if (body) {
+      observer.observe(body);
+    }
+    report();
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    reportHeightRef.current();
+  }, [scheduleExpanded, windows]);
 
   return (
     <article
+      ref={panelRef}
       className="camera-settings-panel"
       data-camera-settings
       data-interactive
@@ -263,6 +361,63 @@ export function CameraSettingsPanel({
             </span>
           </div>
 
+          <div data-reminder="force-lock" className="camera-reminder-row">
+            <div>
+              <strong>定时锁屏</strong>
+              <span>开屏累计到点锁定屏幕，跟随监测时段</span>
+            </div>
+            <span className="sedentary-reminder-controls">
+              <input
+                className="sedentary-reminder-interval"
+                type="number"
+                inputMode="numeric"
+                aria-label="定时锁屏间隔"
+                aria-invalid={!validForceLockMinutes}
+                min={MIN_FORCE_LOCK_MINUTES}
+                max={MAX_FORCE_LOCK_MINUTES}
+                step={1}
+                value={forceLockMinutes}
+                disabled={!settings.forceLockEnabled}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  const minutes = Number(value);
+                  setForceLockMinutes(value);
+                  if (
+                    value !== "" &&
+                    Number.isInteger(minutes) &&
+                    minutes >= MIN_FORCE_LOCK_MINUTES &&
+                    minutes <= MAX_FORCE_LOCK_MINUTES
+                  ) {
+                    onChange({
+                      ...settings,
+                      forceLockMinutes: minutes,
+                    });
+                  }
+                }}
+                onBlur={() =>
+                  setForceLockMinutes(
+                    String(settingsRef.current.forceLockMinutes),
+                  )
+                }
+              />
+              <span className="sedentary-reminder-unit">分钟</span>
+              <label className="camera-switch camera-switch--small">
+                <span className="sr-only">开启定时锁屏</span>
+                <input
+                  type="checkbox"
+                  checked={settings.forceLockEnabled}
+                  onChange={(event) =>
+                    onChange({
+                      ...settings,
+                      forceLockEnabled: event.target.checked,
+                    })
+                  }
+                />
+                <span className="camera-switch-track" aria-hidden />
+              </label>
+            </span>
+          </div>
+
           <div
             className={
               settings.enabled
@@ -275,105 +430,173 @@ export function CameraSettingsPanel({
                 <strong>限制监测时段</strong>
                 <span>关闭时全天监测与提醒</span>
               </div>
+              {!scheduleExpanded && settings.scheduleEnabled && (
+                <span className="camera-schedule-summary">
+                  {windows
+                    .map((window) => `${window.startTime}–${window.endTime}`)
+                    .join("、")}
+                </span>
+              )}
               <label className="camera-switch camera-switch--small">
                 <span className="sr-only">限制摄像头监测时段</span>
                 <input
                   type="checkbox"
                   checked={settings.scheduleEnabled}
                   disabled={!settings.enabled}
-                  onChange={(event) =>
+                  onChange={(event) => {
+                    if (event.target.checked) {
+                      setScheduleExpanded(true);
+                    }
                     onChange({
                       ...settings,
                       scheduleEnabled: event.target.checked,
-                    })
-                  }
+                    });
+                  }}
                 />
                 <span className="camera-switch-track" aria-hidden />
               </label>
+              <button
+                className="camera-schedule-toggle"
+                type="button"
+                aria-expanded={scheduleExpanded}
+                aria-label={scheduleExpanded ? "收起监测时段" : "展开监测时段"}
+                title={scheduleExpanded ? "收起监测时段" : "展开监测时段"}
+                onClick={() => setScheduleExpanded((expanded) => !expanded)}
+              >
+                {scheduleExpanded ? (
+                  <CaretUp size={14} weight="bold" aria-hidden />
+                ) : (
+                  <CaretDown size={14} weight="bold" aria-hidden />
+                )}
+              </button>
             </div>
 
-            <div className="camera-time-row">
-              <div className="camera-time-field">
-                <span>开始</span>
-                <div
-                  className={
-                    scheduleControlsEnabled
-                      ? "camera-time-control"
-                      : "camera-time-control camera-time-control--disabled"
-                  }
-                >
-                  <select
-                    aria-label="开始小时"
-                    value={startTime.slice(0, 2)}
-                    disabled={!scheduleControlsEnabled}
-                    onChange={(event) =>
-                      setStartTime(`${event.target.value}:${startTime.slice(3)}`)
-                    }
-                  >
-                    {HOURS.map((option) => (
-                      <option key={option} value={option}>{option}</option>
-                    ))}
-                  </select>
-                  <span aria-hidden>:</span>
-                  <select
-                    aria-label="开始分钟"
-                    value={startTime.slice(3)}
-                    disabled={!scheduleControlsEnabled}
-                    onChange={(event) =>
-                      setStartTime(`${startTime.slice(0, 2)}:${event.target.value}`)
-                    }
-                  >
-                    {MINUTES.map((option) => (
-                      <option key={option} value={option}>{option}</option>
-                    ))}
-                  </select>
+            {scheduleExpanded && (
+              <>
+            {windows.map((window, index) => {
+              const validWindow = isValidMonitoringWindow(
+                window.startTime,
+                window.endTime,
+              );
+              return (
+                <div className="camera-time-entry" key={index}>
+                  <div className="camera-time-row">
+                    <div className="camera-time-field">
+                      <span>开始</span>
+                      <div
+                        className={
+                          scheduleControlsEnabled
+                            ? "camera-time-control"
+                            : "camera-time-control camera-time-control--disabled"
+                        }
+                      >
+                        <select
+                          aria-label={`时段 ${index + 1} 开始小时`}
+                          value={window.startTime.slice(0, 2)}
+                          disabled={!scheduleControlsEnabled}
+                          onChange={(event) =>
+                            updateWindow(index, {
+                              startTime: `${event.target.value}:${window.startTime.slice(3)}`,
+                            })
+                          }
+                        >
+                          {HOURS.map((option) => (
+                            <option key={option} value={option}>{option}</option>
+                          ))}
+                        </select>
+                        <span aria-hidden>:</span>
+                        <select
+                          aria-label={`时段 ${index + 1} 开始分钟`}
+                          value={window.startTime.slice(3)}
+                          disabled={!scheduleControlsEnabled}
+                          onChange={(event) =>
+                            updateWindow(index, {
+                              startTime: `${window.startTime.slice(0, 2)}:${event.target.value}`,
+                            })
+                          }
+                        >
+                          {MINUTES.map((option) => (
+                            <option key={option} value={option}>{option}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <span className="camera-time-bridge" aria-hidden>
+                      <Clock size={15} weight="bold" />
+                      <span />
+                    </span>
+                    <div className="camera-time-field">
+                      <span>结束</span>
+                      <div
+                        className={
+                          scheduleControlsEnabled
+                            ? "camera-time-control"
+                            : "camera-time-control camera-time-control--disabled"
+                        }
+                      >
+                        <select
+                          aria-label={`时段 ${index + 1} 结束小时`}
+                          value={window.endTime.slice(0, 2)}
+                          disabled={!scheduleControlsEnabled}
+                          onChange={(event) =>
+                            updateWindow(index, {
+                              endTime: `${event.target.value}:${window.endTime.slice(3)}`,
+                            })
+                          }
+                        >
+                          {HOURS.map((option) => (
+                            <option key={option} value={option}>{option}</option>
+                          ))}
+                        </select>
+                        <span aria-hidden>:</span>
+                        <select
+                          aria-label={`时段 ${index + 1} 结束分钟`}
+                          value={window.endTime.slice(3)}
+                          disabled={!scheduleControlsEnabled}
+                          onChange={(event) =>
+                            updateWindow(index, {
+                              endTime: `${window.endTime.slice(0, 2)}:${event.target.value}`,
+                            })
+                          }
+                        >
+                          {MINUTES.map((option) => (
+                            <option key={option} value={option}>{option}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <button
+                      className="camera-time-remove"
+                      type="button"
+                      aria-label={`删除时段 ${index + 1}`}
+                      disabled={!scheduleControlsEnabled || windows.length <= 1}
+                      onClick={() => removeWindow(index)}
+                    >
+                      <Trash size={14} weight="bold" aria-hidden />
+                    </button>
+                  </div>
+                  {scheduleControlsEnabled && !validWindow && (
+                    <p className="camera-time-error" role="alert">
+                      结束时间需要晚于开始时间
+                    </p>
+                  )}
                 </div>
-              </div>
-              <span className="camera-time-bridge" aria-hidden>
-                <Clock size={15} weight="bold" />
-                <span />
+              );
+            })}
+            <button
+              className="camera-time-add"
+              type="button"
+              disabled={
+                !scheduleControlsEnabled || windows.length >= MAX_MONITORING_WINDOWS
+              }
+              onClick={addWindow}
+            >
+              <Plus size={13} weight="bold" aria-hidden />
+              <span>
+                添加时段（{windows.length}/{MAX_MONITORING_WINDOWS}）
               </span>
-              <div className="camera-time-field">
-                <span>结束</span>
-                <div
-                  className={
-                    scheduleControlsEnabled
-                      ? "camera-time-control"
-                      : "camera-time-control camera-time-control--disabled"
-                  }
-                >
-                  <select
-                    aria-label="结束小时"
-                    value={endTime.slice(0, 2)}
-                    disabled={!scheduleControlsEnabled}
-                    onChange={(event) =>
-                      setEndTime(`${event.target.value}:${endTime.slice(3)}`)
-                    }
-                  >
-                    {HOURS.map((option) => (
-                      <option key={option} value={option}>{option}</option>
-                    ))}
-                  </select>
-                  <span aria-hidden>:</span>
-                  <select
-                    aria-label="结束分钟"
-                    value={endTime.slice(3)}
-                    disabled={!scheduleControlsEnabled}
-                    onChange={(event) =>
-                      setEndTime(`${endTime.slice(0, 2)}:${event.target.value}`)
-                    }
-                  >
-                    {MINUTES.map((option) => (
-                      <option key={option} value={option}>{option}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
-            {scheduleControlsEnabled && !validWindow && (
-              <p className="camera-time-error" role="alert">
-                结束时间需要晚于开始时间
-              </p>
+            </button>
+              </>
             )}
           </div>
         </section>
