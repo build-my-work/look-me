@@ -119,12 +119,16 @@ h2{font-size:clamp(26px,4vw,36px);font-weight:650;letter-spacing:.01em;margin-bo
 /* ============ hero ============ */
 .hero{padding:84px 0 30px;text-align:center;position:relative}
 .hero .kicker{
-  display:flex;align-items:center;justify-content:center;gap:14px;
-  font-size:15px;font-weight:600;color:var(--teal);letter-spacing:.14em;
-  margin-bottom:24px;
+  display:flex;align-items:center;justify-content:center;gap:16px;
+  font-size:19px;font-weight:650;color:var(--clay);letter-spacing:.1em;
+  margin-bottom:26px;
 }
 .hero .kicker::before,.hero .kicker::after{
-  content:"";width:38px;height:1.5px;background:var(--line);border-radius:2px;
+  content:"";width:48px;height:2px;background:rgba(155,86,63,.4);border-radius:2px;
+}
+@media (max-width:560px){
+  .hero .kicker{font-size:16px;letter-spacing:.06em}
+  .hero .kicker::before,.hero .kicker::after{width:26px}
 }
 .hero h1{
   font-size:clamp(34px,6vw,58px);font-weight:700;letter-spacing:.015em;line-height:1.22;
@@ -156,8 +160,9 @@ h2{font-size:clamp(26px,4vw,36px);font-weight:650;letter-spacing:.01em;margin-bo
   border:1px solid rgba(201,218,214,.8);
   box-shadow:0 40px 80px -30px rgba(36,77,83,.38),0 4px 14px rgba(36,77,83,.10);
   aspect-ratio:1440/760;
-  background:url("assets/preview-workspace.webp") center 38%/cover no-repeat;
+  background:#0e1f23; /* 视频加载前的底色 */
 }
+.stage video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
 .stage::after{ /* 屏幕玻璃反光 */
   content:"";position:absolute;inset:0;
   background:linear-gradient(115deg,rgba(255,255,255,.16) 0%,transparent 28%);
@@ -166,6 +171,20 @@ h2{font-size:clamp(26px,4vw,36px);font-weight:650;letter-spacing:.01em;margin-bo
 .traffic{position:absolute;top:16px;left:18px;display:flex;gap:8px;z-index:5}
 .traffic i{width:12px;height:12px;border-radius:50%;border:1px solid rgba(0,0,0,.12)}
 .traffic i:nth-child(1){background:#f6c4c0}.traffic i:nth-child(2){background:#f7ddab}.traffic i:nth-child(3){background:#c4e8c6}
+/* 视频说明：播放按钮正下方 */
+.stage-play-caption{
+  position:absolute;left:50%;top:calc(50% + 52px);transform:translateX(-50%);
+  z-index:4;pointer-events:none;white-space:nowrap;
+  background:rgba(238,245,243,.85);backdrop-filter:blur(8px);
+  border:1px solid rgba(255,255,255,.85);border-radius:99px;
+  padding:6px 16px;
+  font-family:var(--mono);font-size:12px;letter-spacing:.1em;color:var(--teal);
+  box-shadow:0 10px 24px -14px rgba(36,77,83,.45);
+}
+.stage.is-playing .stage-play-caption{display:none}
+/* 封面浮层：复现「桌面上的一天」，播放后整体让位给视频 */
+.stage-overlay{position:absolute;inset:0;z-index:2}
+.stage.is-playing .stage-overlay{display:none}
 /* 菜单栏小图标 */
 .menubar-pet{
   position:absolute;top:12px;right:26%;width:17px;height:21px;z-index:4;
@@ -201,7 +220,6 @@ h2{font-size:clamp(26px,4vw,36px);font-weight:650;letter-spacing:.01em;margin-bo
   background:var(--glass);border:1px solid rgba(255,255,255,.85);border-radius:16px;
   padding:9px 14px;font-size:12px;color:var(--ink);
   box-shadow:0 14px 30px -16px rgba(36,77,83,.4);
-  opacity:0;animation:tipIn 1.2s ease 5.8s forwards;
 }
 .horizon-tip .ring{
   width:26px;height:26px;border-radius:50%;flex:none;
@@ -210,11 +228,22 @@ h2{font-size:clamp(26px,4vw,36px);font-weight:650;letter-spacing:.01em;margin-bo
 }
 @keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
-@keyframes tipIn{to{opacity:1}}
 @media (prefers-reduced-motion:reduce){
   .capsule,.capsule .cap-title .live{animation:none}
-  .horizon-tip{animation:none;opacity:1}
 }
+/* 点击播放按钮：封面中央 */
+.stage-play{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:72px;height:72px;border-radius:50%;border:1.5px solid rgba(255,255,255,.85);
+  background:rgba(238,245,243,.9);backdrop-filter:blur(10px);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:4;
+  box-shadow:0 16px 36px -14px rgba(36,77,83,.5);
+  transition:transform .18s ease,box-shadow .18s ease;
+}
+.stage-play:hover{transform:translate(-50%,-50%) scale(1.06)}
+.stage-play:focus-visible{outline:2px solid var(--teal);outline-offset:3px}
+.stage-play svg{width:26px;height:26px;fill:var(--teal);margin-left:3px}
+.stage-play.is-hidden{display:none}
 
 /* ============ stats strip ============ */
 .stats{margin:64px 0 6px}
@@ -410,13 +439,6 @@ h2{font-size:clamp(26px,4vw,36px);font-weight:650;letter-spacing:.01em;margin-bo
 .privacy .yes li::before{background-color:#e0efe7;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%233f7d54' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'/%3E%3C/svg%3E")}
 .privacy .no li::before{background-color:#f6e3dc;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239b563f' stroke-width='3.4' stroke-linecap='round'%3E%3Cline x1='5' y1='5' x2='19' y2='19'/%3E%3Cline x1='19' y1='5' x2='5' y2='19'/%3E%3C/svg%3E")}
 
-/* ============ CLI 版块 ============ */
-.cli-card{position:relative;overflow:hidden}
-.cli-card::before{
-  content:"CLI";position:absolute;right:-14px;top:-26px;font-family:var(--mono);
-  font-size:120px;font-weight:700;color:rgba(49,95,102,.06);letter-spacing:-.05em;pointer-events:none;
-}
-
 /* ============ 开关卡 ============ */
 .switches-card{grid-column:1/-1}
 .switch-layout{display:flex;gap:26px;align-items:center;justify-content:space-between;flex-wrap:wrap}
@@ -507,7 +529,6 @@ footer .fin{margin-top:38px;text-align:center;font-family:var(--mono);font-size:
       <a href="#care">他为你做的事</a>
       <a href="#companion">看山的陪伴</a>
       <a href="#diary">陪伴日记</a>
-      <a href="#cli">CLI 能力</a>
       <a href="#demo">体验 Demo</a>
     </nav>
   </div>
@@ -518,7 +539,7 @@ footer .fin{margin-top:38px;text-align:center;font-family:var(--mono);font-size:
   <div class="wrap">
     <div class="kicker reveal in">干眼症的福音 · 久坐党的救星</div>
     <h1 class="reveal in">泪膜只能撑<span class="hl">10 秒</span><br>别等眼睛干掉</h1>
-    <div class="name-line reveal in">Look Me（看看我）—— <b>刘看山住进菜单栏：本地视觉护眼陪伴，提醒眨眼、远眺、起身，通过看山随时直答</b></div>
+    <div class="name-line reveal in">Look Me（看看我）—— <b>刘看山住进菜单栏：本地视觉护眼陪伴，提醒眨眼、远眺、起身</b></div>
     <div class="cta reveal in">
       <a class="btn primary" href="#demo">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 3 20 12 6 21 6 3" fill="currentColor" stroke="none"/></svg>
@@ -526,24 +547,37 @@ footer .fin{margin-top:38px;text-align:center;font-family:var(--mono);font-size:
       </a>
     </div>
 
-    <!-- 桌面舞台：真实素材复现「桌面上的一天」 -->
-    <div class="stage-wrap reveal in" aria-label="Look Me 桌面效果示意">
+    <!-- 桌面舞台：封面沿用原工作区截图与浮层，点击播放视频 -->
+    <div class="stage-wrap reveal in">
       <div class="stage">
+        <video
+          class="stage-video"
+          src="assets/look-me-intro.mp4"
+          poster="assets/preview-workspace.webp"
+          loop muted playsinline preload="metadata"
+          aria-label="通过视频了解看我：泪膜为什么只能撑 10 秒，看山如何替你留意眨眼、远眺和起身"
+        ></video>
+        <div class="stage-overlay" aria-hidden="false">
+          <img class="menubar-pet" src="assets/kanshan-distance-break.png" alt="" aria-hidden="true">
+          <div class="capsule" role="img" aria-label="眨眼统计胶囊示意：近 1 分钟 14 次眨眼，有效看屏 12 分钟">
+            <div class="cap-title"><span class="live"></span>近 1 分钟眨眼</div>
+            <div class="cap-num">14<small>次 / 分钟</small></div>
+            <div class="cap-sub"><span>有效看屏 <b>12:41</b></span><span>坐姿 <b>26 分钟</b></span></div>
+          </div>
+          <div class="horizon-tip">
+            <span class="ring">12s</span>
+            <span>看山喊你远眺 20 秒 —— 还剩 12 秒</span>
+          </div>
+          <div class="pet-anchor" id="heroPet">
+            <img class="base" src="assets/kanshan-distance-break.png" alt="刘看山站在桌面右下角">
+            <span class="sprite sprite-clap" id="heroSprite" aria-hidden="true"></span>
+          </div>
+        </div>
+        <button class="stage-play" type="button" aria-label="播放视频：通过视频了解看我">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+        <span class="stage-play-caption" aria-hidden="true">通过视频了解看我</span>
         <div class="traffic" aria-hidden="true"><i></i><i></i><i></i></div>
-        <img class="menubar-pet" src="assets/kanshan-distance-break.png" alt="" aria-hidden="true">
-        <div class="capsule" role="img" aria-label="眨眼统计胶囊示意：近 1 分钟 14 次眨眼，有效看屏 12 分钟">
-          <div class="cap-title"><span class="live"></span>近 1 分钟眨眼</div>
-          <div class="cap-num">14<small>次 / 分钟</small></div>
-          <div class="cap-sub"><span>有效看屏 <b>12:41</b></span><span>坐姿 <b>26 分钟</b></span></div>
-        </div>
-        <div class="horizon-tip">
-          <span class="ring">12s</span>
-          <span>看山喊你远眺 20 秒 —— 还剩 12 秒</span>
-        </div>
-        <div class="pet-anchor" id="heroPet">
-          <img class="base" src="assets/kanshan-distance-break.png" alt="刘看山站在桌面右下角">
-          <span class="sprite sprite-clap" id="heroSprite" aria-hidden="true"></span>
-        </div>
       </div>
     </div>
   </div>
@@ -750,20 +784,6 @@ footer .fin{margin-top:38px;text-align:center;font-family:var(--mono);font-size:
     </div>
   </section>
 
-  <!-- ---- CLI 版块：接入后把下方单卡替换为真实能力介绍（可拆多卡 + 展示真实 CLI 调用） ---- -->
-  <section class="event" id="cli">
-    <div class="node" aria-hidden="true">CLI</div>
-    <div class="body">
-      <div class="eyebrow reveal"><span class="tag">zhihu-open-cli</span><span>看山素材 + 开放平台</span></div>
-      <h2 class="reveal">看山不止在桌面陪你</h2>
-      <p class="lede reveal">除了护眼陪伴，他还在通过知乎开放平台学会一些新本领——解锁中，敬请期待。</p>
-      <div class="card cli-card reveal">
-        <h3><span class="icon"><svg viewBox="0 0 24 24"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg></span>与知乎开放平台的直达连接</h3>
-        <p>桌面上的看山已经会用开放平台的 CLI 为你办事——新能力正在路上。</p>
-      </div>
-    </div>
-  </section>
-
   <!-- ---- 体验 Demo ---- -->
   <!-- 下载统一指向内部 GitLab Releases 最新版，用户按平台自选安装包。 -->
   <section class="event" id="demo">
@@ -812,14 +832,7 @@ npm run dev:desktop</pre>
     <div class="cols">
       <div>
         <h4>Look Me · 看看我</h4>
-        <p>刘看山住进菜单栏：本地视觉护眼陪伴，提醒眨眼、远眺、起身。</p>
         <p style="font-size:12px">个人健康习惯陪伴工具，不用于诊断或治疗干眼症等任何疾病；眼部持续不适，请咨询眼科医生。</p>
-      </div>
-      <div>
-        <h4>快速上手</h4>
-        <p><a href="#top">产品主页（本页）</a></p>
-        <p><a href="#demo">三步跑起来 · 或直接用打包版</a></p>
-        <p><a href="#companion">先看看他会什么</a></p>
       </div>
     </div>
     <div class="fin">LOOK ME · 看看我 · 2026</div>
@@ -839,6 +852,19 @@ npm run dev:desktop</pre>
   els.forEach(function(el){io.observe(el)});
 })();
 
+/* Hero 视频：点击封面才开始播放，浮层让位、之后交给原生控件 */
+(function(){
+  var stage=document.querySelector('.stage'),
+      v=document.querySelector('.stage-video'),
+      b=document.querySelector('.stage-play');
+  if(!stage||!v||!b)return;
+  b.addEventListener('click',function(){
+    stage.classList.add('is-playing');
+    b.classList.add('is-hidden');
+    v.controls=true;
+    v.play();
+  });
+})();
 /* Hero 立绘：站姿 ↔ 偶尔拍手（同一精灵图技术） */
 (function(){
   var pet=document.getElementById('heroPet'),sp=document.getElementById('heroSprite');

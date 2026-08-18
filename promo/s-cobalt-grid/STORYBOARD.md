@@ -16,9 +16,9 @@ music: none
 - status: outline
 - src: compositions/frames/01-hook.html
 
-## Frame 2 — 他为你做的事（7 项功能全景）
+## Frame 2 — 他为你做的事（6 项功能全景）
 
-- scene: 钴蓝格纸风格容器逐张点亮：眨眼守护/远眺/起身/哈欠镜像/小剧场/知乎直答(NEW)/守口如瓶
+- scene: 钴蓝格纸风格容器逐张点亮：眨眼守护/远眺/起身/哈欠镜像/小剧场/守口如瓶
 - duration: 24s
 - transition_in: cut
 - status: outline

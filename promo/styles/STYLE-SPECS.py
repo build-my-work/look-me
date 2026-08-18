@@ -7,7 +7,7 @@ ROOT = '/Users/zhihu/code/m_code/ai/look-me/promo'
 TPL = f'{ROOT}/styles'          # init 模板项目
 ASSETS_SRC = '/Users/zhihu/code/m_code/ai/look-me/site/assets'
 
-# ---------- 统一内容（基于最新代码：知乎直答 + v0.1.1） ----------
+# ---------- 统一内容（基于最新代码：v0.1.1） ----------
 HOOK_LINE1 = '泪膜只能撑'
 HOOK_NUM = '10 秒'
 HOOK_LINE2 = '别等眼睛干掉'
@@ -17,12 +17,11 @@ FEATS = [
     ('久坐起身', '他认得你真的站起来——30 分钟提醒，1–600 分钟可调'),
     ('哈欠镜像', '你打了个哈欠，他也跟着张嘴打一个'),
     ('待机小剧场', '拍手 · 坐下 · 转圈，没人理他的时候他自己玩'),
-    ('知乎直答 · NEW', '面板上的知乎按钮：问题交给本机 CLI，答案回到看山嘴边'),
     ('守口如瓶', '检测全在本机——不上传 · 不保存 · 没有云端'),
 ]
 CTA_MARK = 'LOOK ME'
 CTA_CN = '看看我'
-CTA_SUB = '刘看山住进你的桌面：提醒眨眼、远眺、起身、随问随答'
+CTA_SUB = '刘看山住进你的桌面：提醒眨眼、远眺、起身'
 CTA_BTN = ['macOS', 'Windows', 'Linux']
 CTA_FINE = 'v0.1.1 · 个人健康习惯工具 · 不用于诊断或治疗干眼症'
 
@@ -283,9 +282,9 @@ music: none
 - status: outline
 - src: compositions/frames/01-hook.html
 
-## Frame 2 — 他为你做的事（7 项功能全景）
+## Frame 2 — 他为你做的事（6 项功能全景）
 
-- scene: {st['name']}风格容器逐张点亮：眨眼守护/远眺/起身/哈欠镜像/小剧场/知乎直答(NEW)/守口如瓶
+- scene: {st['name']}风格容器逐张点亮：眨眼守护/远眺/起身/哈欠镜像/小剧场/守口如瓶
 - duration: 24s
 - transition_in: cut
 - status: outline

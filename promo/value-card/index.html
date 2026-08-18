@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<style>
+  :root{
+    --ink:#244d53; --teal:#315f66; --teal-deep:#1e3f45;
+    --sage:#78908d; --mist:#eef5f3; --line:#c9dad6;
+    --sand:#f6ecdd; --clay:#9b563f; --amber:#b69a63;
+    --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{width:1600px;height:900px;overflow:hidden}
+  body{
+    font-family:var(--sans);color:var(--ink);
+    background:
+      radial-gradient(1100px 460px at 88% -120px,#e2efec 0%,transparent 60%),
+      radial-gradient(820px 400px at -6% 108%,#e8f1ee 0%,transparent 55%),
+      var(--mist);
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{width:100%;height:100%;padding:64px 72px 56px;display:flex;flex-direction:column;position:relative}
+  .kicker{
+    display:flex;align-items:center;gap:18px;
+    font-size:21px;font-weight:650;color:var(--clay);letter-spacing:.1em;
+  }
+  .kicker::before,.kicker::after{content:"";width:46px;height:2.5px;background:rgba(155,86,63,.4);border-radius:3px}
+  h1{font-size:58px;font-weight:700;letter-spacing:.01em;line-height:1.18;margin-top:22px}
+  h1 .hl{color:var(--teal);position:relative;white-space:nowrap}
+  h1 .hl::after{content:"";position:absolute;left:0;right:0;bottom:8px;height:13px;background:rgba(182,154,99,.3);border-radius:4px;z-index:-1}
+  .sub{font-size:21px;color:var(--sage);margin-top:14px}
+  .sub b{color:var(--ink);font-weight:650}
+  .main{display:flex;flex:1;margin-top:34px;gap:44px;min-height:0;align-items:stretch}
+  .features{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:18px;align-content:start;position:relative}
+  .desknote{
+    grid-column:1/-1;font-size:15.5px;color:var(--sage);line-height:1.6;
+    border-top:1px dashed var(--line);padding-top:14px;margin-top:2px;
+  }
+  .desknote b{color:var(--ink);font-weight:650}
+  .card{
+    background:rgba(247,251,248,.92);border:1px solid rgba(201,218,214,.65);border-radius:20px;
+    padding:20px 22px;box-shadow:0 10px 30px -18px rgba(36,77,83,.25);
+  }
+  .card h3{font-size:21px;font-weight:650;display:flex;align-items:center;gap:11px;margin-bottom:7px}
+  .card p{font-size:15.5px;color:#4c6663;line-height:1.55}
+  .icon{width:42px;height:42px;border-radius:13px;flex:none;display:inline-flex;align-items:center;justify-content:center;background:#dcece8;color:var(--teal)}
+  .icon svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+  .icon--clay{background:#f3e2da;color:var(--clay)}
+  .icon--amber{background:#f0e7d4;color:#8a7442}
+  .desk{width:700px;flex:none;display:flex;flex-direction:column;justify-content:center}
+  .desk-window{
+    position:relative;border-radius:18px;overflow:hidden;aspect-ratio:1440/760;
+    border:1px solid rgba(201,218,214,.8);background:#0e1f23;
+    box-shadow:0 34px 70px -28px rgba(36,77,83,.42),0 4px 14px rgba(36,77,83,.1);
+  }
+  .desk-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 38%}
+  .desk-glare{position:absolute;inset:0;background:linear-gradient(115deg,rgba(255,255,255,.15) 0%,transparent 28%);pointer-events:none}
+  .traffic{position:absolute;top:14px;left:16px;display:flex;gap:7px;z-index:5}
+  .traffic i{width:11px;height:11px;border-radius:50%;border:1px solid rgba(0,0,0,.12)}
+  .traffic i:nth-child(1){background:#f6c4c0}.traffic i:nth-child(2){background:#f7ddab}.traffic i:nth-child(3){background:#c4e8c6}
+  .capsule{position:absolute;left:10%;top:20%;z-index:3}
+  .horizon-tip{
+    position:absolute;left:32%;bottom:10%;z-index:3;
+    display:flex;align-items:center;gap:9px;
+    background:rgba(247,251,248,.92);border:1px solid rgba(255,255,255,.85);border-radius:14px;
+    padding:8px 13px;font-size:12px;color:var(--ink);
+    box-shadow:0 14px 30px -16px rgba(36,77,83,.4);
+  }
+  .horizon-tip .ring{
+    width:24px;height:24px;border-radius:50%;flex:none;
+    background:conic-gradient(var(--amber) 0 62%,#e7e0d0 62% 100%);
+    display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:8.5px;color:#fff;
+  }
+  .desk-caption{margin:14px 0 0;text-align:center;font-family:var(--mono);font-size:14px;letter-spacing:.08em;color:var(--sage)}
+  .pet{position:absolute;right:8%;bottom:5%;height:34%;aspect-ratio:512/640;z-index:4}
+  .pet-base{height:100%;display:block;filter:drop-shadow(0 14px 16px rgba(36,77,83,.32))}
+  .pet-eyelid{position:absolute;left:43.1%;top:27.1%;width:6.5%;height:5.85%;border-radius:50%;background:#f4f4f1;box-shadow:0 0 2px 2px rgba(244,244,241,.92);transform:scaleY(.12);transform-origin:center;opacity:0}
+  .pet-eyelid::after{content:"";position:absolute;left:26%;top:45%;width:65%;height:13%;border-radius:99px;background:#171718;transform:rotate(3deg)}
+  .pet-mouth{position:absolute;left:54.6%;top:39.1%;width:10.8%;height:13.5%;transform-origin:center 20%;transform:scale(.84,.08);opacity:0}
+  .capsule{
+    background:rgba(247,251,248,.95);border:1px solid rgba(255,255,255,.9);border-radius:18px;
+    padding:13px 17px;min-width:218px;box-shadow:0 18px 40px -18px rgba(36,77,83,.4);
+  }
+  .capsule .cap-title{font-size:13px;color:var(--sage);letter-spacing:.05em;display:flex;align-items:center;gap:8px}
+  .capsule .cap-title .live{width:7px;height:7px;border-radius:50%;background:#5a9e6f}
+  .capsule .cap-num{font-family:var(--mono);font-size:30px;font-weight:600;color:var(--teal);line-height:1.25}
+  .capsule .cap-num small{font-size:15px;color:var(--sage);font-weight:400;margin-left:5px}
+  .capsule .cap-sub{font-size:13.5px;color:var(--sage);border-top:1px dashed var(--line);margin-top:10px;padding-top:9px;display:flex;justify-content:space-between;gap:12px}
+  .capsule .cap-sub b{color:var(--ink);font-weight:600}
+  .footer{
+    margin-top:36px;display:flex;align-items:center;justify-content:space-between;
+    border-top:1px solid var(--line);padding-top:24px;
+  }
+  .brand{display:flex;align-items:center;gap:16px}
+  .brand .logo{height:44px}
+  .brand .name{font-size:26px;font-weight:700;letter-spacing:.01em}
+  .brand .name span{color:var(--teal)}
+  .meta{display:flex;align-items:center;gap:22px;font-family:var(--mono);font-size:16px}
+  .meta .site{color:var(--teal);font-weight:600}
+  .meta .local{color:var(--sage);display:flex;align-items:center;gap:8px}
+  .meta .local i{width:8px;height:8px;border-radius:50%;background:#5a9e6f;display:inline-block}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="kicker">干眼症的福音 · 久坐党的救星</div>
+  <h1>你的泪膜，只能撑 <span class="hl">10 秒</span></h1>
+  <p class="sub">盯屏入神，你可以 <b>30–60 秒</b>不眨眼——让一只<b>住在你桌面上</b>的刘看山替你盯着</p>
+
+  <div class="main">
+    <div class="features">
+      <div class="card">
+        <h3><span class="icon"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></span>眨眼提醒</h3>
+        <p>识别每一次完整眨眼，太久没眨，他先眨给你看</p>
+      </div>
+      <div class="card">
+        <h3><span class="icon icon--amber"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>远眺提醒</h3>
+        <p>有效看屏满 20 分钟，喊你远眺 20 秒</p>
+      </div>
+      <div class="card">
+        <h3><span class="icon icon--clay"><svg viewBox="0 0 24 24"><path d="M18 8h1a4 4 0 0 1 0 8h-1M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg></span>起身提醒</h3>
+        <p>久坐到点催你起身，30 天陪伴日记记得每一天</p>
+      </div>
+      <div class="card">
+        <h3><span class="icon"><svg viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3"/></svg></span>待机小剧场</h3>
+        <p>没人理他的时候，他自己拍手、坐下、转圈玩</p>
+      </div>
+      <p class="desknote">他不只是壁纸挂件：透明置顶 · 点击穿透 · 拖到哪住哪，全程本地运行</p>
+    </div>
+
+    <div class="desk">
+      <div class="desk-window">
+        <div class="traffic"><i></i><i></i><i></i></div>
+        <img class="desk-bg" src="../../site/assets/preview-workspace.webp" alt="">
+        <div class="desk-glare"></div>
+        <div class="capsule">
+          <div class="cap-title"><span class="live"></span>近 1 分钟眨眼</div>
+          <div class="cap-num">14<small>次 / 分钟</small></div>
+          <div class="cap-sub"><span>有效看屏 <b>12:41</b></span><span>坐姿 <b>26 分钟</b></span></div>
+        </div>
+        <div class="horizon-tip">
+          <span class="ring">12s</span>
+          <span>看山喊你远眺 20 秒 —— 还剩 12 秒</span>
+        </div>
+        <div class="pet">
+          <img class="pet-base" src="../../site/assets/kanshan-distance-break.png" alt="刘看山">
+          <div class="pet-eyelid"></div>
+          <img class="pet-mouth" src="../../site/assets/kanshan-yawn-mouth.png" alt="">
+        </div>
+      </div>
+      <p class="desk-caption">▲ 他就住在你的桌面上，随时眨眼回应你</p>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div class="brand">
+      <img class="logo" src="../../site/assets/kanshan-distance-break.png" alt="">
+      <div class="name">Look Me · <span>看看我</span></div>
+    </div>
+    <div class="meta">
+      <span class="site">lookme.anme.cc</span>
+      <span class="local"><i></i>本地运行 · 画面不上传</span>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var CYCLE=6400;
+  var t=new URLSearchParams(location.search).get('t');
+  var tt=(((t===null?0:+t)%CYCLE)+CYCLE)%CYCLE;
+  var pet=document.querySelector('.pet');
+  var eyelid=document.querySelector('.pet-eyelid');
+  var mouth=document.querySelector('.pet-mouth');
+
+  pet.style.transform='translateY('+(Math.sin(tt/CYCLE*Math.PI*2)*2.5).toFixed(2)+'px)';
+
+  var mouthOpen=0,yawnEye=0;
+  var yd=tt-4200;
+  if(yd>=0&&yd<=2000){
+    if(yd<400){mouthOpen=yd/400;yawnEye=yd/400*.6}
+    else if(yd<1400){mouthOpen=1;yawnEye=.6}
+    else{var k=1-(yd-1400)/600;mouthOpen=k;yawnEye=k*.6}
+  }
+  function blinkPhase(start){var d=tt-start;if(d<0||d>260)return 0;if(d<90)return d/90;if(d<170)return 1;return 1-(d-170)/90}
+  var closed=Math.min(1,Math.max(blinkPhase(1400),blinkPhase(3600),yawnEye));
+
+  eyelid.style.opacity=(closed>0.02?1:0);
+  eyelid.style.transform='scaleY('+(0.12+0.88*closed).toFixed(3)+')';
+  mouth.style.opacity=(mouthOpen>0.02?1:0);
+  mouth.style.transform='scale('+(0.84+0.16*mouthOpen).toFixed(3)+','+(0.08+0.92*mouthOpen).toFixed(3)+')';
+})();
+</script>
+</body></body>
+</html>
