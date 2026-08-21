@@ -92,7 +92,7 @@ Resolution: made Skip a direct portal child and adjusted the selected preview st
 
 ## Whole-display attention rail extension
 
-- The existing pet and cards remain unchanged in parked/manual states. When “显示眨眼次数” is enabled, quiet rail states mirror the capsule beside the right-edge Pet; active descent, crying, rampage, and recovery states hide it.
+- The existing pet and cards remain unchanged in parked/manual states. When “显示小组件” is enabled, quiet rail states mirror the capsule beside the right-edge Pet; active descent, crying, rampage, and recovery states hide it.
 - A generated pale-blue raster tear sits directly below the visible dot eye. One attached drop and one falling repeat provide crying motion without altering the mascot source art.
 - Standard-size crying pixels show a clear tear with no nose/body overlap. The 41% preset raises the tear's source width so its transformed width remains roughly 10 px.
 - Healthy and cooldown phases hide both the pet and its drag hit region while the transparent native window stays shown, preserving local camera processing and desktop click-through.
@@ -120,7 +120,7 @@ Resolution: made Skip a direct portal child and adjusted the selected preview st
 
 ## Persistent quick panel
 
-- The former “显示统计图表” tray setting is now “显示眨眼次数” and is subordinate to “始终显示看山”. Turning the persistent pet off also turns and persists the capsule off; the panel item stays disabled until the persistent pet is enabled again.
+- The former “显示统计图表” tray setting is now “显示小组件”. It controls the complete capsule, including blink status, scheduled-lock countdown, and the statistics entry; hiding it does not stop their underlying monitoring or timer logic.
 - The capsule remains visible during quiet parked, hidden, resting, and cooldown phases, mirrors to the left of a right-edge Pet, and stays out of descending, crying, rampage, and recovery motion.
 - Its size-aware anchor follows the artwork's visible alpha edge instead of the fixed transparent image box. Small, standard, and large presets keep a measured `9.1–10.1 px` visual gap in both parked and mirrored rail layouts.
 - Its statistics button opens the compact statistics and then the daily history; its distance button starts the existing 20-second break. Hiding the capsule does not stop camera sensing or local history collection.

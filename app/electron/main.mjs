@@ -820,7 +820,7 @@ async function runPetSettingsSmoke(window) {
     (item) => item.label === "监测与提醒",
   );
   const panelMenuItem = settingsMenu.items.find(
-    (item) => item.label === "显示眨眼次数",
+    (item) => item.label === "显示小组件",
   );
   const panelDependencySynced =
     panelMenuItem?.checked === panelVisible &&
@@ -835,7 +835,7 @@ async function runPetSettingsSmoke(window) {
       "监测与提醒",
       "看山大小",
       "始终显示看山",
-      "显示眨眼次数",
+      "显示小组件",
       "退出 Look Me",
     ].join("|");
   const firstPopupMenu = settingsMenu;
@@ -1411,6 +1411,27 @@ async function runSettingsHeightSmoke(window) {
   await wait(900);
   const companionLeftWide = await measureCompanion();
 
+  // 小组件包括眨眼状态、定时锁屏倒计时与统计入口，关闭时应整体隐藏。
+  selectPanelVisibility(false);
+  await wait(900);
+  const hiddenWidget = await window.webContents.executeJavaScript(`(() => ({
+    companionVisible: Boolean(document.querySelector(".idle-companion")),
+    blinkStatusVisible: Boolean(document.querySelector(".idle-status")),
+    lockCountdownVisible: Boolean(document.querySelector(".lock-countdown")),
+    storedVisible:
+      window.localStorage.getItem("look-me:panel-visible:v1") === "true",
+  }))()`);
+  const hiddenWidgetMenuItem = settingsMenu.items.find(
+    (item) => item.label === "显示小组件",
+  );
+  const widgetHidesWithForceLock = Boolean(
+    !hiddenWidget.companionVisible &&
+    !hiddenWidget.blinkStatusVisible &&
+    !hiddenWidget.lockCountdownVisible &&
+    !hiddenWidget.storedVisible &&
+    hiddenWidgetMenuItem?.checked === false,
+  );
+
   const companionFits = (entry) => Boolean(
     entry &&
     entry.width > 0 &&
@@ -1453,7 +1474,8 @@ async function runSettingsHeightSmoke(window) {
     !panelVisuallyClipped &&
     lockCommandReady &&
     companionRightFits &&
-    companionLeftFits,
+    companionLeftFits &&
+    widgetHidesWithForceLock,
   );
   console.log(`LOOK_ME_SETTINGS_HEIGHT ${JSON.stringify({
     collapsedWindow,
@@ -1476,6 +1498,9 @@ async function runSettingsHeightSmoke(window) {
     companionLeftWide,
     companionRightFits,
     companionLeftFits,
+    hiddenWidget,
+    hiddenWidgetMenuChecked: hiddenWidgetMenuItem?.checked ?? null,
+    widgetHidesWithForceLock,
     forceLockDebug,
     passed,
   })}`);
@@ -1676,7 +1701,7 @@ function createWindow() {
         "监测与提醒",
         "看山大小",
         "始终显示看山",
-        "显示眨眼次数",
+        "显示小组件",
         "退出 Look Me",
       ].join("|");
       selectMonitoringEnabled(originalMonitoringEnabled);
@@ -2070,7 +2095,7 @@ function createWindow() {
         "window.localStorage.getItem('look-me:panel-visible:v1') === 'true'",
       );
       const enabledPanelMenuItem = settingsMenu.items.find(
-        (item) => item.label === "显示眨眼次数",
+        (item) => item.label === "显示小组件",
       );
       const panelMenuEnabled =
         enabledPanelMenuItem?.enabled === true &&
@@ -2089,7 +2114,7 @@ function createWindow() {
         "Boolean(document.querySelector('.idle-companion'))",
       );
       const disabledPanelMenuItem = settingsMenu.items.find(
-        (item) => item.label === "显示眨眼次数",
+        (item) => item.label === "显示小组件",
       );
       const panelMenuStillEnabled =
         disabledPanelMenuItem?.enabled === true &&
@@ -2239,7 +2264,7 @@ function updateTrayMenu() {
         click: () => selectPetPersistence(!petPersistent),
       },
       {
-        label: "显示眨眼次数",
+        label: "显示小组件",
         type: "checkbox",
         checked: panelVisible,
         click: () => selectPanelVisibility(!panelVisible),

@@ -655,10 +655,8 @@ export function App() {
     } catch {
       // Keep the selected visibility for this session if local storage is unavailable.
     }
-    window.lookMe?.syncPanelVisibility(
-      panelVisible || cameraSettings.forceLockEnabled,
-    );
-  }, [panelVisible, cameraSettings.forceLockEnabled]);
+    window.lookMe?.syncPanelVisibility(panelVisible);
+  }, [panelVisible]);
 
   useEffect(() => {
     const bridge = window.lookMe;
@@ -888,8 +886,7 @@ export function App() {
     : persistentAttentionFrame;
   const standardCoachVisible =
     !cameraSettingsOpen && !historyOpen && !sedentaryReminderActive;
-  const companionVisible =
-    standardCoachVisible && (panelVisible || cameraSettings.forceLockEnabled);
+  const companionVisible = standardCoachVisible && panelVisible;
   const forceLockCountdownSeconds =
     cameraSettings.forceLockEnabled && forceLockFrame.remainingMs !== null
       ? Math.ceil(forceLockFrame.remainingMs / 1_000)
