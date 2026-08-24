@@ -31,6 +31,7 @@ export interface CameraMonitoringSettings {
 export interface SystemAvailability {
   screenLocked: boolean;
   systemSuspended: boolean;
+  lockCycle: number;
 }
 
 export const DEFAULT_CAMERA_MONITORING_SETTINGS: CameraMonitoringSettings = {

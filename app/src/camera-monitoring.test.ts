@@ -12,6 +12,7 @@ import {
 const AVAILABLE_SYSTEM = {
   screenLocked: false,
   systemSuspended: false,
+  lockCycle: 0,
 };
 
 describe("camera monitoring settings", () => {

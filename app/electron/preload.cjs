@@ -44,7 +44,7 @@ contextBridge.exposeInMainWorld("lookMe", {
     return ipcRenderer.invoke("look-me:get-system-availability");
   },
   forceLock() {
-    ipcRenderer.send("look-me:force-lock");
+    return ipcRenderer.invoke("look-me:force-lock");
   },
   onSystemAvailability(listener) {
     const handler = (_event, availability) => listener(availability);

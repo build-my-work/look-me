@@ -269,6 +269,7 @@ export function App() {
     remainingMs: null,
     warning: false,
     due: false,
+    status: "idle",
   });
   const [cameraSettingsOpen, setCameraSettingsOpen] =
     useState(cameraSettingsDemo);
@@ -281,8 +282,8 @@ export function App() {
   const [systemAvailability, setSystemAvailability] =
     useState<SystemAvailability>(() =>
       isDesktop
-        ? { screenLocked: true, systemSuspended: true }
-        : { screenLocked: false, systemSuspended: false },
+        ? { screenLocked: true, systemSuspended: true, lockCycle: 0 }
+        : { screenLocked: false, systemSuspended: false, lockCycle: 0 },
   );
   const [historyOpen, setHistoryOpen] = useState(historyDemo);
   const [petPersistent, setPetPersistent] = useState(() => {
@@ -489,10 +490,25 @@ export function App() {
           !systemAvailability.systemSuspended &&
           withinMonitoringWindow,
         enabled: cameraSettings.forceLockEnabled,
+        lockCycle: systemAvailability.lockCycle,
         thresholdMs: cameraSettings.forceLockMinutes * 60 * 1_000,
       });
       if (nextForceLockFrame.due) {
-        window.lookMe?.forceLock();
+        const bridge = window.lookMe;
+        if (!bridge) {
+          forceLockTimer.current.retryAfterFailure(now);
+        } else {
+          void bridge
+            .forceLock()
+            .then((result) => {
+              if (result.status !== "locked") {
+                forceLockTimer.current.retryAfterFailure(Date.now());
+              }
+            })
+            .catch(() => {
+              forceLockTimer.current.retryAfterFailure(Date.now());
+            });
+        }
       }
       setForceLockFrame(nextForceLockFrame);
       dispatch({
@@ -713,7 +729,23 @@ export function App() {
       }
       if (command === "panel:hide") {
         setPanelVisible(false);
-        setPanelPetSide(null);
+        return;
+      }
+      if (command.startsWith("pet-side:")) {
+        const requestedSide = command.slice("pet-side:".length);
+        if (requestedSide === "left" || requestedSide === "right") {
+          setPanelPetSide(requestedSide);
+        }
+        return;
+      }
+      if (command.startsWith("pet-offset-y:")) {
+        const offsetY = Number(command.slice("pet-offset-y:".length));
+        if (Number.isFinite(offsetY)) {
+          document.documentElement.style.setProperty(
+            "--pet-window-offset-y",
+            `${offsetY}px`,
+          );
+        }
         return;
       }
       if (command.startsWith("panel:show")) {
@@ -911,6 +943,12 @@ export function App() {
       : `${Math.floor(forceLockCountdownSeconds / 60)}:${String(
           forceLockCountdownSeconds % 60,
         ).padStart(2, "0")}`;
+  const forceLockLabel =
+    forceLockFrame.status === "locking"
+      ? "锁屏中"
+      : forceLockFrame.status === "retrying" && forceLockCountdown !== null
+        ? `重试 ${forceLockCountdown}`
+        : forceLockCountdown;
   const petDisplayAction = resolvePetDisplayAction({
     petActionDemo,
     mouthOpen: faceMonitor.mouthOpen,
@@ -947,7 +985,7 @@ export function App() {
         data-pet-attention={displayedAttentionFrame.phase}
         data-pet-rail={displayedAttentionFrame.rail ? "true" : "false"}
         data-pet-flying={displayedAttentionFrame.flying ? "true" : "false"}
-        data-pet-panel-side={panelVisible ? panelPetSide ?? undefined : undefined}
+        data-pet-panel-side={panelPetSide ?? undefined}
         data-pet-action-preference={petIdleAction}
         data-pet-idle-action={petDisplayAction}
         aria-label="Look Me 护眼陪伴"
@@ -1018,11 +1056,15 @@ export function App() {
               setWindowDragging(true);
               event.currentTarget.setPointerCapture(event.pointerId);
               const bounds = event.currentTarget.getBoundingClientRect();
+              const petBounds = document
+                .querySelector(".coach-pet-shell")
+                ?.getBoundingClientRect();
               window.lookMe?.dragWindow("start", event.screenX, event.screenY, {
                 x: bounds.x,
                 y: bounds.y,
                 width: bounds.width,
                 height: bounds.height,
+                petTop: petBounds?.y,
               });
             }}
             onPointerMove={(event) => {
@@ -1345,17 +1387,21 @@ export function App() {
                   : sensingLabel}
               </span>
             </div>
-            {forceLockCountdown !== null && (
+            {forceLockLabel !== null && (
               <span
                 className={
                   forceLockFrame.warning
                     ? "lock-countdown lock-countdown--warning"
                     : "lock-countdown"
                 }
-                title="距定时锁屏"
+                title={
+                  forceLockFrame.status === "retrying"
+                    ? "锁屏未生效，正在等待重试"
+                    : "距定时锁屏"
+                }
               >
                 <LockSimple size={13} weight="bold" aria-hidden />
-                {forceLockCountdown}
+                {forceLockLabel}
               </span>
             )}
             <div className="idle-actions">

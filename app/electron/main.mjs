@@ -30,6 +30,8 @@ const SETTINGS_WINDOW_HEIGHT = 400;
 const MAX_SETTINGS_WINDOW_HEIGHT_RATIO = 0.8;
 const HISTORY_WINDOW_WIDTH = 1120;
 const HISTORY_WINDOW_HEIGHT = 680;
+const FORCE_LOCK_CONFIRM_TIMEOUT_MS = 5_000;
+const FORCE_LOCK_CONFIRM_POLL_MS = 250;
 const PET_DRAG_HANDLE = Object.freeze({ x: 18, y: 62, width: 194, height: 230 });
 const PET_DRAG_HANDLE_TOPS = Object.freeze({ small: 22, standard: 62, large: 62 });
 const PET_SIZES = new Set(["small", "standard", "large"]);
@@ -100,6 +102,8 @@ let panelPetSide = null;
 let cameraSettingsOpen = false;
 let settingsWindowHeight = SETTINGS_WINDOW_HEIGHT;
 let historyOpen = false;
+let expandedPanelPetAnchor = null;
+let petWindowOffsetY = 0;
 let currentWindowSize = { width: WINDOW_WIDTH, height: WINDOW_HEIGHT };
 let rendererSettingsReady = false;
 let monitoringSettingsReady = false;
@@ -120,6 +124,7 @@ let nativePointerEventsEnabled = null;
 const systemAvailability = {
   screenLocked: false,
   systemSuspended: false,
+  lockCycle: 0,
 };
 
 if (SMOKE_ENV_KEYS.some((key) => process.env[key] === "1")) {
@@ -214,6 +219,7 @@ function getPetHitBoundsForSide(
   side,
   windowSize = currentWindowSize,
   activePanelSide = panelPetSide,
+  offsetY = petWindowOffsetY,
 ) {
   const dragHandle = getPetDragHandle();
   const scale = PET_SCALES[petSize] ?? PET_SCALES.standard;
@@ -225,7 +231,7 @@ function getPetHitBoundsForSide(
     x: side === "right"
       ? windowSize.width - dragHandle.x - width - panelInset
       : dragHandle.x + panelInset,
-    y: windowSize.height - handleBottom - height,
+    y: windowSize.height - handleBottom - height + offsetY,
     width,
     height,
   };
@@ -235,6 +241,24 @@ function getPetHitBounds() {
   return getPetHitBoundsForSide(
     panelPetSide ?? (petAttentionMode === "rail" ? "right" : "left"),
   );
+}
+
+function getPetScreenAnchor(window) {
+  const windowBounds = window.getBounds();
+  const petBounds = getPetHitBounds();
+  return {
+    x: Math.round(windowBounds.x + petBounds.x),
+    y: Math.round(windowBounds.y + petBounds.y),
+  };
+}
+
+function setPetWindowOffsetY(window, offsetY) {
+  const nextOffsetY = Math.min(0, Math.round(offsetY));
+  if (nextOffsetY === petWindowOffsetY) {
+    return;
+  }
+  petWindowOffsetY = nextOffsetY;
+  window.webContents.send("look-me:command", `pet-offset-y:${nextOffsetY}`);
 }
 
 function resolvePanelPetSide(window) {
@@ -252,7 +276,11 @@ function resolvePanelPetSide(window) {
 
 function reanchorPetForSide(window, nextSide) {
   const currentPetBounds = getPetHitBounds();
-  const nextPetBounds = getPetHitBoundsForSide(nextSide);
+  const nextPetBounds = getPetHitBoundsForSide(
+    nextSide,
+    currentWindowSize,
+    nextSide,
+  );
   if (currentPetBounds.x === nextPetBounds.x) {
     return;
   }
@@ -264,34 +292,25 @@ function reanchorPetForSide(window, nextSide) {
   }
 }
 
+function setPetSide(window, nextSide) {
+  if (nextSide === panelPetSide) {
+    return false;
+  }
+  reanchorPetForSide(window, nextSide);
+  panelPetSide = nextSide;
+  window.webContents.send("look-me:command", `pet-side:${nextSide}`);
+  return true;
+}
+
 function showPanelBesidePet(window, forceCommand = false) {
   const nextSide = resolvePanelPetSide(window);
-  const sideChanged = nextSide !== panelPetSide;
-  if (sideChanged) {
-    reanchorPetForSide(window, nextSide);
-    panelPetSide = nextSide;
-  }
-  if (petSize === "small") {
-    const bounds = window.getBounds();
-    const workArea = screen.getDisplayMatching(bounds).workArea;
-    const maximumX = workArea.x + Math.max(0, workArea.width - bounds.width);
-    const nextX = Math.min(maximumX, Math.max(workArea.x, bounds.x));
-    if (nextX !== bounds.x) {
-      window.setPosition(nextX, bounds.y, false);
-      if (petAttentionMode === "rail") {
-        petRailWindowX = nextX;
-      }
-    }
-  }
+  const sideChanged = setPetSide(window, nextSide);
   if (sideChanged || forceCommand) {
     window.webContents.send("look-me:command", `panel:show:${nextSide}`);
   }
 }
 
 function hidePanelBesidePet(window) {
-  const nextSide = petAttentionMode === "rail" ? "right" : "left";
-  reanchorPetForSide(window, nextSide);
-  panelPetSide = null;
   window.webContents.send("look-me:command", "panel:hide");
 }
 
@@ -304,6 +323,15 @@ function resizeWindowForExpandedPanel(window, nextState) {
     historyOpen === nextHistoryOpen
   ) {
     return;
+  }
+
+  const wasExpanded = cameraSettingsOpen || historyOpen;
+  const expanded = nextCameraSettingsOpen || nextHistoryOpen;
+  if (expanded) {
+    setPetSide(window, resolvePanelPetSide(window));
+  }
+  if (!wasExpanded && expanded) {
+    expandedPanelPetAnchor = getPetScreenAnchor(window);
   }
 
   const previousBounds = window.getBounds();
@@ -335,22 +363,39 @@ function resizeWindowForExpandedPanel(window, nextState) {
     petSide,
     nextSize,
     panelPetSide,
+    expanded ? 0 : petWindowOffsetY,
   );
   const preferredX = Math.round(
-    previousBounds.x + previousPetBounds.x - nextPetBounds.x,
+    !expanded && expandedPanelPetAnchor
+      ? expandedPanelPetAnchor.x - nextPetBounds.x
+      : previousBounds.x + previousPetBounds.x - nextPetBounds.x,
   );
   const preferredY = Math.round(
-    previousBounds.y + previousPetBounds.y - nextPetBounds.y,
+    !expanded && expandedPanelPetAnchor
+      ? expandedPanelPetAnchor.y - nextPetBounds.y
+      : previousBounds.y + previousPetBounds.y - nextPetBounds.y,
   );
-  const maximumX = workArea.x + Math.max(0, workArea.width - nextSize.width);
-  const maximumY = workArea.y + Math.max(0, workArea.height - nextSize.height);
-  const nextX = Math.min(maximumX, Math.max(workArea.x, preferredX));
-  const nextY = Math.min(maximumY, Math.max(workArea.y, preferredY));
+  const minimumX = expanded ? workArea.x : workArea.x - nextPetBounds.x;
+  const minimumY = workArea.y;
+  const maximumX = expanded
+    ? workArea.x + Math.max(0, workArea.width - nextSize.width)
+    : workArea.x + workArea.width - nextPetBounds.x - nextPetBounds.width;
+  const maximumY = expanded
+    ? workArea.y + Math.max(0, workArea.height - nextSize.height)
+    : workArea.y + workArea.height - nextPetBounds.y - nextPetBounds.height;
+  const nextX = Math.min(maximumX, Math.max(minimumX, preferredX));
+  const nextY = Math.min(maximumY, Math.max(minimumY, preferredY));
 
   cameraSettingsOpen = nextCameraSettingsOpen;
   historyOpen = nextHistoryOpen;
   currentWindowSize = nextSize;
   window.setBounds({ x: nextX, y: nextY, ...nextSize }, false);
+  if (expanded) {
+    setPetWindowOffsetY(window, 0);
+  }
+  if (!expanded) {
+    expandedPanelPetAnchor = null;
+  }
   if (petAttentionMode === "rail") {
     petRailWindowX = nextX;
   }
@@ -407,21 +452,25 @@ function updateSystemAvailability(key, value) {
   sendSystemAvailability();
 }
 
+function updateScreenLocked(locked) {
+  if (locked && !systemAvailability.screenLocked) {
+    systemAvailability.lockCycle += 1;
+  }
+  updateSystemAvailability("screenLocked", locked);
+}
+
 function configurePowerMonitoring() {
   systemAvailability.screenLocked =
     powerMonitor.getSystemIdleState(1) === "locked";
   powerMonitor.on("lock-screen", () => {
-    updateSystemAvailability("screenLocked", true);
+    updateScreenLocked(true);
   });
   powerMonitor.on("unlock-screen", () => {
-    updateSystemAvailability("screenLocked", false);
+    updateScreenLocked(false);
   });
   if (process.platform === "linux") {
     screenLockPollTimer = setInterval(() => {
-      updateSystemAvailability(
-        "screenLocked",
-        powerMonitor.getSystemIdleState(1) === "locked",
-      );
+      updateScreenLocked(powerMonitor.getSystemIdleState(1) === "locked");
     }, 1_000);
   }
   powerMonitor.on("suspend", () => {
@@ -568,7 +617,14 @@ async function runDragSmoke(window, rail = false) {
       petBounds: ${JSON.stringify(currentGeometry.petBounds)},
       overlapBounds: ${JSON.stringify(currentGeometry.overlapBounds)},
       handleBounds: bounds
-        ? { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height }
+        ? {
+            x: bounds.x,
+            y: bounds.y,
+            width: bounds.width,
+            height: bounds.height,
+            petTop: document.querySelector(".coach-pet-shell")
+              ?.getBoundingClientRect().y,
+          }
         : null,
     };
   })()`);
@@ -608,7 +664,20 @@ async function runDragSmoke(window, rail = false) {
   await wait(250);
   const after = window.getBounds();
   const moved = before.x !== after.x || before.y !== after.y;
-  const handleBounds = hitTarget.handleBounds ?? getPetDragHandle();
+  const activeHandleBounds = await window.webContents.executeJavaScript(`(() => {
+    const bounds = document.querySelector("[data-window-drag]")?.getBoundingClientRect();
+    return bounds
+      ? {
+          x: bounds.x,
+          y: bounds.y,
+          width: bounds.width,
+          height: bounds.height,
+          petTop: document.querySelector(".coach-pet-shell")
+            ?.getBoundingClientRect().y,
+        }
+      : null;
+  })()`);
+  const handleBounds = activeHandleBounds ?? hitTarget.handleBounds ?? getPetDragHandle();
   if (rail) {
     const endScreenPoint = {
       x: before.x + end.x,
@@ -677,8 +746,8 @@ async function runDragSmoke(window, rail = false) {
   }
   const workArea = screen.getDisplayMatching(before).workArea;
   const leftTopStart = {
-    x: after.x + start.x,
-    y: after.y + start.y,
+    x: Math.round(after.x + handleBounds.x + handleBounds.width / 2),
+    y: Math.round(after.y + handleBounds.y + handleBounds.height / 2),
   };
   await window.webContents.executeJavaScript(`(() => {
     window.lookMe.dragWindow(
@@ -692,14 +761,37 @@ async function runDragSmoke(window, rail = false) {
   })()`);
   await wait(250);
   const atLeftTop = window.getBounds();
+  const leftTopHandleBounds = await window.webContents.executeJavaScript(`(() => {
+    const bounds = document.querySelector("[data-window-drag]")?.getBoundingClientRect();
+    return bounds
+      ? {
+          x: bounds.x,
+          y: bounds.y,
+          width: bounds.width,
+          height: bounds.height,
+          petTop: document.querySelector(".coach-pet-shell")
+            ?.getBoundingClientRect().y,
+        }
+      : null;
+  })()`);
   const expectedLeftTop = {
-    x: Math.round(workArea.x - handleBounds.x),
+    x: Math.round(
+      workArea.x - (leftTopHandleBounds?.x ?? handleBounds.x),
+    ),
     y: workArea.y,
   };
 
   const rightBottomStart = {
-    x: atLeftTop.x + start.x,
-    y: atLeftTop.y + start.y,
+    x: Math.round(
+      atLeftTop.x +
+        (leftTopHandleBounds?.x ?? start.x) +
+        (leftTopHandleBounds?.width ?? 0) / 2,
+    ),
+    y: Math.round(
+      atLeftTop.y +
+        (leftTopHandleBounds?.y ?? start.y) +
+        (leftTopHandleBounds?.height ?? 0) / 2,
+    ),
   };
   const workAreaRight = workArea.x + workArea.width;
   const workAreaBottom = workArea.y + workArea.height;
@@ -708,32 +800,59 @@ async function runDragSmoke(window, rail = false) {
       "start",
       ${rightBottomStart.x},
       ${rightBottomStart.y},
-      ${JSON.stringify(handleBounds)}
+      ${JSON.stringify(leftTopHandleBounds ?? handleBounds)}
     );
     window.lookMe.dragWindow("move", ${workAreaRight - 1}, ${workAreaBottom - 1});
     window.lookMe.dragWindow("end", ${workAreaRight - 1}, ${workAreaBottom - 1});
   })()`);
   await wait(250);
   const atRightBottom = window.getBounds();
+  const finalHandleBounds = await window.webContents.executeJavaScript(`(() => {
+    const bounds = document.querySelector("[data-window-drag]")?.getBoundingClientRect();
+    return bounds
+      ? { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height }
+      : null;
+  })()`);
   const expectedRightBottom = {
-    x: Math.round(workAreaRight - handleBounds.x - handleBounds.width),
-    y: Math.round(workAreaBottom - handleBounds.y - handleBounds.height),
+    x: Math.round(
+      workAreaRight - (finalHandleBounds?.x ?? handleBounds.x) -
+        (finalHandleBounds?.width ?? handleBounds.width),
+    ),
+    y: Math.round(
+      workAreaBottom - (finalHandleBounds?.y ?? handleBounds.y) -
+        (finalHandleBounds?.height ?? handleBounds.height),
+    ),
   };
   const edgeClampPassed =
-    atLeftTop.x === expectedLeftTop.x &&
+    Math.round(atLeftTop.x + (leftTopHandleBounds?.x ?? handleBounds.x)) ===
+      workArea.x &&
     atLeftTop.y === expectedLeftTop.y &&
-    atRightBottom.x === expectedRightBottom.x &&
-    atRightBottom.y === expectedRightBottom.y;
+    Math.round(
+      atLeftTop.y + Math.max(0, leftTopHandleBounds?.petTop ?? 0),
+    ) === workArea.y &&
+    Math.round(
+      atRightBottom.x +
+        (finalHandleBounds?.x ?? handleBounds.x) +
+        (finalHandleBounds?.width ?? handleBounds.width),
+    ) === workAreaRight &&
+    Math.round(
+      atRightBottom.y +
+        (finalHandleBounds?.y ?? handleBounds.y) +
+        (finalHandleBounds?.height ?? handleBounds.height),
+    ) === workAreaBottom;
   const passed = hitTarget.dragHandle && moved && edgeClampPassed;
   console.log(`LOOK_ME_DRAG ${JSON.stringify({
     target: hitTarget,
     before,
     after,
+    activeHandleBounds,
     moved,
     workArea,
     atLeftTop,
     expectedLeftTop,
+    leftTopHandleBounds,
     atRightBottom,
+    finalHandleBounds,
     expectedRightBottom,
     edgeClampPassed,
     passed,
@@ -1165,7 +1284,7 @@ async function runPanelAnchorSmoke(window) {
   const rightHidePassed =
     hasExpectedPetPosition(rightAfter, rightHidden) &&
     rightHidden.panel === null &&
-    rightHidden.panelSide === null;
+    rightHidden.panelSide === rightAfter.panelSide;
   const leftBefore = await anchorAt("left");
   selectPanelVisibility(true);
   await wait(200);
@@ -1201,7 +1320,7 @@ async function runPanelAnchorSmoke(window) {
   const finalHidePassed =
     hasExpectedPetPosition(draggedRightAfterFlip, finalHidden) &&
     finalHidden.panel === null &&
-    finalHidden.panelSide === null;
+    finalHidden.panelSide === draggedRightAfterFlip.panelSide;
   const passed =
     rightPassed &&
     rightHidePassed &&
@@ -1536,6 +1655,8 @@ function createWindow() {
   monitoringSettingsReady = false;
   cameraSettingsOpen = false;
   historyOpen = false;
+  expandedPanelPetAnchor = null;
+  petWindowOffsetY = 0;
   currentWindowSize = { width: WINDOW_WIDTH, height: WINDOW_HEIGHT };
   petAttentionMode = "parked";
   petAttentionPhase = "parked";
@@ -1639,6 +1760,17 @@ function createWindow() {
           y: Math.round(windowBounds.y + petBounds.y),
         };
       };
+      const settingsWorkArea = screen.getDisplayMatching(window.getBounds()).workArea;
+      const compactPetBounds = getPetHitBounds();
+      window.setPosition(
+        Math.round(
+          settingsWorkArea.x + settingsWorkArea.width -
+            compactPetBounds.x - compactPetBounds.width,
+        ),
+        settingsWorkArea.y,
+        false,
+      );
+      await wait(150);
       const beforeSettingsBounds = window.getBounds();
       const beforeSettingsPetAnchor = getPetAnchor();
       showCameraSettings();
@@ -1708,13 +1840,20 @@ function createWindow() {
       await wait(100);
       const settingsWindowExpanded =
         expandedSettingsBounds.width === SETTINGS_WINDOW_WIDTH &&
-        expandedSettingsBounds.height === SETTINGS_WINDOW_HEIGHT;
+        expandedSettingsBounds.height >= SETTINGS_WINDOW_HEIGHT &&
+        expandedSettingsBounds.height <=
+          Math.floor(settingsWorkArea.height * MAX_SETTINGS_WINDOW_HEIGHT_RATIO);
       const compactWindowRestored =
         restoredSettingsBounds.width === WINDOW_WIDTH &&
         restoredSettingsBounds.height === WINDOW_HEIGHT;
-      const petAnchorPreserved =
-        expandedSettingsPetAnchor.x === beforeSettingsPetAnchor.x &&
-        expandedSettingsPetAnchor.y === beforeSettingsPetAnchor.y &&
+      const expandedSettingsVisible =
+        expandedSettingsBounds.x >= settingsWorkArea.x &&
+        expandedSettingsBounds.y >= settingsWorkArea.y &&
+        expandedSettingsBounds.x + expandedSettingsBounds.width <=
+          settingsWorkArea.x + settingsWorkArea.width &&
+        expandedSettingsBounds.y + expandedSettingsBounds.height <=
+          settingsWorkArea.y + settingsWorkArea.height;
+      const petAnchorRestored =
         restoredSettingsPetAnchor.x === beforeSettingsPetAnchor.x &&
         restoredSettingsPetAnchor.y === beforeSettingsPetAnchor.y;
       const passed =
@@ -1734,7 +1873,8 @@ function createWindow() {
         rendererState.sedentaryIntervalMax === "600" &&
         settingsWindowExpanded &&
         compactWindowRestored &&
-        petAnchorPreserved &&
+        expandedSettingsVisible &&
+        petAnchorRestored &&
         monitoringMenuItem?.enabled === true &&
         monitoringMenuItem?.checked === false &&
         shellMenuOnly;
@@ -1750,7 +1890,8 @@ function createWindow() {
         restoredSettingsPetAnchor,
         settingsWindowExpanded,
         compactWindowRestored,
-        petAnchorPreserved,
+        expandedSettingsVisible,
+        petAnchorRestored,
         monitoringMenuChecked: monitoringMenuItem?.checked ?? null,
         shellMenuOnly,
         passed,
@@ -2419,14 +2560,23 @@ ipcMain.on("look-me:window-drag", (event, payload) => {
       handleBounds.height > 0 &&
       handleBounds.x + handleBounds.width <= windowBounds.width &&
       handleBounds.y + handleBounds.height <= windowBounds.height;
+    const activeHandleBounds = hasValidHandleBounds
+      ? handleBounds
+      : getPetHitBounds();
+    const basePetTop =
+      Number.isFinite(handleBounds?.petTop)
+        ? handleBounds.petTop - petWindowOffsetY
+        : 0;
     activeWindowDrag = {
       window,
       screenX,
       screenY,
-      bounds: window.getBounds(),
-      handleBounds: hasValidHandleBounds
-        ? handleBounds
-        : getPetDragHandle(),
+      bounds: windowBounds,
+      handleBounds: activeHandleBounds,
+      anchorInsetY: Math.max(0, basePetTop),
+      anchorScreenY:
+        windowBounds.y + Math.max(0, basePetTop) + petWindowOffsetY,
+      handleScreenY: windowBounds.y + activeHandleBounds.y,
       attentionMode: petAttentionMode,
     };
     return;
@@ -2446,6 +2596,10 @@ ipcMain.on("look-me:window-drag", (event, payload) => {
         petRailWindowX = null;
       }
       activeWindowDrag = null;
+      setPetSide(window, resolvePanelPetSide(window));
+      if (cameraSettingsOpen || historyOpen) {
+        expandedPanelPetAnchor = getPetScreenAnchor(window);
+      }
       if (panelVisible && rendererSettingsReady) {
         showPanelBesidePet(window);
       }
@@ -2471,24 +2625,49 @@ ipcMain.on("look-me:window-drag", (event, payload) => {
   const minimumX = Math.round(
     display.workArea.x - activeWindowDrag.handleBounds.x,
   );
-  const minimumY = display.workArea.y;
   const maximumX = Math.round(
     display.workArea.x +
     display.workArea.width -
     activeWindowDrag.handleBounds.x -
     activeWindowDrag.handleBounds.width,
   );
-  const maximumY = Math.round(
-    display.workArea.y +
-    display.workArea.height -
-    activeWindowDrag.handleBounds.y -
-    activeWindowDrag.handleBounds.height,
-  );
+  let nextY;
+  let nextOffsetY = 0;
+  if (cameraSettingsOpen || historyOpen) {
+    const currentBounds = window.getBounds();
+    const maximumWindowY =
+      display.workArea.y + display.workArea.height - currentBounds.height;
+    nextY = Math.min(
+      maximumWindowY,
+      Math.max(display.workArea.y, proposedY),
+    );
+  } else {
+    const pointerDeltaY = screenY - activeWindowDrag.screenY;
+    const minimumDeltaY =
+      display.workArea.y - activeWindowDrag.anchorScreenY;
+    const maximumDeltaY =
+      display.workArea.y +
+      display.workArea.height -
+      activeWindowDrag.handleScreenY -
+      activeWindowDrag.handleBounds.height;
+    const clampedDeltaY = Math.min(
+      maximumDeltaY,
+      Math.max(minimumDeltaY, pointerDeltaY),
+    );
+    const targetWindowY = Math.round(
+      activeWindowDrag.anchorScreenY +
+        clampedDeltaY -
+        activeWindowDrag.anchorInsetY,
+    );
+    nextY = Math.max(display.workArea.y, targetWindowY);
+    nextOffsetY = targetWindowY - nextY;
+  }
   window.setPosition(
     Math.min(maximumX, Math.max(minimumX, proposedX)),
-    Math.min(maximumY, Math.max(minimumY, proposedY)),
+    nextY,
     false,
   );
+  setPetWindowOffsetY(window, nextOffsetY);
 });
 
 ipcMain.on("look-me:pet-attention", (event, payload) => {
@@ -2508,6 +2687,7 @@ ipcMain.on("look-me:pet-attention", (event, payload) => {
   petAttentionPhase = phase;
 
   if (rail) {
+    setPetWindowOffsetY(window, 0);
     petAttentionMode = "rail";
     positionPetOnRail(window, position);
     if (
@@ -2675,7 +2855,7 @@ ipcMain.on("look-me:panel-visibility", (event, visible) => {
 ipcMain.handle("look-me:get-system-availability", (event) => {
   const window = BrowserWindow.fromWebContents(event.sender);
   if (!window || window !== mainWindow) {
-    return { screenLocked: true, systemSuspended: true };
+    return { screenLocked: true, systemSuspended: true, lockCycle: 0 };
   }
   return systemAvailability;
 });
@@ -2705,20 +2885,39 @@ function resolveForceLockCommand() {
   return { file: "loginctl", args: ["lock-session"] };
 }
 
-ipcMain.on("look-me:force-lock", (event) => {
+ipcMain.handle("look-me:force-lock", async (event) => {
   const window = BrowserWindow.fromWebContents(event.sender);
   if (!window || window !== mainWindow) {
-    return;
+    return { status: "failed" };
   }
   const command = resolveForceLockCommand();
+  const requestedAtLockCycle = systemAvailability.lockCycle;
   appendMainLog(`force lock requested, running ${command.file}`);
-  execFile(command.file, command.args, (error) => {
-    if (error) {
-      appendMainLog(`force lock failed: ${error.message}`);
-    } else {
-      appendMainLog("force lock command exited cleanly");
-    }
+  const commandError = await new Promise((resolve) => {
+    execFile(command.file, command.args, (error) => resolve(error));
   });
+  if (commandError) {
+    appendMainLog(`force lock failed: ${commandError.message}`);
+    return { status: "failed" };
+  }
+  appendMainLog("force lock command exited cleanly; awaiting system confirmation");
+
+  const confirmDeadline = Date.now() + FORCE_LOCK_CONFIRM_TIMEOUT_MS;
+  while (Date.now() < confirmDeadline) {
+    if (systemAvailability.lockCycle > requestedAtLockCycle) {
+      appendMainLog("force lock confirmed by system event");
+      return { status: "locked" };
+    }
+    if (powerMonitor.getSystemIdleState(1) === "locked") {
+      updateScreenLocked(true);
+      appendMainLog("force lock confirmed by idle state");
+      return { status: "locked" };
+    }
+    await wait(FORCE_LOCK_CONFIRM_POLL_MS);
+  }
+
+  appendMainLog("force lock confirmation timed out");
+  return { status: "timeout" };
 });
 
 ipcMain.on("look-me:quit", () => {

@@ -102,6 +102,7 @@ button:focus-visible {
   width: 760px;
   height: 390px;
   transform: translateX(-50%);
+  translate: 0 var(--pet-window-offset-y, 0px);
 }
 
 .coach-stage[data-pet-size="small"] {
@@ -270,7 +271,7 @@ button:focus-visible {
 
 .coach-stage[data-camera-settings-open="true"] .window-drag-region {
   top: auto;
-  bottom: 58px;
+  bottom: 98px;
 }
 
 .window-drag-region:active {

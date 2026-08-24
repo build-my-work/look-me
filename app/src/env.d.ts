@@ -12,6 +12,8 @@ type LookMeCommand =
   | "monitoring:off"
   | "pet-persistent:on"
   | "pet-persistent:off"
+  | `pet-side:${"left" | "right"}`
+  | `pet-offset-y:${number}`
   | `pet-size:${LookMePetSize}`;
 
 interface LookMePetAttention {
@@ -33,11 +35,17 @@ interface LookMeDragHandleBounds {
   y: number;
   width: number;
   height: number;
+  petTop?: number;
 }
 
 interface LookMeSystemAvailability {
   screenLocked: boolean;
   systemSuspended: boolean;
+  lockCycle: number;
+}
+
+interface LookMeForceLockResult {
+  status: "locked" | "failed" | "timeout";
 }
 
 interface LookMeBridge {
@@ -59,7 +67,7 @@ interface LookMeBridge {
   syncPetAttention: (attention: LookMePetAttention) => void;
   syncPanelVisibility: (visible: boolean) => void;
   getSystemAvailability: () => Promise<LookMeSystemAvailability>;
-  forceLock: () => void;
+  forceLock: () => Promise<LookMeForceLockResult>;
   onSystemAvailability: (
     listener: (availability: LookMeSystemAvailability) => void,
   ) => () => void;
