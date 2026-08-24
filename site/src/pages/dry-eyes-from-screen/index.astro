@@ -1,0 +1,105 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import SiteHeader from "../../components/SiteHeader.astro";
+import SiteFooter from "../../components/SiteFooter.astro";
+import ArticleHeader from "../../components/ArticleHeader.astro";
+import SourceList from "../../components/SourceList.astro";
+import DownloadCta from "../../components/DownloadCta.astro";
+import { articleSchema, breadcrumbSchema } from "../../lib/site";
+
+const path = "/dry-eyes-from-screen/";
+const title = "Dry Eyes From Screens: Breaks, Blinking & When to Get Help";
+const description = "Can screen time make your eyes feel dry? Learn what prolonged computer use can change, which habits may help, and when an eye examination matters.";
+const aoa = "https://www.aoa.org/healthy-eyes/eye-and-vision-conditions/computer-vision-syndrome";
+const nei = "https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/dry-eye";
+const mayo = "https://www.mayoclinic.org/diseases-conditions/dry-eyes/symptoms-causes/syc-20371863";
+const sources = [
+  { title: "Computer vision syndrome", publisher: "American Optometric Association", href: aoa },
+  { title: "Dry Eye", publisher: "National Eye Institute", href: nei },
+  { title: "Dry eyes — symptoms and causes", publisher: "Mayo Clinic", href: mayo },
+];
+---
+
+<BaseLayout
+  title={title}
+  description={description}
+  path={path}
+  schemas={[
+    articleSchema({ title, description, path, citations: [aoa, nei, mayo] }),
+    breadcrumbSchema([{ name: "Home", path: "/" }, { name: "Dry eyes from screens", path }]),
+  ]}
+>
+  <SiteHeader currentPath={path} />
+  <main id="main-content">
+    <ArticleHeader
+      eyebrow="DRY EYES & SCREEN USE"
+      title="Dry eyes from screens: what the screen can—and cannot—explain."
+      description="Long computer sessions can leave eyes feeling dry, gritty, tired, or blurry. Screen habits may contribute, but the same symptoms can have several causes. Here is a practical way to separate a useful break habit from a medical conclusion."
+    />
+
+    <div class="article-layout">
+      <nav class="article-toc" aria-label="On this page">
+        <strong>On this page</strong>
+        <a href="#cause">Can screens cause it?</a>
+        <a href="#why">Why eyes feel dry</a>
+        <a href="#habits">Habits to try</a>
+        <a href="#app">Where an app helps</a>
+        <a href="#care">When to seek care</a>
+        <a href="#sources-heading">Sources</a>
+      </nav>
+
+      <article class="article-body">
+        <h2 id="cause">Can too much screen time cause dry eyes?</h2>
+        <p>Screen use can be one contributor to dry-feeling eyes. The National Eye Institute includes spending a lot of time looking at computers, tablets, or smartphones among situations associated with dry eye, and the American Optometric Association includes dry eyes among symptoms reported with computer vision syndrome.</p>
+        <p>That does not mean a screen is always the underlying cause. Dry eye disease can involve tear production or evaporation, eyelid and oil-gland function, contact lenses, medicines, age, environment, and other health factors. A person can also have digital eye strain without dry eye disease—or both at the same time.</p>
+
+        <div class="article-callout">
+          <strong>A useful wording distinction</strong>
+          <p>“My eyes feel dry after computer work” describes an experience and a pattern. “I have dry eye disease because of my screen” is a diagnosis and a causal claim that a website or reminder app cannot establish.</p>
+        </div>
+
+        <h2 id="why">Why can focused computer work feel drying?</h2>
+        <p>Focused near work asks you to hold attention, viewing distance, and gaze direction for a long time. People may blink less completely during demanding visual tasks, which can leave the tear film less evenly refreshed across the eye surface. The room can add to the effect: moving air, low humidity, glare, or a screen positioned high enough to expose more of the eye.</p>
+        <p>Dryness is only one part of the picture. Sustained near focus, an out-of-date prescription, small text, contrast, and neck or shoulder position can contribute to the broader cluster called <a href="/digital-eye-strain/">digital eye strain</a>. That is why a single “ideal blink rate” or one universal timer cannot explain everyone’s symptoms.</p>
+
+        <h2 id="habits">What can you try during a long screen day?</h2>
+        <ol>
+          <li><strong>Break continuous near focus.</strong> The <a href="/20-20-20-rule/">20-20-20 rule</a> is a simple memory aid: after 20 minutes of screen use, look at something about 20 feet away for 20 seconds.</li>
+          <li><strong>Return to normal, complete blinks.</strong> A quiet cue can help when concentration has made blinking shallow or infrequent. Blink gently; this is not a strength exercise.</li>
+          <li><strong>Change the air around the screen.</strong> Avoid a fan or vent blowing directly toward your face and consider whether a very dry room coincides with symptoms.</li>
+          <li><strong>Make the display easier to use.</strong> Increase text size, reduce distracting glare, and use a comfortable viewing distance instead of leaning in.</li>
+          <li><strong>Vary the task and posture.</strong> Stand, walk, and alternate visual distance rather than treating every break as another moment spent reading a smaller screen.</li>
+          <li><strong>Bring relevant details to an eye-care professional.</strong> Contact-lens wear, medicines, symptom timing, redness, and whether one or both eyes are affected can matter more than a reminder log alone.</li>
+        </ol>
+
+        <h3>What about eye drops?</h3>
+        <p>Different products serve different purposes, and “redness relief” is not the same as treating an underlying dry-eye problem. If you need drops repeatedly, wear contact lenses, or are unsure what is appropriate, ask an eye-care professional rather than using a software article as a treatment plan.</p>
+
+        <h2 id="app">Can a blink reminder app help?</h2>
+        <p>An app can help with the part that is genuinely a memory problem: noticing a long unbroken session, looking away, or returning to a normal blink. Look Me processes camera frames on the device, pauses its screen-time rhythm when a usable face signal is unavailable, and can invite two slow blinks after a prolonged detected gap.</p>
+        <p>It cannot see the tear film, inspect the eye surface, evaluate oil glands, identify a medicine side effect, or tell whether a contact lens is safe to keep wearing. It also does not assign a health score or claim that completing reminders treats dry eye.</p>
+
+        <div class="definition-grid">
+          <div class="definition-card"><strong>Useful signal</strong><p>A long observed screen session or a prolonged gap between complete detected blinks.</p></div>
+          <div class="definition-card"><strong>Useful action</strong><p>A calm cue to blink normally, look into the distance, or leave the desk for a moment.</p></div>
+          <div class="definition-card"><strong>Important limit</strong><p>No camera model can turn that behavior signal into an eye diagnosis.</p></div>
+        </div>
+
+        <h2 id="care">When should you get professional eye care?</h2>
+        <p>Arrange an eye examination when dryness, burning, grittiness, blur, or discomfort persists, keeps returning, interferes with work, or leads you to rely on drops without understanding why. An examination can check vision correction and look for ocular-surface, eyelid, tear, lens, or other contributors.</p>
+        <p>Seek prompt care for significant eye pain, marked redness, light sensitivity, discharge, injury, or a sudden change in vision. Contact-lens wearers with notable pain, redness, light sensitivity, discharge, or sudden blur should remove their lenses and contact an eye-care professional promptly.</p>
+
+        <h2>Related guides and tools</h2>
+        <ul>
+          <li><a href="/tools/20-20-20-timer/">Run the free 20-20-20 browser timer</a> without installing anything.</li>
+          <li><a href="/blink-reminder/">See how the private blink reminder works</a> and what it deliberately does not measure.</li>
+          <li><a href="/eye-break-reminder/">Compare a context-aware eye-break reminder with a fixed timer</a>.</li>
+        </ul>
+
+        <SourceList sources={sources} />
+        <DownloadCta compact />
+      </article>
+    </div>
+  </main>
+  <SiteFooter />
+</BaseLayout>

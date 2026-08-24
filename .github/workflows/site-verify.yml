@@ -1,0 +1,38 @@
+name: Website verification
+
+on:
+  pull_request:
+    paths:
+      - "site/**"
+      - ".github/workflows/site-verify.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "site/**"
+      - ".github/workflows/site-verify.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: site
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - uses: actions/upload-artifact@v4
+        with:
+          name: look-me-site
+          path: site/dist
+          if-no-files-found: error
+          retention-days: 14

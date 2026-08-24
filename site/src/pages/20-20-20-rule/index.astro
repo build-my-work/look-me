@@ -1,0 +1,89 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import SiteHeader from "../../components/SiteHeader.astro";
+import SiteFooter from "../../components/SiteFooter.astro";
+import ArticleHeader from "../../components/ArticleHeader.astro";
+import SourceList from "../../components/SourceList.astro";
+import DownloadCta from "../../components/DownloadCta.astro";
+import { articleSchema, breadcrumbSchema } from "../../lib/site";
+
+const path = "/20-20-20-rule/";
+const title = "The 20-20-20 Rule for Eyes: A Practical Guide";
+const description = "Learn what the 20-20-20 rule means, what it can and cannot do, and how to build regular distance breaks into long computer sessions.";
+const aoa = "https://www.aoa.org/healthy-eyes/eye-and-vision-conditions/computer-vision-syndrome";
+const nei = "https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/dry-eye";
+const sources = [
+  { title: "Computer vision syndrome", publisher: "American Optometric Association", href: aoa },
+  { title: "Dry Eye", publisher: "National Eye Institute", href: nei },
+];
+---
+
+<BaseLayout
+  title={title}
+  description={description}
+  path={path}
+  schemas={[
+    articleSchema({ title, description, path, citations: [aoa, nei] }),
+    breadcrumbSchema([{ name: "Home", path: "/" }, { name: "20-20-20 rule", path }]),
+  ]}
+>
+  <SiteHeader currentPath={path} />
+  <main id="main-content">
+    <ArticleHeader
+      eyebrow="EYE BREAK GUIDE"
+      title="The 20-20-20 rule, without the folklore."
+      description="Every 20 minutes, look at something about 20 feet away for 20 seconds. It is a simple way to interrupt continuous near focus—not a cure, diagnosis, or promise of perfect eye health."
+    />
+
+    <div class="article-layout">
+      <nav class="article-toc" aria-label="On this page">
+        <strong>On this page</strong>
+        <a href="#meaning">What it means</a>
+        <a href="#why">Why distance matters</a>
+        <a href="#practice">How to use it</a>
+        <a href="#limits">What it cannot do</a>
+        <a href="#sources-heading">Sources</a>
+      </nav>
+
+      <article class="article-body">
+        <img src="/assets/horizon-break.webp" width="1400" height="420" alt="A calm view toward distant hills and water" />
+
+        <h2 id="meaning">What does 20-20-20 mean?</h2>
+        <p>The American Optometric Association describes the 20-20-20 rule as a way to help alleviate digital eye strain: after 20 minutes of screen use, spend 20 seconds looking at something 20 feet away. Twenty feet is roughly six metres. The exact object does not matter; the practical goal is to shift focus away from the near screen.</p>
+
+        <div class="definition-grid" aria-label="The three parts of the 20-20-20 rule">
+          <div class="definition-card"><strong>20 minutes</strong><p>Pause a sustained screen session at a repeatable interval.</p></div>
+          <div class="definition-card"><strong>20 feet</strong><p>Choose a genuinely distant object, about six metres away.</p></div>
+          <div class="definition-card"><strong>20 seconds</strong><p>Stay with the distant view long enough for a real break in near focus.</p></div>
+        </div>
+
+        <h2 id="why">Why can looking away feel useful?</h2>
+        <p>Digital eye strain—also called computer vision syndrome—is a group of eye and vision-related problems associated with prolonged use of computers, tablets, e-readers, and phones. The AOA notes that discomfort tends to increase with more digital screen use.</p>
+        <p>A distance break changes the visual task for a moment. It also creates a natural opportunity to blink, relax the shoulders, and check whether lighting, glare, or viewing distance is making the session less comfortable.</p>
+
+        <div class="article-callout">
+          <strong>A useful habit, not a medical claim</strong>
+          <p>The 20-20-20 rule is practical general guidance. It does not establish the cause of pain, redness, blurred vision, or dryness, and it does not treat dry eye disease.</p>
+        </div>
+
+        <h2 id="practice">How to make the rule easier to follow</h2>
+        <ol>
+          <li><strong>Choose a real distant target.</strong> A window view, the far side of a large room, or a point down a corridor works better than another nearby screen.</li>
+          <li><strong>Keep the break visually quiet.</strong> Moving from a laptop to a phone preserves the same near-focus task.</li>
+          <li><strong>Let normal blinking happen.</strong> You do not need to squeeze your eyelids or perform an eye exercise.</li>
+          <li><strong>Use a reminder you will keep enabled.</strong> Start with the free browser timer, or use Look Me when you want the timer to pause while you are away.</li>
+        </ol>
+
+        <p><a class="button" href="/tools/20-20-20-timer/">Open the free 20-20-20 timer</a></p>
+
+        <h2 id="limits">What the rule cannot tell you</h2>
+        <p>Eye discomfort has many possible causes. Screen habits can contribute to symptoms, but a timer cannot examine the ocular surface, check a prescription, assess tear quality, or diagnose dry eye disease. The National Eye Institute recommends professional care for dry-eye concerns and notes that treatment depends on the cause.</p>
+        <p>Seek prompt eye care for persistent or worsening symptoms—especially pain, marked redness, light sensitivity, discharge, injury, or sudden changes in vision. If you wear contact lenses and develop significant redness or pain, remove the lenses and contact an eye-care professional.</p>
+
+        <SourceList sources={sources} />
+        <DownloadCta compact />
+      </article>
+    </div>
+  </main>
+  <SiteFooter />
+</BaseLayout>

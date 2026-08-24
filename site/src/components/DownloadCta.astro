@@ -1,0 +1,23 @@
+---
+import { SITE, type Locale } from "../lib/site";
+
+interface Props {
+  locale?: Locale;
+  compact?: boolean;
+}
+
+const { locale = "en", compact = false } = Astro.props;
+const isChinese = locale === "zh-CN";
+---
+
+<section class:list={["download-cta", { compact }]} id={isChinese ? "download" : undefined}>
+  <div>
+    <p class="eyebrow">{isChinese ? "MACOS · WINDOWS · LINUX" : "MACOS · WINDOWS · LINUX"}</p>
+    <h2>{isChinese ? "让提醒只在需要时出现" : "Let the reminder wait for the right moment."}</h2>
+    <p>{isChinese ? "免费、开源、本地处理。当前预览安装包通过 GitHub Releases 分发。" : "Free, open source, and processed on your device. Preview builds are distributed through GitHub Releases."}</p>
+  </div>
+  <div class="download-actions">
+    <a class="button" href={SITE.releases} target="_blank" rel="noreferrer">{isChinese ? "获取最新版本" : "Get the latest release"}</a>
+    <a class="text-link" href={isChinese ? "/download/" : "/download/"}>{isChinese ? "查看安装说明" : "Installation notes"}<span aria-hidden="true"> →</span></a>
+  </div>
+</section>

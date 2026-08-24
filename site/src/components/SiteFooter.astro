@@ -1,0 +1,30 @@
+---
+import type { Locale } from "../lib/site";
+
+interface Props {
+  locale?: Locale;
+}
+
+const { locale = "en" } = Astro.props;
+const isChinese = locale === "zh-CN";
+---
+
+<footer class="site-footer">
+  <div class="shell footer-grid">
+    <div>
+      <a class="footer-brand" href={isChinese ? "/zh-cn/" : "/"}>Look Me</a>
+      <p>{isChinese ? "在合适的时候，陪你眨眨眼、看看远处、起来走走。" : "A quieter way to remember your eyes and body during long screen sessions."}</p>
+    </div>
+    <div class="footer-links">
+      <a href="/how-it-works/">{isChinese ? "工作原理" : "How it works"}</a>
+      <a href="/privacy/">{isChinese ? "隐私" : "Privacy"}</a>
+      <a href="/dry-eyes-from-screen/">{isChinese ? "屏幕与眼干" : "Dry eyes & screens"}</a>
+      <a href="/download/">{isChinese ? "下载" : "Download"}</a>
+      <a href="https://github.com/build-my-work/look-me" target="_blank" rel="noreferrer">GitHub</a>
+    </div>
+  </div>
+  <div class="shell footer-fineprint">
+    <p>{isChinese ? "Look Me 是个人习惯辅助工具，不是医疗设备，不用于诊断或治疗任何疾病。眼部持续不适请咨询专业人员。" : "Look Me is a habit-support tool, not a medical device. It does not diagnose or treat any condition. Seek professional eye care for persistent symptoms."}</p>
+    <span>© 2026 Look Me</span>
+  </div>
+</footer>

@@ -1,0 +1,63 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import SiteHeader from "../../../components/SiteHeader.astro";
+import SiteFooter from "../../../components/SiteFooter.astro";
+import TwentyTimer from "../../../components/TwentyTimer.astro";
+import DownloadCta from "../../../components/DownloadCta.astro";
+import { breadcrumbSchema } from "../../../lib/site";
+
+const path = "/tools/20-20-20-timer/";
+const title = "Free 20-20-20 Eye Break Timer | Look Me";
+const description = "Start a free, private 20-minute screen timer with a guided 20-second distance break. No account, analytics, or installation required.";
+---
+
+<BaseLayout
+  title={title}
+  description={description}
+  path={path}
+  schemas={[
+    breadcrumbSchema([
+      { name: "Home", path: "/" },
+      { name: "20-20-20 rule", path: "/20-20-20-rule/" },
+      { name: "Free timer", path },
+    ]),
+  ]}
+>
+  <SiteHeader currentPath={path} />
+  <main id="main-content">
+    <header class="page-hero shell-narrow">
+      <p class="eyebrow">FREE · PRIVATE · RUNS IN THIS TAB</p>
+      <h1>A 20-20-20 timer that does one job clearly.</h1>
+      <p>Start a 20-minute focus interval. When it ends, the cat keeps a 20-second distance break. The timer uses session storage in this tab and sends nothing to a server.</p>
+    </header>
+
+    <div class="shell-narrow">
+      <TwentyTimer />
+
+      <article class="article-body">
+        <h2 id="use">How to use this timer</h2>
+        <ol>
+          <li>Press <strong>Start 20-minute cycle</strong> when you begin a screen session.</li>
+          <li>Keep the tab open. Optional browser notifications can alert you when the distance break begins.</li>
+          <li>During the 20-second break, look at a real object about 20 feet—or six metres—away.</li>
+          <li>The next 20-minute interval begins automatically after the break.</li>
+        </ol>
+
+        <div class="article-callout">
+          <strong>Privacy note</strong>
+          <p>This web timer does not use your camera and includes no analytics script. Its state is stored only in session storage for this browser tab.</p>
+        </div>
+
+        <h2>Want the timer to know when you are away?</h2>
+        <p>A browser timer cannot tell whether you have stepped away from the computer. The Look Me desktop app can pause the screen-time rhythm when sensing is unavailable, while processing camera frames locally and discarding them immediately.</p>
+        <p><a class="text-link" href="/eye-break-reminder/">Compare a timer with a context-aware reminder<span aria-hidden="true"> →</span></a></p>
+
+        <h2>Read the guidance behind the timer</h2>
+        <p>The 20-20-20 rule is general screen-break guidance, not a treatment or diagnostic test. Read the <a href="/20-20-20-rule/">full 20-20-20 guide</a> for sources, limitations, and situations that call for professional eye care.</p>
+      </article>
+    </div>
+
+    <DownloadCta />
+  </main>
+  <SiteFooter />
+</BaseLayout>

@@ -1,0 +1,61 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import SiteHeader from "../../components/SiteHeader.astro";
+import SiteFooter from "../../components/SiteFooter.astro";
+import { breadcrumbSchema, softwareApplicationSchema } from "../../lib/site";
+
+const path = "/download/";
+const title = "Download Look Me for Mac, Windows & Linux";
+const description = "Download the latest free Look Me preview for macOS, Windows, or Linux, with clear system requirements, privacy details, and unsigned-build notices.";
+---
+
+<BaseLayout title={title} description={description} path={path} schemas={[softwareApplicationSchema, breadcrumbSchema([{ name: "Home", path: "/" }, { name: "Download", path }])] }>
+  <SiteHeader currentPath={path} />
+  <main id="main-content">
+    <header class="page-hero shell">
+      <p class="eyebrow">FREE PREVIEW · OPEN SOURCE</p>
+      <h1>Choose the build for your desktop.</h1>
+      <p>Every platform build comes from the same public source repository. Current releases are unsigned previews, so read the platform note before installing.</p>
+    </header>
+
+    <section class="platform-grid" aria-label="Available platforms">
+      <article class="platform-card">
+        <p class="eyebrow">APPLE SILICON · INTEL</p>
+        <h2>macOS 12+</h2>
+        <p>DMG packages for arm64 and x64. Camera permission is requested by macOS when monitoring begins.</p>
+        <a class="text-link" href="/mac-eye-break-reminder/">macOS installation notes<span aria-hidden="true"> →</span></a>
+      </article>
+      <article class="platform-card">
+        <p class="eyebrow">64-BIT</p>
+        <h2>Windows 10+</h2>
+        <p>EXE installer for x64 Windows. The unsigned preview may display a SmartScreen warning.</p>
+        <a class="text-link" href="/windows-eye-break-reminder/">Windows installation notes<span aria-hidden="true"> →</span></a>
+      </article>
+      <article class="platform-card">
+        <p class="eyebrow">APPIMAGE · DEB</p>
+        <h2>Linux x64</h2>
+        <p>Portable AppImage and Debian package. Desktop integration varies by environment.</p>
+        <a class="text-link" href="/linux-eye-break-reminder/">Linux installation notes<span aria-hidden="true"> →</span></a>
+      </article>
+    </section>
+
+    <section class="section-tight section-tint">
+      <div class="shell-narrow article-body">
+        <p class="eyebrow">OFFICIAL DOWNLOAD</p>
+        <h2>Get the latest GitHub Release</h2>
+        <p>Choose the asset matching your operating system and architecture. Release pages also include generated notes and SHA-256 checksums when published by the release workflow.</p>
+        <p><a class="button" href="https://github.com/build-my-work/look-me/releases/latest" target="_blank" rel="noreferrer">Open GitHub Releases</a></p>
+
+        <div class="status-banner"><strong>Unsigned preview:</strong> Look Me does not yet have macOS notarization or Windows code signing. Operating-system warnings are expected. Do not download builds from mirrors or unrelated sites.</div>
+
+        <h2>What happens on first launch?</h2>
+        <p>The app opens a small desktop companion and a local status panel. Context-aware blink and posture features need camera permission. If permission is denied or a usable face signal is unavailable, those features pause instead of replacing the missing input with a timer.</p>
+
+        <h2>Prefer to inspect the source?</h2>
+        <p>The repository includes the Electron main process, React renderer, tests, packaging configuration, and release workflow. You can review it before deciding whether to run a preview build.</p>
+        <p><a class="text-link" href="https://github.com/build-my-work/look-me" target="_blank" rel="noreferrer">View the source on GitHub<span aria-hidden="true"> →</span></a></p>
+      </div>
+    </section>
+  </main>
+  <SiteFooter />
+</BaseLayout>

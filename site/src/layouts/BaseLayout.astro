@@ -1,0 +1,79 @@
+---
+import "../styles/global.css";
+import { SITE, type Locale } from "../lib/site";
+
+interface Alternate {
+  hreflang: string;
+  path: string;
+}
+
+interface Props {
+  title: string;
+  description: string;
+  path: string;
+  locale?: Locale;
+  image?: string;
+  alternates?: Alternate[];
+  schemas?: Record<string, unknown>[];
+  noindex?: boolean;
+}
+
+const {
+  title,
+  description,
+  path,
+  locale = "en",
+  image = SITE.image,
+  alternates = [],
+  schemas = [],
+  noindex = false,
+} = Astro.props;
+
+const canonical = new URL(path, SITE.origin).toString();
+const socialImage = new URL(image, SITE.origin).toString();
+const language = locale === "zh-CN" ? "zh-CN" : "en";
+const skipLinkLabel = locale === "zh-CN" ? "跳到正文" : "Skip to content";
+---
+
+<!doctype html>
+<html lang={language}>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="robots" content={noindex ? "noindex, nofollow" : "index, follow, max-image-preview:large"} />
+    <meta name="theme-color" content="#edf6f3" />
+    <link rel="canonical" href={canonical} />
+    {alternates.map((alternate) => (
+      <link
+        rel="alternate"
+        hreflang={alternate.hreflang}
+        href={new URL(alternate.path, SITE.origin).toString()}
+      />
+    ))}
+    <link rel="icon" type="image/png" sizes="192x192" href="/assets/icon-192.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={SITE.name} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={socialImage} />
+    <meta property="og:locale" content={locale === "zh-CN" ? "zh_CN" : "en_US"} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={socialImage} />
+
+    {schemas.map((schema) => (
+      <script type="application/ld+json" is:inline set:html={JSON.stringify(schema)} />
+    ))}
+    <slot name="head" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main-content">{skipLinkLabel}</a>
+    <slot />
+  </body>
+</html>

@@ -22,7 +22,7 @@
 
 ## 🎬 在线演示
 
-完整的交互演示——眨眼镜像、陪伴小剧场、远眺提醒——尽在官网：
+英文优先的产品介绍、20-20-20 护眼指南、免费网页计时器和完整交互演示尽在官网：
 
 👉 [lookme.anme.cc](https://lookme.anme.cc/)
 
@@ -112,9 +112,20 @@ git push origin v0.1.2
 │   ├── electron/       # 主进程：窗口、托盘、原生菜单
 │   ├── src/            # 渲染进程：宠物、监测信号、时间轴、设置
 │   └── docs/           # 时间轴事件与指标设计文档
-├── site/               # 产品主页（纯静态）
+├── site/               # Astro 多语言产品站（构建为纯静态 HTML）
 └── .github/workflows/  # 桌面端构建与发布
 ```
+
+官网开发与验证：
+
+```bash
+cd site
+npm install
+npm test
+npm run dev
+```
+
+生产部署目录为 `site/dist/`。
 
 ## ⚙️ 工作原理
 

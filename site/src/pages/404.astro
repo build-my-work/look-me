@@ -1,0 +1,18 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import SiteHeader from "../components/SiteHeader.astro";
+import SiteFooter from "../components/SiteFooter.astro";
+---
+
+<BaseLayout title="Page not found | Look Me" description="The requested Look Me page could not be found." path="/404/" noindex>
+  <SiteHeader />
+  <main id="main-content">
+    <section class="page-hero shell-narrow">
+      <p class="eyebrow">404 · THE CAT LOST THE TRAIL</p>
+      <h1>This page stepped away.</h1>
+      <p>The link may be old or mistyped. The app, guides, and free 20-20-20 timer are still nearby.</p>
+      <div class="hero-actions"><a class="button" href="/">Return home</a><a class="button button-secondary" href="/tools/20-20-20-timer/">Open the timer</a></div>
+    </section>
+  </main>
+  <SiteFooter />
+</BaseLayout>

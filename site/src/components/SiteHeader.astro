@@ -1,0 +1,62 @@
+---
+import type { Locale } from "../lib/site";
+
+interface Props {
+  locale?: Locale;
+  currentPath?: string;
+}
+
+const { locale = "en", currentPath = "/" } = Astro.props;
+const isChinese = locale === "zh-CN";
+const nav = isChinese
+  ? [
+      { href: "/zh-cn/#features", label: "功能" },
+      { href: "/zh-cn/#privacy", label: "隐私" },
+      { href: "/zh-cn/#download", label: "下载" },
+    ]
+  : [
+      { href: "/how-it-works/", label: "How it works" },
+      { href: "/20-20-20-rule/", label: "20-20-20" },
+      { href: "/digital-eye-strain/", label: "Eye strain guide" },
+      { href: "/privacy/", label: "Privacy" },
+    ];
+
+const isCurrent = (href: string) => href !== "/" && currentPath.startsWith(href);
+---
+
+<header class="site-header">
+  <div class="shell header-inner">
+    <a class="brand" href={isChinese ? "/zh-cn/" : "/"} aria-label={isChinese ? "Look Me 中文首页" : "Look Me home"}>
+      <span class="brand-mark" aria-hidden="true">
+        <img src="/assets/cat-idle-384.webp" width="24" height="30" alt="" />
+      </span>
+      <span class="brand-copy">
+        <strong>Look Me</strong>
+        <small>{isChinese ? "本地护眼伙伴" : "Eye Break Companion"}</small>
+      </span>
+    </a>
+
+    <nav class="desktop-nav" aria-label={isChinese ? "主导航" : "Primary navigation"}>
+      {nav.map((item) => (
+        <a href={item.href} aria-current={isCurrent(item.href) ? "page" : undefined}>{item.label}</a>
+      ))}
+    </nav>
+
+    <div class="header-actions">
+      <a class="language-link" href={isChinese ? "/" : "/zh-cn/"} hreflang={isChinese ? "en" : "zh-Hans"}>
+        {isChinese ? "EN" : "中文"}
+      </a>
+      <a class="button button-small" href={isChinese ? "/zh-cn/#download" : "/download/"}>
+        {isChinese ? "免费下载" : "Download"}
+      </a>
+      <details class="mobile-menu">
+        <summary aria-label={isChinese ? "打开菜单" : "Open menu"}><span></span><span></span></summary>
+        <nav aria-label={isChinese ? "移动端导航" : "Mobile navigation"}>
+          {nav.map((item) => <a href={item.href}>{item.label}</a>)}
+          <a href={isChinese ? "/" : "/zh-cn/"}>{isChinese ? "English" : "简体中文"}</a>
+          <a href={isChinese ? "/zh-cn/#download" : "/download/"}>{isChinese ? "下载" : "Download"}</a>
+        </nav>
+      </details>
+    </div>
+  </div>
+</header>

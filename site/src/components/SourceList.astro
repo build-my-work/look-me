@@ -1,0 +1,23 @@
+---
+interface Source {
+  title: string;
+  publisher: string;
+  href: string;
+}
+
+interface Props {
+  sources: Source[];
+}
+
+const { sources } = Astro.props;
+---
+
+<aside class="sources" aria-labelledby="sources-heading">
+  <h2 id="sources-heading">Sources and further reading</h2>
+  <ol>
+    {sources.map((source) => (
+      <li><a href={source.href} target="_blank" rel="noreferrer">{source.title}</a><span>{source.publisher}</span></li>
+    ))}
+  </ol>
+  <p>Look Me summarizes these sources for general education. This page has not been medically reviewed and is not a substitute for professional care.</p>
+</aside>

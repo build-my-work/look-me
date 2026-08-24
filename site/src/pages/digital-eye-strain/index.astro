@@ -1,0 +1,97 @@
+---
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import SiteHeader from "../../components/SiteHeader.astro";
+import SiteFooter from "../../components/SiteFooter.astro";
+import ArticleHeader from "../../components/ArticleHeader.astro";
+import SourceList from "../../components/SourceList.astro";
+import DownloadCta from "../../components/DownloadCta.astro";
+import { articleSchema, breadcrumbSchema } from "../../lib/site";
+
+const path = "/digital-eye-strain/";
+const title = "Digital Eye Strain: Screen Breaks, Blinking, and Limits";
+const description = "A source-checked guide to digital eye strain and computer vision syndrome: common symptoms, screen habits, practical breaks, and when software is not enough.";
+const aoa = "https://www.aoa.org/healthy-eyes/eye-and-vision-conditions/computer-vision-syndrome";
+const nei = "https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/dry-eye";
+const mayo = "https://www.mayoclinic.org/diseases-conditions/dry-eyes/symptoms-causes/syc-20371863";
+const sources = [
+  { title: "Computer vision syndrome", publisher: "American Optometric Association", href: aoa },
+  { title: "Dry Eye", publisher: "National Eye Institute", href: nei },
+  { title: "Dry eyes — symptoms and causes", publisher: "Mayo Clinic", href: mayo },
+];
+---
+
+<BaseLayout
+  title={title}
+  description={description}
+  path={path}
+  schemas={[
+    articleSchema({ title, description, path, citations: [aoa, nei, mayo] }),
+    breadcrumbSchema([{ name: "Home", path: "/" }, { name: "Digital eye strain", path }]),
+  ]}
+>
+  <SiteHeader currentPath={path} />
+  <main id="main-content">
+    <ArticleHeader
+      eyebrow="SCREEN HABIT GUIDE"
+      title="Digital eye strain is a cluster of symptoms, not one diagnosis."
+      description="Long screen sessions can be associated with tired, uncomfortable, dry-feeling eyes, blurred vision, and headaches. Those symptoms can also have other causes—so the useful response begins with habits and ends with knowing when to get examined."
+    />
+
+    <div class="article-layout">
+      <nav class="article-toc" aria-label="On this page">
+        <strong>On this page</strong>
+        <a href="#definition">Definition</a>
+        <a href="#symptoms">Common symptoms</a>
+        <a href="#screens">Screens and dryness</a>
+        <a href="#habits">Practical habits</a>
+        <a href="#care">When to seek care</a>
+        <a href="#sources-heading">Sources</a>
+      </nav>
+
+      <article class="article-body">
+        <h2 id="definition">What is digital eye strain?</h2>
+        <p>The American Optometric Association uses <strong>computer vision syndrome</strong> and <strong>digital eye strain</strong> for a group of eye- and vision-related problems associated with prolonged use of computers, tablets, e-readers, and phones. It is a description of a pattern of discomfort—not a way to identify one underlying disease.</p>
+        <p>That distinction matters. Two people can both feel tired eyes after a workday while having different contributing factors: sustained near focus, an uncorrected prescription, glare, dry air, contact lenses, reduced blinking, or a separate ocular-surface condition.</p>
+
+        <h2 id="symptoms">What can it feel like?</h2>
+        <div class="definition-grid">
+          <div class="definition-card"><strong>Eye discomfort</strong><p>Tired, sore, burning, gritty, or dry-feeling eyes.</p></div>
+          <div class="definition-card"><strong>Visual changes</strong><p>Temporary blur, slower refocusing, or difficulty sustaining clear near vision.</p></div>
+          <div class="definition-card"><strong>Beyond the eyes</strong><p>Headache, neck discomfort, shoulder tension, or an urge to stop the task.</p></div>
+        </div>
+        <p>These experiences overlap with dry eye symptoms, but a symptom overlap is not a diagnosis. Dry eye disease can involve insufficient tears, excessive evaporation, eyelid or gland problems, medications, environmental conditions, and other causes that a reminder app cannot distinguish.</p>
+
+        <div class="article-callout">
+          <strong>Do not use a screen timer as a diagnostic test</strong>
+          <p>If a break changes how you feel, that is useful personal context. It does not prove the original cause or rule out an eye condition.</p>
+        </div>
+
+        <h2 id="screens">Why can computer use be associated with dry-feeling eyes?</h2>
+        <p>Screen work combines several demands: prolonged near focus, sustained attention, a fixed viewing direction, and an indoor environment that may include air conditioning, low humidity, or glare. The National Eye Institute lists spending a lot of time looking at computers, tablets, or phones among situations associated with dry eye and recommends limiting screen time and taking breaks from staring at screens.</p>
+        <p>Blinking spreads the tear film across the eye surface. During concentrated visual tasks, blink behavior can change, including fewer or incomplete blinks. A reminder can create a moment to blink normally, but it cannot assess whether the tear film is healthy or whether a gland, medication, lens, or systemic condition is involved.</p>
+        <p>If dryness is the main concern, read the focused guide to <a href="/dry-eyes-from-screen/">dry eyes from screens</a> for practical habits, limitations, and signs that call for professional care.</p>
+
+        <h2 id="habits">Practical habits for a long screen day</h2>
+        <ol>
+          <li><strong>Interrupt continuous near focus.</strong> Use the <a href="/20-20-20-rule/">20-20-20 rule</a> as a simple rhythm for looking into the distance.</li>
+          <li><strong>Notice blinking without forcing it.</strong> A brief reminder can help you return to normal, complete blinks. Avoid squeezing or turning it into an intense exercise.</li>
+          <li><strong>Make text easier to see.</strong> Increase text size instead of leaning closer, and place the display at a comfortable distance and height.</li>
+          <li><strong>Reduce glare and extreme contrast.</strong> Adjust the room and display so the screen is not dramatically brighter or darker than its surroundings.</li>
+          <li><strong>Change posture and task.</strong> Stand, walk, and vary the visual distance during longer sessions. Eye comfort and neck or shoulder comfort often share the same uninterrupted work pattern.</li>
+          <li><strong>Review contact-lens habits with a professional.</strong> Contact lenses can be relevant to dryness and irritation; software cannot determine whether it is safe to continue wearing them.</li>
+        </ol>
+
+        <h3>Where a context-aware reminder helps</h3>
+        <p>A reminder is most useful when the problem is remembering. Look Me can pause its rhythm while sensing is unavailable, keep distance and blink reminders independent, and place small behavior events on a local timeline. It cannot inspect your eyes, prescribe a treatment, or establish a medically meaningful blink target.</p>
+
+        <h2 id="care">When is software not enough?</h2>
+        <p>Arrange an eye examination when symptoms persist, recur frequently, interfere with work, or do not improve with basic environmental and break changes. Seek prompt care for significant pain, marked redness, light sensitivity, discharge, injury, or sudden visual change.</p>
+        <p>If you wear contact lenses and develop notable redness, pain, light sensitivity, discharge, or sudden blur, remove the lenses and contact an eye-care professional promptly.</p>
+
+        <SourceList sources={sources} />
+        <DownloadCta compact />
+      </article>
+    </div>
+  </main>
+  <SiteFooter />
+</BaseLayout>

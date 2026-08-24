@@ -1,0 +1,171 @@
+<section class="timer-shell" data-twenty-timer aria-labelledby="timer-heading">
+  <div class="timer-topline">
+    <span id="timer-heading">Free 20-20-20 browser timer</span>
+    <span class="timer-state" data-timer-state>Ready</span>
+  </div>
+  <div class="timer-body">
+    <div>
+      <div class="timer-display" data-timer-display aria-live="off">20:00</div>
+      <p class="timer-message" data-timer-message aria-live="polite">Start when you begin a focused screen session.</p>
+    </div>
+    <div class="timer-cat" aria-hidden="true">
+      <img src="/assets/cat-idle-384.webp" width="384" height="480" alt="" />
+    </div>
+  </div>
+  <div class="timer-progress" aria-hidden="true"><span data-timer-progress></span></div>
+  <div class="timer-controls">
+    <button type="button" data-timer-start>Start 20-minute cycle</button>
+    <button type="button" data-timer-pause hidden>Pause</button>
+    <button type="button" data-timer-reset>Reset</button>
+    <button type="button" data-timer-preview>Preview 20-second break</button>
+    <button type="button" data-timer-notifications hidden>Enable notifications</button>
+  </div>
+</section>
+
+<script>
+  const root = document.querySelector<HTMLElement>("[data-twenty-timer]");
+
+  if (root) {
+    const WORK_MS = 20 * 60 * 1000;
+    const BREAK_MS = 20 * 1000;
+    const STORAGE_KEY = "look-me:20-20-20-timer:v1";
+    const display = root.querySelector<HTMLElement>("[data-timer-display]");
+    const message = root.querySelector<HTMLElement>("[data-timer-message]");
+    const stateLabel = root.querySelector<HTMLElement>("[data-timer-state]");
+    const progress = root.querySelector<HTMLElement>("[data-timer-progress]");
+    const startButton = root.querySelector<HTMLButtonElement>("[data-timer-start]");
+    const pauseButton = root.querySelector<HTMLButtonElement>("[data-timer-pause]");
+    const resetButton = root.querySelector<HTMLButtonElement>("[data-timer-reset]");
+    const previewButton = root.querySelector<HTMLButtonElement>("[data-timer-preview]");
+    const notificationButton = root.querySelector<HTMLButtonElement>("[data-timer-notifications]");
+
+    type Mode = "work" | "break";
+    interface TimerState {
+      mode: Mode;
+      running: boolean;
+      remaining: number;
+      endAt: number | null;
+    }
+
+    let timer: TimerState = {
+      mode: "work",
+      running: false,
+      remaining: WORK_MS,
+      endAt: null,
+    };
+    let intervalId: number | null = null;
+
+    const saved = sessionStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved) as Partial<TimerState>;
+        if ((parsed.mode === "work" || parsed.mode === "break") && typeof parsed.running === "boolean") {
+          timer = {
+            mode: parsed.mode,
+            running: parsed.running,
+            remaining: typeof parsed.remaining === "number" ? parsed.remaining : WORK_MS,
+            endAt: typeof parsed.endAt === "number" ? parsed.endAt : null,
+          };
+        }
+      } catch {
+        sessionStorage.removeItem(STORAGE_KEY);
+      }
+    }
+
+    const durationForMode = () => timer.mode === "work" ? WORK_MS : BREAK_MS;
+
+    const persist = () => sessionStorage.setItem(STORAGE_KEY, JSON.stringify(timer));
+
+    const notify = () => {
+      if ("Notification" in window && Notification.permission === "granted") {
+        new Notification("Look away for 20 seconds", {
+          body: "Find something about 20 feet (6 metres) away. The cat will keep time.",
+          icon: "/assets/icon-192.png",
+        });
+      }
+    };
+
+    const formatTime = (milliseconds: number) => {
+      const totalSeconds = Math.max(0, Math.ceil(milliseconds / 1000));
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+    };
+
+    const render = () => {
+      if (!display || !message || !stateLabel || !progress || !startButton || !pauseButton) return;
+      const value = formatTime(timer.remaining);
+      display.textContent = value;
+      stateLabel.textContent = timer.mode === "break" ? "Distance break" : timer.running ? "Focus session" : "Ready";
+      message.textContent = timer.mode === "break"
+        ? "Look at something about 20 feet (6 metres) away. Let your near focus rest."
+        : timer.running
+          ? "Keep working. The timer will invite a 20-second distance break."
+          : "Start when you begin a focused screen session.";
+      progress.style.transform = `scaleX(${Math.max(0, Math.min(1, timer.remaining / durationForMode()))})`;
+      startButton.hidden = timer.running;
+      pauseButton.hidden = !timer.running;
+      document.title = timer.running ? `${value} · ${timer.mode === "break" ? "Look away" : "Focus"} · Look Me` : "Free 20-20-20 Timer | Look Me";
+      persist();
+    };
+
+    const startInterval = () => {
+      if (intervalId !== null) window.clearInterval(intervalId);
+      intervalId = window.setInterval(tick, 250);
+    };
+
+    const advanceMode = () => {
+      timer.mode = timer.mode === "work" ? "break" : "work";
+      timer.remaining = durationForMode();
+      timer.endAt = Date.now() + timer.remaining;
+      if (timer.mode === "break") notify();
+    };
+
+    function tick() {
+      if (!timer.running || timer.endAt === null) return;
+      timer.remaining = Math.max(0, timer.endAt - Date.now());
+      if (timer.remaining === 0) advanceMode();
+      render();
+    }
+
+    const start = () => {
+      timer.running = true;
+      timer.endAt = Date.now() + timer.remaining;
+      startInterval();
+      render();
+    };
+
+    startButton?.addEventListener("click", start);
+    pauseButton?.addEventListener("click", () => {
+      if (timer.endAt !== null) timer.remaining = Math.max(0, timer.endAt - Date.now());
+      timer.running = false;
+      timer.endAt = null;
+      render();
+    });
+    resetButton?.addEventListener("click", () => {
+      timer = { mode: "work", running: false, remaining: WORK_MS, endAt: null };
+      render();
+    });
+    previewButton?.addEventListener("click", () => {
+      timer = { mode: "break", running: true, remaining: BREAK_MS, endAt: Date.now() + BREAK_MS };
+      startInterval();
+      render();
+    });
+
+    if (notificationButton && "Notification" in window) {
+      notificationButton.hidden = Notification.permission === "granted";
+      notificationButton.addEventListener("click", async () => {
+        const permission = await Notification.requestPermission();
+        notificationButton.hidden = permission === "granted";
+        notificationButton.textContent = permission === "denied" ? "Notifications blocked by browser" : "Enable notifications";
+      });
+    }
+
+    if (timer.running && timer.endAt !== null) {
+      startInterval();
+      tick();
+    } else {
+      render();
+    }
+  }
+</script>
