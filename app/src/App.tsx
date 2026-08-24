@@ -22,6 +22,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { CircularProgressbar, buildStyles } from "react-circular-progressbar";
 import "react-circular-progressbar/dist/styles.css";
 import {
@@ -80,6 +81,11 @@ import {
   useTimelineCapture,
   useTimelineRange,
 } from "./useTimeline";
+import i18n, {
+  applyLanguagePreference,
+  getInitialLanguagePreference,
+} from "./i18n";
+import type { AppLanguagePreference } from "./language";
 
 const PET_IMAGE = new URL("assets/heterochromia-cat-idle.png", document.baseURI).toString();
 const BLINK_IMAGE = new URL("assets/heterochromia-cat-blink.png", document.baseURI).toString();
@@ -146,26 +152,26 @@ class HistoryPanelErrorBoundary extends Component<
       <article
         className="history-panel history-panel--load-error"
         data-interactive
-        aria-label="行为时间轴加载失败"
+        aria-label={i18n.t("stats.loadErrorAria")}
       >
         <button
           className="history-close"
           type="button"
-          aria-label="关闭行为时间轴"
+          aria-label={i18n.t("history.close")}
           onClick={this.props.onClose}
         >
           <X size={15} weight="bold" aria-hidden />
         </button>
         <div className="history-load-error">
           <ChartLineUp size={22} weight="bold" aria-hidden />
-          <strong>时间轴加载失败</strong>
+          <strong>{i18n.t("stats.loadError")}</strong>
           <button
             className="secondary-button history-reload-button"
             type="button"
             onClick={() => window.location.reload()}
           >
             <ArrowClockwise size={14} weight="bold" aria-hidden />
-            重新加载
+            {i18n.t("stats.reload")}
           </button>
         </div>
       </article>
@@ -189,6 +195,7 @@ function getInitialMode(
 }
 
 export function App() {
+  const { t } = useTranslation();
   const isDesktop = Boolean(window.lookMe?.isDesktop);
   const freezeDemo = new URLSearchParams(window.location.search).get("freeze") === "1";
   const statsDemo = new URLSearchParams(window.location.search).get("stats") === "1";
@@ -279,6 +286,8 @@ export function App() {
   const [cameraSettings, setCameraSettings] = useState(
     initialCameraPreference.settings,
   );
+  const [languagePreference, setLanguagePreference] =
+    useState<AppLanguagePreference>(getInitialLanguagePreference);
   const [systemAvailability, setSystemAvailability] =
     useState<SystemAvailability>(() =>
       isDesktop
@@ -349,6 +358,14 @@ export function App() {
       });
     },
     [state.mode],
+  );
+  const changeLanguagePreference = useCallback(
+    (preference: AppLanguagePreference) => {
+      void applyLanguagePreference(preference)
+        .then((state) => setLanguagePreference(state.preference))
+        .catch((error) => console.error("Failed to change language", error));
+    },
+    [],
   );
   const withinMonitoringWindow = isWithinMonitoringWindow(
     cameraSettings,
@@ -435,6 +452,13 @@ export function App() {
       active = false;
       stopListening();
     };
+  }, []);
+
+  useEffect(() => {
+    return window.lookMe?.onLocaleChanged((state) => {
+      setLanguagePreference(state.preference);
+      void i18n.changeLanguage(state.locale);
+    });
   }, []);
 
   useEffect(() => {
@@ -847,6 +871,9 @@ export function App() {
         )
       : null;
   const todaySeatedDuration = formatObservedDuration(todaySummary.seatedMs);
+  const cameraErrorLabel = faceMonitor.errorCode
+    ? t(`cameraErrors.${faceMonitor.errorCode}`)
+    : null;
   const hasCameraSession = statsDemo || displayedTodayTimeline.sessions.length > 0;
   const hasVisibleFace =
     statsDemo ||
@@ -856,11 +883,11 @@ export function App() {
     tone: "active" | "waiting" | "off" | "error";
   };
   if (!cameraSettings.enabled) {
-    cameraStatus = { label: "监测与提醒已关闭", tone: "off" };
+    cameraStatus = { label: t("status.monitoringDisabled"), tone: "off" };
   } else if (systemAvailability.systemSuspended) {
-    cameraStatus = { label: "系统睡眠时已关闭", tone: "waiting" };
+    cameraStatus = { label: t("status.systemSuspended"), tone: "waiting" };
   } else if (systemAvailability.screenLocked) {
-    cameraStatus = { label: "锁屏时已关闭", tone: "waiting" };
+    cameraStatus = { label: t("status.screenLocked"), tone: "waiting" };
   } else if (cameraSettings.scheduleEnabled && !withinMonitoringWindow) {
     const nextWindowStart = getNextMonitoringWindowStart(
       cameraSettings,
@@ -868,55 +895,55 @@ export function App() {
     );
     cameraStatus = {
       label: nextWindowStart
-        ? `时段外 · ${nextWindowStart} 恢复`
-        : "时段外",
+        ? t("status.outsideScheduleWithTime", { time: nextWindowStart })
+        : t("status.outsideSchedule"),
       tone: "waiting",
     };
   } else if (faceMonitor.status === "error") {
     cameraStatus = {
-      label: faceMonitor.errorMessage ?? "摄像头暂时无法启动",
+      label: cameraErrorLabel ?? t("status.cameraUnavailable"),
       tone: "error",
     };
   } else if (faceMonitor.status === "starting") {
-    cameraStatus = { label: "正在准备本地检测", tone: "waiting" };
+    cameraStatus = { label: t("status.preparing"), tone: "waiting" };
   } else if (faceMonitor.status === "ready" && !sensingLive) {
     cameraStatus = {
-      label: "正在等待本地检测画面",
+      label: t("status.waitingForFrames"),
       tone: "waiting",
     };
   } else if (faceMonitor.status === "ready" && !faceMonitor.faceVisible) {
     cameraStatus = {
       label: cameraSettings.blinkReminderEnabled
-        ? "暂未检测到人脸，眨眼提醒已暂停"
-        : "暂未检测到人脸",
+        ? t("status.noFaceBlinkPaused")
+        : t("status.noFace"),
       tone: "waiting",
     };
   } else if (faceMonitor.status === "ready") {
-    cameraStatus = { label: "本地检测中", tone: "active" };
+    cameraStatus = { label: t("status.detecting"), tone: "active" };
   } else {
-    cameraStatus = { label: "等待恢复本地检测", tone: "waiting" };
+    cameraStatus = { label: t("status.waitingToResume"), tone: "waiting" };
   }
   const sensingLabel =
     statsDemo || (sensingLive && faceMonitor.faceVisible)
-      ? "本地检测中"
+      ? t("status.detecting")
       : !cameraSettings.enabled
-        ? "监测与提醒已关闭"
+        ? t("status.monitoringDisabled")
         : faceMonitor.status === "ready" && sensingLive
           ? cameraSettings.blinkReminderEnabled
-            ? "暂未检测到人脸，眨眼提醒已暂停"
-            : "暂未检测到人脸"
+            ? t("status.noFaceBlinkPaused")
+            : t("status.noFace")
           : cameraStatus.label;
   const postureStatusLabel = statsDemo
-    ? "坐姿位置已建立"
+    ? t("status.postureEstablished")
     : !coachingEnabled || !sensingLive
       ? cameraStatus.label
       : faceMonitor.postureState === "calibrating"
-        ? "正在建立坐姿位置"
+        ? t("status.postureCalibrating")
         : faceMonitor.postureState === "seated"
-          ? "坐姿监测中"
+          ? t("status.postureMonitoring")
           : faceMonitor.postureState === "away"
-            ? "已识别向上离座"
-            : "暂时无法判断离座方向";
+            ? t("status.stoodUp")
+            : t("status.postureUnknown");
   const persistentAttentionFrame = applyPetPersistence(
     attentionFrame,
     petPersistent,
@@ -945,9 +972,9 @@ export function App() {
         ).padStart(2, "0")}`;
   const forceLockLabel =
     forceLockFrame.status === "locking"
-      ? "锁屏中"
+      ? t("status.locking")
       : forceLockFrame.status === "retrying" && forceLockCountdown !== null
-        ? `重试 ${forceLockCountdown}`
+        ? t("status.retrying", { time: forceLockCountdown })
         : forceLockCountdown;
   const petDisplayAction = resolvePetDisplayAction({
     petActionDemo,
@@ -988,11 +1015,11 @@ export function App() {
         data-pet-panel-side={panelPetSide ?? undefined}
         data-pet-action-preference={petIdleAction}
         data-pet-idle-action={petDisplayAction}
-        aria-label="Look Me 护眼陪伴"
+        aria-label={t("app.stageLabel")}
       >
         <div className="coach-pet-shell">
           <div className="coach-pet-visual">
-            <img className="coach-pet" src={PET_IMAGE} alt="猫咪护眼伙伴" />
+            <img className="coach-pet" src={PET_IMAGE} alt={t("app.petAlt")} />
             <span
               className="pet-sprite pet-sprite--clap"
               style={{ backgroundImage: `url(${CLAP_SPRITE_IMAGE})` }}
@@ -1037,7 +1064,7 @@ export function App() {
           <div
             className="window-drag-region"
             data-window-drag
-            title="右键猫咪打开设置，按住左键拖动"
+            title={t("app.dragHint")}
             aria-hidden="true"
             onContextMenu={(event) => {
               event.preventDefault();
@@ -1097,7 +1124,9 @@ export function App() {
             statusLabel={cameraStatus.label}
             statusTone={cameraStatus.tone}
             petAction={petIdleAction}
+            languagePreference={languagePreference}
             onChange={applyCameraSettings}
+            onLanguagePreferenceChange={changeLanguagePreference}
             onPetActionChange={(action) => {
               setPetIdleAction(action);
               setPetActionPreview(action);
@@ -1141,9 +1170,9 @@ export function App() {
               <PersonSimpleWalk size={25} weight="fill" aria-hidden />
             </div>
             <div className="sedentary-copy">
-              <span className="eyebrow">坐得有点久啦</span>
-              <h1>起来走一走吧</h1>
-              <p>离开座位后，会重新开始计算连续坐姿时间。</p>
+              <span className="eyebrow">{t("coach.sedentary.eyebrow")}</span>
+              <h1>{t("coach.sedentary.title")}</h1>
+              <p>{t("coach.sedentary.description")}</p>
               <button
                 className="secondary-button"
                 type="button"
@@ -1152,7 +1181,7 @@ export function App() {
                   setSedentaryReminderActive(false);
                 }}
               >
-                知道了
+                {t("coach.sedentary.acknowledge")}
               </button>
             </div>
           </article>
@@ -1166,11 +1195,20 @@ export function App() {
           >
             <div className="horizon-copy">
               <p className="horizon-prompt">
-                看看远处，休息 <strong>{secondsRemaining}</strong> 秒
+                <Trans
+                  i18nKey="coach.distance.prompt"
+                  values={{ seconds: secondsRemaining }}
+                  components={{ strong: <strong /> }}
+                />
               </p>
             </div>
 
-            <div className="distance-progress" aria-label={`剩余 ${secondsRemaining} 秒`}>
+            <div
+              className="distance-progress"
+              aria-label={t("coach.distance.remaining", {
+                seconds: secondsRemaining,
+              })}
+            >
               <CircularProgressbar
                 value={100 - distanceProgress}
                 text={`${secondsRemaining}`}
@@ -1183,7 +1221,7 @@ export function App() {
                   strokeLinecap: "round",
                 })}
               />
-              <span>秒</span>
+              <span>{t("units.seconds")}</span>
             </div>
             <button
               className="text-button"
@@ -1192,7 +1230,7 @@ export function App() {
               onClick={() => dispatch({ type: "SKIP", now: Date.now() })}
             >
               <SkipForward size={16} weight="bold" aria-hidden />
-              跳过
+              {t("coach.distance.skip")}
             </button>
           </article>
         )}
@@ -1203,13 +1241,11 @@ export function App() {
               <Camera size={24} weight="fill" aria-hidden />
             </div>
             <div className="permission-copy">
-              <span className="eyebrow">第一次见面</span>
-              <h1>让我在本机陪你眨眨眼</h1>
-              <p>
-                摄像头画面只在设备上即时处理，不上传、不保存。它不是医疗诊断工具。
-              </p>
-              {faceMonitor.errorMessage && (
-                <p className="inline-error" role="alert">{faceMonitor.errorMessage}</p>
+              <span className="eyebrow">{t("coach.permission.eyebrow")}</span>
+              <h1>{t("coach.permission.title")}</h1>
+              <p>{t("coach.permission.description")}</p>
+              {cameraErrorLabel && (
+                <p className="inline-error" role="alert">{cameraErrorLabel}</p>
               )}
               <div className="button-row">
                 <button
@@ -1219,17 +1255,19 @@ export function App() {
                   disabled={faceMonitor.status === "starting"}
                 >
                   <Camera size={17} weight="bold" aria-hidden />
-                  {faceMonitor.status === "starting" ? "正在准备…" : "开启本地检测"}
+                  {faceMonitor.status === "starting"
+                    ? t("coach.permission.preparing")
+                    : t("coach.permission.enable")}
                 </button>
                 <button className="secondary-button" type="button" onClick={disableMonitoring}>
                   <X size={17} weight="bold" aria-hidden />
-                  暂不开启
+                  {t("coach.permission.decline")}
                 </button>
               </div>
               <div className="permission-meta">
                 <span className="privacy-note">
                   <ShieldCheck size={14} weight="fill" aria-hidden />
-                  可随时在右键菜单中关闭
+                  {t("coach.permission.menuHint")}
                 </span>
                 <button
                   className="history-link"
@@ -1240,7 +1278,7 @@ export function App() {
                   }}
                 >
                   <ChartLineUp size={14} weight="bold" aria-hidden />
-                  查看历史曲线
+                  {t("coach.permission.history")}
                 </button>
               </div>
             </div>
@@ -1253,9 +1291,14 @@ export function App() {
               <Eye size={25} weight="fill" aria-hidden />
             </div>
             <div className="blink-copy">
-              <span className="eyebrow">眼睛有点忙啦</span>
-              <h1>陪我慢慢眨 2 下</h1>
-              <div className="blink-dots" aria-label={`已完成 ${state.guidedBlinks}/2 下`}>
+              <span className="eyebrow">{t("coach.blink.eyebrow")}</span>
+              <h1>{t("coach.blink.title")}</h1>
+              <div
+                className="blink-dots"
+                aria-label={t("coach.blink.progress", {
+                  count: state.guidedBlinks,
+                })}
+              >
                 {[0, 1].map((index) => (
                   <span
                     className={index < state.guidedBlinks ? "blink-dot blink-dot--done" : "blink-dot"}
@@ -1273,24 +1316,24 @@ export function App() {
               <article
                 className="stats-panel"
                 data-interactive
-                aria-label="眨眼、看屏与离座统计"
+                aria-label={t("stats.ariaLabel")}
               >
                 <header className="stats-header">
                   <span className="stats-mark" aria-hidden>
                     <ChartLineUp size={19} weight="bold" />
                   </span>
                   <div>
-                    <h2>眨眼，看屏与久坐时长</h2>
+                    <h2>{t("stats.title")}</h2>
                     <p>
                       {hasCameraSession
                         ? postureStatusLabel
-                        : "需要开启本地检测"}
+                        : t("stats.needsDetection")}
                     </p>
                   </div>
                   <button
                     className="stats-close"
                     type="button"
-                    aria-label="收起统计"
+                    aria-label={t("stats.close")}
                     onClick={() => setStatsOpen(false)}
                   >
                     <X size={15} weight="bold" aria-hidden />
@@ -1299,54 +1342,58 @@ export function App() {
 
                 {hasCameraSession ? (
                   <dl className="stats-metrics">
-                    <div>
-                      <dt>近 1 分钟估算</dt>
+                    <div data-stat="rolling-rate">
+                      <dt>{t("stats.rollingRate")}</dt>
                       <dd>
                         <strong>{hasVisibleFace ? (blinkStats.rollingRate ?? "—") : "—"}</strong>
-                        <span>次/分</span>
+                        <span>{t("units.perMinute")}</span>
                       </dd>
                     </div>
-                    <div>
-                      <dt>今日有效看屏</dt>
+                    <div data-stat="screen-today">
+                      <dt>{t("stats.screenToday")}</dt>
                       <dd>
                         <strong>{todayObservedDuration.value}</strong>
-                        <span>{todayObservedDuration.unit}</span>
+                        <span>{t(`units.${todayObservedDuration.unit}`)}</span>
                       </dd>
                     </div>
                   </dl>
                 ) : (
                   <p className="stats-empty">
-                    点击「开启本地检测」后，频率会在这里出现。
+                    {t("stats.empty")}
                   </p>
                 )}
                 {hasCameraSession && (
                   <dl className="stats-metrics stats-metrics--posture">
-                    <div>
-                      <dt>连续坐姿</dt>
+                    <div data-stat="continuous-sitting">
+                      <dt>{t("stats.continuousSitting")}</dt>
                       <dd>
                         <strong>{currentSeatedDuration?.value ?? "—"}</strong>
-                        <span>{currentSeatedDuration?.unit ?? ""}</span>
+                        <span>
+                          {currentSeatedDuration
+                            ? t(`units.${currentSeatedDuration.unit}`)
+                            : ""}
+                        </span>
                       </dd>
                     </div>
-                    <div>
-                      <dt>今日久坐时长</dt>
+                    <div data-stat="sitting-today">
+                      <dt>{t("stats.sittingToday")}</dt>
                       <dd>
                         <strong>{todaySeatedDuration.value}</strong>
-                        <span>{todaySeatedDuration.unit}</span>
+                        <span>{t(`units.${todaySeatedDuration.unit}`)}</span>
                       </dd>
                     </div>
-                    <div>
-                      <dt>今日起身</dt>
+                    <div data-stat="stand-ups-today">
+                      <dt>{t("stats.standUpsToday")}</dt>
                       <dd>
                         <strong>{todaySummary.standUps}</strong>
-                        <span>次</span>
+                        <span>{t("units.times")}</span>
                       </dd>
                     </div>
                   </dl>
                 )}
                 <div className="stats-footer">
                   <p className="stats-footnote">
-                    坐姿按脸部位置估算；起身需满足完整站起轨迹
+                    {t("stats.footnote")}
                   </p>
                   <button
                     className="stats-history-button"
@@ -1356,7 +1403,7 @@ export function App() {
                       setHistoryOpen(true);
                     }}
                   >
-                    查看行为时间轴
+                    {t("stats.history")}
                   </button>
                 </div>
               </article>
@@ -1382,8 +1429,10 @@ export function App() {
               >
                 {hasVisibleFace
                   ? blinkStats.rollingRate === null
-                    ? `采集中 ${blinkStats.collectingSecondsRemaining} 秒`
-                    : `${blinkStats.rollingRate} 次/分`
+                    ? t("status.collecting", {
+                        seconds: blinkStats.collectingSecondsRemaining,
+                      })
+                    : t("status.rate", { rate: blinkStats.rollingRate })
                   : sensingLabel}
               </span>
             </div>
@@ -1396,8 +1445,8 @@ export function App() {
                 }
                 title={
                   forceLockFrame.status === "retrying"
-                    ? "锁屏未生效，正在等待重试"
-                    : "距定时锁屏"
+                    ? t("status.lockRetryTitle")
+                    : t("status.lockCountdownTitle")
                 }
               >
                 <LockSimple size={13} weight="bold" aria-hidden />
@@ -1407,9 +1456,10 @@ export function App() {
             <div className="idle-actions">
               <button
                 className={statsOpen ? "icon-button icon-button--active" : "icon-button"}
+                data-action="open-stats"
                 type="button"
-                title="查看统计"
-                aria-label="查看统计"
+                title={t("stats.open")}
+                aria-label={t("stats.open")}
                 aria-expanded={statsOpen}
                 onClick={() => {
                   setStatsOpen((open) => !open);

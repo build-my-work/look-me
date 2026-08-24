@@ -5,6 +5,7 @@ import {
   CaretUp,
   Clock,
   GearSix,
+  GlobeSimple,
   HandsClapping,
   MoonStars,
   PersonSimple,
@@ -16,6 +17,7 @@ import {
   X,
 } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   MAX_FORCE_LOCK_MINUTES,
   MAX_MONITORING_WINDOWS,
@@ -27,6 +29,7 @@ import {
   isValidMonitoringWindow,
 } from "./camera-monitoring";
 import type { PetIdleActionPreference } from "./pet-idle-action";
+import type { AppLanguagePreference } from "./language";
 
 type CameraStatusTone = "active" | "waiting" | "off" | "error";
 
@@ -37,15 +40,14 @@ const MINUTES = Array.from({ length: 60 }, (_, minute) =>
   String(minute).padStart(2, "0"),
 );
 const PET_ACTION_OPTIONS = [
-  { value: "auto", label: "自动轮换", Icon: Shuffle },
-  { value: "yawn", label: "打哈欠", Icon: MoonStars },
-  { value: "clap", label: "鼓掌", Icon: HandsClapping },
-  { value: "sit", label: "坐下", Icon: PersonSimple },
-  { value: "spin", label: "转圈", Icon: ArrowsClockwise },
-  { value: "off", label: "保持安静", Icon: Prohibit },
+  { value: "auto", Icon: Shuffle },
+  { value: "yawn", Icon: MoonStars },
+  { value: "clap", Icon: HandsClapping },
+  { value: "sit", Icon: PersonSimple },
+  { value: "spin", Icon: ArrowsClockwise },
+  { value: "off", Icon: Prohibit },
 ] satisfies Array<{
   value: PetIdleActionPreference;
-  label: string;
   Icon: typeof Shuffle;
 }>;
 
@@ -59,7 +61,9 @@ interface CameraSettingsPanelProps {
   statusLabel: string;
   statusTone: CameraStatusTone;
   petAction: PetIdleActionPreference;
+  languagePreference: AppLanguagePreference;
   onChange: (settings: CameraMonitoringSettings) => void;
+  onLanguagePreferenceChange: (preference: AppLanguagePreference) => void;
   onPetActionChange: (action: PetIdleActionPreference) => void;
   onClose: () => void;
 }
@@ -69,10 +73,13 @@ export function CameraSettingsPanel({
   statusLabel,
   statusTone,
   petAction,
+  languagePreference,
   onChange,
+  onLanguagePreferenceChange,
   onPetActionChange,
   onClose,
 }: CameraSettingsPanelProps) {
+  const { t } = useTranslation();
   const [windows, setWindows] = useState(settings.windows);
   const [scheduleExpanded, setScheduleExpanded] = useState(false);
   const [sedentaryMinutes, setSedentaryMinutes] = useState(
@@ -213,13 +220,13 @@ export function CameraSettingsPanel({
           <GearSix size={22} weight="fill" />
         </span>
         <div>
-          <span className="camera-settings-eyebrow">猫咪陪伴</span>
-          <h2 id="camera-settings-title">设置</h2>
+          <span className="camera-settings-eyebrow">{t("settings.eyebrow")}</span>
+          <h2 id="camera-settings-title">{t("settings.title")}</h2>
         </div>
         <button
           className="camera-settings-close"
           type="button"
-          aria-label="关闭设置"
+          aria-label={t("settings.close")}
           onClick={onClose}
         >
           <X size={17} weight="bold" aria-hidden />
@@ -230,7 +237,7 @@ export function CameraSettingsPanel({
         <section className="camera-monitoring-settings" aria-labelledby="monitoring-title">
           <div className="camera-settings-section-heading">
             <Camera size={14} weight="fill" aria-hidden />
-            <strong id="monitoring-title">监测与提醒</strong>
+            <strong id="monitoring-title">{t("settings.monitoring")}</strong>
             <span className={`camera-runtime-status camera-runtime-status--${statusTone}`}>
               {statusLabel}
             </span>
@@ -245,11 +252,11 @@ export function CameraSettingsPanel({
             }
           >
             <div>
-              <strong>眨眼提醒</strong>
-              <span>连续 25 秒未眨眼时提醒</span>
+              <strong>{t("settings.blink.title")}</strong>
+              <span>{t("settings.blink.description")}</span>
             </div>
             <label className="camera-switch camera-switch--small">
-              <span className="sr-only">开启眨眼提醒</span>
+              <span className="sr-only">{t("settings.blink.toggle")}</span>
               <input
                 type="checkbox"
                 checked={settings.blinkReminderEnabled}
@@ -274,11 +281,11 @@ export function CameraSettingsPanel({
             }
           >
             <div>
-              <strong>远眺提醒</strong>
-              <span>每 20 分钟提醒远眺 20 秒</span>
+              <strong>{t("settings.distance.title")}</strong>
+              <span>{t("settings.distance.description")}</span>
             </div>
             <label className="camera-switch camera-switch--small">
-              <span className="sr-only">开启远眺提醒</span>
+              <span className="sr-only">{t("settings.distance.toggle")}</span>
               <input
                 type="checkbox"
                 checked={settings.distanceReminderEnabled}
@@ -303,15 +310,15 @@ export function CameraSettingsPanel({
             }
           >
             <div>
-              <strong>久坐提醒</strong>
-              <span>可设置 1–600 分钟</span>
+              <strong>{t("settings.sedentary.title")}</strong>
+              <span>{t("settings.sedentary.description")}</span>
             </div>
             <span className="sedentary-reminder-controls">
               <input
                 className="sedentary-reminder-interval"
                 type="number"
                 inputMode="numeric"
-                aria-label="久坐提醒时间"
+                aria-label={t("settings.sedentary.interval")}
                 aria-invalid={!validSedentaryMinutes}
                 min={MIN_SEDENTARY_REMINDER_MINUTES}
                 max={MAX_SEDENTARY_REMINDER_MINUTES}
@@ -342,9 +349,9 @@ export function CameraSettingsPanel({
                   )
                 }
               />
-              <span className="sedentary-reminder-unit">分钟</span>
+              <span className="sedentary-reminder-unit">{t("units.minutes")}</span>
               <label className="camera-switch camera-switch--small">
-                <span className="sr-only">开启久坐提醒</span>
+                <span className="sr-only">{t("settings.sedentary.toggle")}</span>
                 <input
                   type="checkbox"
                   checked={settings.sedentaryReminderEnabled}
@@ -363,15 +370,15 @@ export function CameraSettingsPanel({
 
           <div data-reminder="force-lock" className="camera-reminder-row">
             <div>
-              <strong>定时锁屏</strong>
-              <span>开屏累计到点锁定屏幕，跟随监测时段</span>
+              <strong>{t("settings.forceLock.title")}</strong>
+              <span>{t("settings.forceLock.description")}</span>
             </div>
             <span className="sedentary-reminder-controls">
               <input
                 className="sedentary-reminder-interval"
                 type="number"
                 inputMode="numeric"
-                aria-label="定时锁屏间隔"
+                aria-label={t("settings.forceLock.interval")}
                 aria-invalid={!validForceLockMinutes}
                 min={MIN_FORCE_LOCK_MINUTES}
                 max={MAX_FORCE_LOCK_MINUTES}
@@ -400,9 +407,9 @@ export function CameraSettingsPanel({
                   )
                 }
               />
-              <span className="sedentary-reminder-unit">分钟</span>
+              <span className="sedentary-reminder-unit">{t("units.minutes")}</span>
               <label className="camera-switch camera-switch--small">
-                <span className="sr-only">开启定时锁屏</span>
+                <span className="sr-only">{t("settings.forceLock.toggle")}</span>
                 <input
                   type="checkbox"
                   checked={settings.forceLockEnabled}
@@ -427,8 +434,8 @@ export function CameraSettingsPanel({
           >
             <div className="camera-schedule-heading">
               <div>
-                <strong>限制监测时段</strong>
-                <span>关闭时全天监测与提醒</span>
+                <strong>{t("settings.schedule.title")}</strong>
+                <span>{t("settings.schedule.description")}</span>
               </div>
               {!scheduleExpanded && settings.scheduleEnabled && (
                 <span className="camera-schedule-summary">
@@ -438,7 +445,7 @@ export function CameraSettingsPanel({
                 </span>
               )}
               <label className="camera-switch camera-switch--small">
-                <span className="sr-only">限制摄像头监测时段</span>
+                <span className="sr-only">{t("settings.schedule.toggle")}</span>
                 <input
                   type="checkbox"
                   checked={settings.scheduleEnabled}
@@ -459,8 +466,16 @@ export function CameraSettingsPanel({
                 className="camera-schedule-toggle"
                 type="button"
                 aria-expanded={scheduleExpanded}
-                aria-label={scheduleExpanded ? "收起监测时段" : "展开监测时段"}
-                title={scheduleExpanded ? "收起监测时段" : "展开监测时段"}
+                aria-label={
+                  scheduleExpanded
+                    ? t("settings.schedule.collapse")
+                    : t("settings.schedule.expand")
+                }
+                title={
+                  scheduleExpanded
+                    ? t("settings.schedule.collapse")
+                    : t("settings.schedule.expand")
+                }
                 onClick={() => setScheduleExpanded((expanded) => !expanded)}
               >
                 {scheduleExpanded ? (
@@ -482,7 +497,7 @@ export function CameraSettingsPanel({
                 <div className="camera-time-entry" key={index}>
                   <div className="camera-time-row">
                     <div className="camera-time-field">
-                      <span>开始</span>
+                      <span>{t("settings.schedule.start")}</span>
                       <div
                         className={
                           scheduleControlsEnabled
@@ -491,7 +506,9 @@ export function CameraSettingsPanel({
                         }
                       >
                         <select
-                          aria-label={`时段 ${index + 1} 开始小时`}
+                          aria-label={t("settings.schedule.startHour", {
+                            index: index + 1,
+                          })}
                           value={window.startTime.slice(0, 2)}
                           disabled={!scheduleControlsEnabled}
                           onChange={(event) =>
@@ -506,7 +523,9 @@ export function CameraSettingsPanel({
                         </select>
                         <span aria-hidden>:</span>
                         <select
-                          aria-label={`时段 ${index + 1} 开始分钟`}
+                          aria-label={t("settings.schedule.startMinute", {
+                            index: index + 1,
+                          })}
                           value={window.startTime.slice(3)}
                           disabled={!scheduleControlsEnabled}
                           onChange={(event) =>
@@ -526,7 +545,7 @@ export function CameraSettingsPanel({
                       <span />
                     </span>
                     <div className="camera-time-field">
-                      <span>结束</span>
+                      <span>{t("settings.schedule.end")}</span>
                       <div
                         className={
                           scheduleControlsEnabled
@@ -535,7 +554,9 @@ export function CameraSettingsPanel({
                         }
                       >
                         <select
-                          aria-label={`时段 ${index + 1} 结束小时`}
+                          aria-label={t("settings.schedule.endHour", {
+                            index: index + 1,
+                          })}
                           value={window.endTime.slice(0, 2)}
                           disabled={!scheduleControlsEnabled}
                           onChange={(event) =>
@@ -550,7 +571,9 @@ export function CameraSettingsPanel({
                         </select>
                         <span aria-hidden>:</span>
                         <select
-                          aria-label={`时段 ${index + 1} 结束分钟`}
+                          aria-label={t("settings.schedule.endMinute", {
+                            index: index + 1,
+                          })}
                           value={window.endTime.slice(3)}
                           disabled={!scheduleControlsEnabled}
                           onChange={(event) =>
@@ -568,7 +591,9 @@ export function CameraSettingsPanel({
                     <button
                       className="camera-time-remove"
                       type="button"
-                      aria-label={`删除时段 ${index + 1}`}
+                      aria-label={t("settings.schedule.remove", {
+                        index: index + 1,
+                      })}
                       disabled={!scheduleControlsEnabled || windows.length <= 1}
                       onClick={() => removeWindow(index)}
                     >
@@ -577,7 +602,7 @@ export function CameraSettingsPanel({
                   </div>
                   {scheduleControlsEnabled && !validWindow && (
                     <p className="camera-time-error" role="alert">
-                      结束时间需要晚于开始时间
+                      {t("settings.schedule.invalid")}
                     </p>
                   )}
                 </div>
@@ -593,7 +618,10 @@ export function CameraSettingsPanel({
             >
               <Plus size={13} weight="bold" aria-hidden />
               <span>
-                添加时段（{windows.length}/{MAX_MONITORING_WINDOWS}）
+                {t("settings.schedule.add", {
+                  count: windows.length,
+                  max: MAX_MONITORING_WINDOWS,
+                })}
               </span>
             </button>
               </>
@@ -601,44 +629,77 @@ export function CameraSettingsPanel({
           </div>
         </section>
 
-        <fieldset className="pet-action-settings">
-          <legend className="sr-only">提醒动作</legend>
-          <div className="pet-action-heading">
-            <span className="pet-action-heading-mark" aria-hidden>
-              <Sparkle size={14} weight="fill" />
-            </span>
-            <div>
-              <strong>提醒动作</strong>
-              <span>待机时偶尔播放 · 点击预览</span>
+        <div className="camera-settings-secondary">
+          <fieldset className="pet-action-settings">
+            <legend className="sr-only">{t("settings.actions.legend")}</legend>
+            <div className="pet-action-heading">
+              <span className="pet-action-heading-mark" aria-hidden>
+                <Sparkle size={14} weight="fill" />
+              </span>
+              <div>
+                <strong>{t("settings.actions.title")}</strong>
+                <span>{t("settings.actions.description")}</span>
+              </div>
             </div>
-          </div>
-          <div className="pet-action-options">
-            {PET_ACTION_OPTIONS.map(({ value, label, Icon }) => (
-              <label
-                className={
-                  petAction === value
-                    ? "pet-action-option pet-action-option--selected"
-                    : "pet-action-option"
+            <div className="pet-action-options">
+              {PET_ACTION_OPTIONS.map(({ value, Icon }) => (
+                <label
+                  className={
+                    petAction === value
+                      ? "pet-action-option pet-action-option--selected"
+                      : "pet-action-option"
+                  }
+                  key={value}
+                >
+                  <input
+                    type="radio"
+                    name="pet-action"
+                    value={value}
+                    checked={petAction === value}
+                    onChange={() => onPetActionChange(value)}
+                  />
+                  <Icon
+                    size={15}
+                    weight={petAction === value ? "fill" : "bold"}
+                    aria-hidden
+                  />
+                  <span>{t(`settings.actions.${value}`)}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+          <section className="language-settings" aria-labelledby="language-title">
+            <div className="language-settings-heading">
+              <GlobeSimple size={14} weight="fill" aria-hidden />
+              <div>
+                <strong id="language-title">
+                  {t("settings.language.title")}
+                </strong>
+                <span>{t("settings.language.description")}</span>
+              </div>
+            </div>
+            <label className="language-settings-control">
+              <span>{t("settings.language.label")}</span>
+              <select
+                data-language-preference
+                value={languagePreference}
+                onChange={(event) =>
+                  onLanguagePreferenceChange(
+                    event.target.value as AppLanguagePreference,
+                  )
                 }
-                key={value}
               >
-                <input
-                  type="radio"
-                  name="pet-action"
-                  value={value}
-                  checked={petAction === value}
-                  onChange={() => onPetActionChange(value)}
-                />
-                <Icon size={15} weight={petAction === value ? "fill" : "bold"} aria-hidden />
-                <span>{label}</span>
-              </label>
-            ))}
-          </div>
-        </fieldset>
+                <option value="system">{t("settings.language.system")}</option>
+                <option value="zh-CN">{t("settings.language.zhCN")}</option>
+                <option value="en-US">{t("settings.language.enUS")}</option>
+              </select>
+            </label>
+          </section>
+        </div>
       </div>
 
       <footer className="camera-settings-note">
-        总开关在右键菜单；监测数据与动作偏好只保存在本机
+        {t("settings.localOnlyNote")}
       </footer>
     </article>
   );

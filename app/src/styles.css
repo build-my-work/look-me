@@ -853,6 +853,69 @@ button:focus-visible {
   margin-top: 10px;
 }
 
+.camera-settings-secondary {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.language-settings {
+  padding: 11px 12px;
+  border: 1px solid rgba(93, 82, 122, 0.12);
+  border-radius: 18px;
+  background: rgba(240, 237, 247, 0.62);
+}
+
+.language-settings-heading,
+.language-settings-control {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.language-settings-heading {
+  color: #5d5278;
+}
+
+.language-settings-heading div {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.language-settings-heading strong,
+.language-settings-control > span {
+  font-size: 9.5px;
+  font-weight: 760;
+}
+
+.language-settings-heading span {
+  color: #837b95;
+  font-size: 8px;
+  font-weight: 620;
+}
+
+.language-settings-control {
+  justify-content: space-between;
+  margin-top: 9px;
+  color: #615a72;
+}
+
+.language-settings-control select {
+  max-width: 142px;
+  min-width: 112px;
+  height: 28px;
+  padding: 0 26px 0 9px;
+  border: 1px solid rgba(93, 82, 122, 0.2);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.82);
+  color: #4e4960;
+  font: inherit;
+  font-size: 9.5px;
+  font-weight: 700;
+}
+
 .camera-monitoring-settings {
   min-width: 0;
 }

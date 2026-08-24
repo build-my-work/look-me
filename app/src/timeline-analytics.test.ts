@@ -104,13 +104,15 @@ describe("timeline analytics", () => {
 
     expect(buckets).toHaveLength(4);
     expect(buckets[0]).toMatchObject({
-      label: "10:00",
+      startAt: minute,
+      endAt: minute + 60_000,
       blinkCount: 2,
       yawnCount: 0,
       hasCoverage: true,
     });
     expect(buckets[1]).toMatchObject({
-      label: "10:01",
+      startAt: minute + 60_000,
+      endAt: minute + 2 * 60_000,
       blinkCount: 1,
       yawnCount: 1,
       sitDownCount: 0,
@@ -118,13 +120,15 @@ describe("timeline analytics", () => {
       hasCoverage: true,
     });
     expect(buckets[2]).toMatchObject({
-      label: "10:02",
+      startAt: minute + 2 * 60_000,
+      endAt: minute + 3 * 60_000,
       standUpCount: 1,
       blinkCount: 0,
       hasCoverage: true,
     });
     expect(buckets[3]).toMatchObject({
-      label: "10:03",
+      startAt: minute + 3 * 60_000,
+      endAt: minute + 4 * 60_000,
       blinkCount: 0,
       hasCoverage: false,
     });
@@ -246,10 +250,14 @@ describe("timeline analytics", () => {
     );
 
     expect(
-      buckets.map(({ label, blinkCount }) => ({ label, blinkCount })),
+      buckets.map(({ startAt, endAt, blinkCount }) => ({
+        startOffset: startAt - minute,
+        endOffset: endAt - minute,
+        blinkCount,
+      })),
     ).toEqual([
-      { label: "10:00–10:05", blinkCount: 2 },
-      { label: "10:05–10:10", blinkCount: 1 },
+      { startOffset: 0, endOffset: 5 * 60_000, blinkCount: 2 },
+      { startOffset: 5 * 60_000, endOffset: 10 * 60_000, blinkCount: 1 },
     ]);
   });
 
@@ -260,7 +268,7 @@ describe("timeline analytics", () => {
     expect(getTimelineCountBucketMs(24 * 60 * 60_000, 320)).toBe(60 * 60_000);
   });
 
-  it("labels a bucket that crosses midnight without repeating the same time", () => {
+  it("keeps raw bucket bounds when a bucket crosses midnight", () => {
     const midnight = new Date(2026, 7, 15, 0, 0, 0).getTime();
     const range = createRange([], {
       id: "session",
@@ -277,7 +285,8 @@ describe("timeline analytics", () => {
       24 * 60 * 60_000,
     );
 
-    expect(bucket.label).toBe("00:00–次日 00:00");
+    expect(bucket.startAt).toBe(midnight);
+    expect(bucket.endAt).toBe(midnight + 24 * 60 * 60_000);
   });
 
   it("closes active spans at now and exposes their start times", () => {

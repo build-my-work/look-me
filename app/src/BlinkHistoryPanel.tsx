@@ -6,6 +6,8 @@ import {
   X,
 } from "@phosphor-icons/react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import {
   CartesianGrid,
   Line,
@@ -54,18 +56,18 @@ type MinuteMetric =
 
 interface EventLane {
   type: TimelineEventType;
-  label: string;
+  labelKey: string;
   lane: number;
   color: string;
 }
 
 const EVENT_LANES: readonly EventLane[] = [
-  { type: "blink.detected", label: "眨眼", lane: 6, color: "#315f66" },
-  { type: "seated.started", label: "坐姿开始", lane: 5, color: "#53826f" },
-  { type: "seated.ended", label: "坐姿结束", lane: 4, color: "#bc765e" },
-  { type: "screen.started", label: "看屏开始", lane: 3, color: "#527f9a" },
-  { type: "screen.ended", label: "看屏结束", lane: 2, color: "#8696a6" },
-  { type: "yawn.detected", label: "打哈欠", lane: 1, color: "#91749a" },
+  { type: "blink.detected", labelKey: "history.lanes.blinkDetected", lane: 6, color: "#315f66" },
+  { type: "seated.started", labelKey: "history.lanes.seatedStarted", lane: 5, color: "#53826f" },
+  { type: "seated.ended", labelKey: "history.lanes.seatedEnded", lane: 4, color: "#bc765e" },
+  { type: "screen.started", labelKey: "history.lanes.screenStarted", lane: 3, color: "#527f9a" },
+  { type: "screen.ended", labelKey: "history.lanes.screenEnded", lane: 2, color: "#8696a6" },
+  { type: "yawn.detected", labelKey: "history.lanes.yawnDetected", lane: 1, color: "#91749a" },
 ];
 
 const EVENT_LANE_BY_TYPE = new Map(
@@ -74,18 +76,18 @@ const EVENT_LANE_BY_TYPE = new Map(
 
 const MINUTE_METRICS: ReadonlyArray<{
   key: MinuteMetric;
-  label: string;
+  labelKey: string;
   color: string;
 }> = [
-  { key: "blinkCount", label: "眨眼", color: "#315f66" },
-  { key: "yawnCount", label: "哈欠", color: "#91749a" },
-  { key: "standUpCount", label: "站起", color: "#bc765e" },
-  { key: "sitDownCount", label: "坐下", color: "#53826f" },
+  { key: "blinkCount", labelKey: "history.metrics.blinkCount", color: "#315f66" },
+  { key: "yawnCount", labelKey: "history.metrics.yawnCount", color: "#91749a" },
+  { key: "standUpCount", labelKey: "history.metrics.standUpCount", color: "#bc765e" },
+  { key: "sitDownCount", labelKey: "history.metrics.sitDownCount", color: "#53826f" },
 ];
 
-const SEATED_END_REASON_LABELS = {
-  stand_up: "确认站起",
-  tracking_lost: "跟踪中断",
+const SEATED_END_REASON_KEYS = {
+  stand_up: "history.reasons.standUp",
+  tracking_lost: "history.reasons.trackingLost",
 } as const;
 
 interface BlinkHistoryPanelProps {
@@ -165,23 +167,30 @@ function formatClock(timestamp: number, includeSeconds = false): string {
   return `${hours}:${minutes}:${String(date.getSeconds()).padStart(2, "0")}`;
 }
 
-function formatCountInterval(intervalMs: number): string {
+function formatCountInterval(intervalMs: number, t: TFunction): string {
   const minutes = intervalMs / MINUTE_MS;
   if (minutes < 60) {
-    return minutes === 1 ? "每分钟" : `每 ${minutes} 分钟`;
+    return minutes === 1
+      ? t("history.interval.minute")
+      : t("history.interval.minutes", { count: minutes });
   }
   const hours = minutes / 60;
-  return hours === 1 ? "每小时" : `每 ${hours} 小时`;
+  return hours === 1
+    ? t("history.interval.hour")
+    : t("history.interval.hours", { count: hours });
 }
 
 function EventTooltip({ event }: { event: TimelineEvent }) {
+  const { t } = useTranslation();
   const lane = EVENT_LANE_BY_TYPE.get(event.type);
   return (
     <div className="history-tooltip">
       <strong>{formatClock(event.at, true)}</strong>
-      <span style={{ color: lane?.color }}>{lane?.label ?? event.type}</span>
+      <span style={{ color: lane?.color }}>
+        {lane ? t(lane.labelKey) : event.type}
+      </span>
       {event.type === "seated.ended" && (
-        <small>{SEATED_END_REASON_LABELS[event.reason]}</small>
+        <small>{t(SEATED_END_REASON_KEYS[event.reason])}</small>
       )}
     </div>
   );
@@ -196,17 +205,35 @@ function CountTooltip({
   payload?: Array<{ payload?: MinutePoint }>;
   metricLabel: string;
 }) {
+  const { t } = useTranslation();
   const point = payload?.find((item) => item.payload)?.payload;
   if (!active || !point) {
     return null;
   }
+  const startDate = new Date(point.startAt);
+  const endDate = new Date(point.endAt);
+  const crossesLocalDate =
+    startDate.getFullYear() !== endDate.getFullYear() ||
+    startDate.getMonth() !== endDate.getMonth() ||
+    startDate.getDate() !== endDate.getDate();
+  const bucketLabel =
+    point.endAt - point.startAt === MINUTE_MS
+      ? formatClock(point.startAt)
+      : `${formatClock(point.startAt)}–${
+          crossesLocalDate ? t("history.nextDayPrefix") : ""
+        }${formatClock(point.endAt)}`;
   return (
     <div className="history-tooltip">
-      <strong>{point.label}</strong>
+      <strong>{bucketLabel}</strong>
       {point.hasCoverage ? (
-        <span>{metricLabel} {point.value ?? 0} 次</span>
+        <span>
+          {t("history.metricCount", {
+            metric: metricLabel,
+            count: point.value ?? 0,
+          })}
+        </span>
       ) : (
-        <small>这个时间桶没有采集覆盖</small>
+        <small>{t("history.bucketNoCoverage")}</small>
       )}
     </div>
   );
@@ -221,6 +248,7 @@ export default function BlinkHistoryPanel({
   onSelectDate,
   onClose,
 }: BlinkHistoryPanelProps) {
+  const { t, i18n } = useTranslation();
   const dayRange = useMemo(() => getLocalDayRange(selectedDate), [selectedDate]);
   const recordedRange = useTimelineRange(dayRange.startAt, dayRange.endAt);
   const timeline = useMemo<TimelineRange>(
@@ -379,6 +407,7 @@ export default function BlinkHistoryPanel({
     () =>
       EVENT_LANES.map((lane) => ({
         ...lane,
+        label: t(lane.labelKey),
         points: visibleEvents
           .filter((event) => event.type === lane.type)
           .map(
@@ -391,7 +420,7 @@ export default function BlinkHistoryPanel({
             }),
           ),
       })),
-    [visibleEvents],
+    [t, visibleEvents],
   );
   const minuteViewDuration = minuteWindow.endAt - minuteWindow.startAt;
   const countBucketMs = getTimelineCountBucketMs(
@@ -401,7 +430,7 @@ export default function BlinkHistoryPanel({
       countChartWidth - CHART_Y_AXIS_WIDTH - COUNT_CHART_RIGHT_MARGIN,
     ),
   );
-  const countIntervalLabel = formatCountInterval(countBucketMs);
+  const countIntervalLabel = formatCountInterval(countBucketMs, t);
   const countBuckets = useMemo(
     () =>
       buildTimelineCountBuckets(
@@ -429,6 +458,7 @@ export default function BlinkHistoryPanel({
   );
   const selectedMinuteMetric =
     MINUTE_METRICS.find(({ key }) => key === minuteMetric) ?? MINUTE_METRICS[0];
+  const selectedMinuteMetricLabel = t(selectedMinuteMetric.labelKey);
   const minuteAxisMax = Math.max(
     1,
     ...countData.map((point) => point.value ?? 0),
@@ -438,13 +468,16 @@ export default function BlinkHistoryPanel({
   const viewDuration = activeWindow.endAt - activeWindow.startAt;
   const showSeconds = view === "events" || viewDuration <= 5 * MINUTE_MS;
   const fullDay = viewDuration >= dayRange.endAt - dayRange.startAt;
-  const selectedDateLabel = new Intl.DateTimeFormat("zh-CN", {
+  const selectedDateLabel = new Intl.DateTimeFormat(
+    i18n.resolvedLanguage ?? "en-US",
+    {
     month: "long",
     day: "numeric",
     weekday: "short",
-  }).format(new Date(`${selectedDate}T12:00:00`));
+    },
+  ).format(new Date(`${selectedDate}T12:00:00`));
   const rangeLabel = fullDay
-    ? "全天"
+    ? t("history.allDay")
     : `${formatClock(activeWindow.startAt, showSeconds)}–${formatClock(
         activeWindow.endAt,
         showSeconds,
@@ -686,7 +719,8 @@ export default function BlinkHistoryPanel({
       className="history-panel"
       data-interactive
       data-history-view={view}
-      aria-label={`${selectedDateLabel}行为时间轴`}
+      data-locale={i18n.resolvedLanguage}
+      aria-label={t("history.panelAria", { date: selectedDateLabel })}
     >
       <header className="history-header">
         <div className="history-heading">
@@ -694,17 +728,17 @@ export default function BlinkHistoryPanel({
             <ChartLineUp size={18} weight="bold" />
           </span>
           <div>
-            <h2>行为时间轴</h2>
+            <h2>{t("history.title")}</h2>
             <p>{selectedDateLabel} · {rangeLabel}</p>
           </div>
         </div>
 
         <div className="history-toolbar">
-          <div className="history-date-nav" aria-label="切换统计日期">
+          <div className="history-date-nav" aria-label={t("history.dateNav")}>
             <button
               className="history-nav-button"
               type="button"
-              aria-label="前一天"
+              aria-label={t("history.previousDay")}
               disabled={selectedDate <= firstDate}
               onClick={() =>
                 onSelectDate(shiftLocalDateKey(selectedDate, -1))
@@ -716,7 +750,7 @@ export default function BlinkHistoryPanel({
               <CalendarBlank size={14} weight="bold" aria-hidden />
               <select
                 value={selectedDate}
-                aria-label="统计日期"
+                aria-label={t("history.date")}
                 onChange={(event) => onSelectDate(event.target.value)}
               >
                 {availableDates.map((dateKey) => (
@@ -729,7 +763,7 @@ export default function BlinkHistoryPanel({
             <button
               className="history-nav-button"
               type="button"
-              aria-label="后一天"
+              aria-label={t("history.nextDay")}
               disabled={selectedDate >= todayDate}
               onClick={() =>
                 onSelectDate(shiftLocalDateKey(selectedDate, 1))
@@ -743,7 +777,7 @@ export default function BlinkHistoryPanel({
         <button
           className="history-close"
           type="button"
-          aria-label="关闭行为时间轴"
+          aria-label={t("history.close")}
           onClick={onClose}
         >
           <X size={15} weight="bold" aria-hidden />
@@ -751,19 +785,21 @@ export default function BlinkHistoryPanel({
       </header>
 
       <div className="history-view-bar">
-        <div className="history-mode-switch" role="tablist" aria-label="时间轴视图">
+        <div className="history-mode-switch" role="tablist" aria-label={t("history.viewAria")}>
           <button
             type="button"
             role="tab"
+            data-history-mode="events"
             aria-selected={view === "events"}
             className={view === "events" ? "is-active" : ""}
             onClick={() => setView("events")}
           >
-            事件
+            {t("history.events")}
           </button>
           <button
             type="button"
             role="tab"
+            data-history-mode="minutes"
             aria-selected={view === "minutes"}
             className={view === "minutes" ? "is-active" : ""}
             onClick={() => {
@@ -771,22 +807,23 @@ export default function BlinkHistoryPanel({
               setView("minutes");
             }}
           >
-            次数统计
+            {t("history.counts")}
           </button>
         </div>
         {view === "minutes" && (
-          <div className="history-metric-switch" aria-label="次数统计指标">
+          <div className="history-metric-switch" aria-label={t("history.metricsAria")}>
             {MINUTE_METRICS.map((metric) => (
               <button
                 key={metric.key}
                 type="button"
+                data-history-metric={metric.key}
                 aria-pressed={minuteMetric === metric.key}
                 className={minuteMetric === metric.key ? "is-active" : ""}
                 style={{ "--metric-color": metric.color } as React.CSSProperties}
                 onClick={() => setMinuteMetric(metric.key)}
               >
                 <i aria-hidden />
-                {metric.label}
+                {t(metric.labelKey)}
               </button>
             ))}
           </div>
@@ -808,6 +845,7 @@ export default function BlinkHistoryPanel({
           data-count-point-count={
             view === "minutes" ? countData.length : undefined
           }
+          data-event-lanes={EVENT_LANES.map(({ type }) => type).join(",")}
           data-latest-visible-event-at={
             view === "events" && visibleEvents.length > 0
               ? visibleEvents[visibleEvents.length - 1].at
@@ -816,8 +854,11 @@ export default function BlinkHistoryPanel({
           role="img"
           aria-label={
             view === "events"
-              ? "六类事件的发生时间"
-              : `${countIntervalLabel}${selectedMinuteMetric.label}次数`
+              ? t("history.eventsChartAria")
+              : t("history.countsChartAria", {
+                  interval: countIntervalLabel,
+                  metric: selectedMinuteMetricLabel,
+                })
           }
           {...chartEvents}
         >
@@ -842,9 +883,12 @@ export default function BlinkHistoryPanel({
                   dataKey="lane"
                   domain={[0.5, 6.5]}
                   ticks={EVENT_LANES.map(({ lane }) => lane)}
-                  tickFormatter={(value) =>
-                    EVENT_LANES.find(({ lane }) => lane === value)?.label ?? ""
-                  }
+                  tickFormatter={(value) => {
+                    const eventLane = EVENT_LANES.find(
+                      ({ lane }) => lane === value,
+                    );
+                    return eventLane ? t(eventLane.labelKey) : "";
+                  }}
                   axisLine={false}
                   tickLine={false}
                   tick={{ fill: "#55777b", fontSize: 9, fontWeight: 700 }}
@@ -911,14 +955,14 @@ export default function BlinkHistoryPanel({
                 />
                 <Tooltip
                   content={
-                    <CountTooltip metricLabel={selectedMinuteMetric.label} />
+                    <CountTooltip metricLabel={selectedMinuteMetricLabel} />
                   }
                   cursor={{ stroke: "rgba(36, 77, 83, 0.34)", strokeWidth: 1 }}
                 />
                 <Line
                   type="linear"
                   dataKey="value"
-                  name={selectedMinuteMetric.label}
+                  name={selectedMinuteMetricLabel}
                   stroke={selectedMinuteMetric.color}
                   strokeWidth={2}
                   dot={{ r: 2, fill: selectedMinuteMetric.color, strokeWidth: 0 }}
@@ -957,25 +1001,25 @@ export default function BlinkHistoryPanel({
           {view === "events" && visibleEvents.length === 0 && (
             <div className="history-empty">
               <ChartLineUp size={17} weight="bold" aria-hidden />
-              <span>这个时间范围还没有事件</span>
+              <span>{t("history.emptyEvents")}</span>
             </div>
           )}
           {view === "minutes" && !hasCountCoverage && (
             <div className="history-empty">
               <ChartLineUp size={17} weight="bold" aria-hidden />
-              <span>这个时间范围还没有采集数据</span>
+              <span>{t("history.emptyCoverage")}</span>
             </div>
           )}
         </div>
       </div>
 
       <footer className="history-footer">
-        <p className="history-view-note">
+        <p className="history-view-note" data-note-kind={view}>
           {view === "events"
-            ? "每个点代表一次实际事件"
-            : `自动聚合 · ${countIntervalLabel}；无采集留空，采集内无事件记 0`}
+            ? t("history.eventNote")
+            : t("history.countNote", { interval: countIntervalLabel })}
         </p>
-        <p className="history-footnote">本地事件 · 最近 30 天</p>
+        <p className="history-footnote">{t("history.footnote")}</p>
       </footer>
     </article>
   );

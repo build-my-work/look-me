@@ -42,7 +42,6 @@ export interface TimelineSummary {
 export interface TimelineCountBucket {
   startAt: number;
   endAt: number;
-  label: string;
   blinkCount: number;
   yawnCount: number;
   standUpCount: number;
@@ -52,7 +51,7 @@ export interface TimelineCountBucket {
 
 export interface DurationDisplay {
   value: string;
-  unit: "秒" | "分钟" | "小时";
+  unit: "seconds" | "minutes" | "hours";
 }
 
 function getSessionEnd(
@@ -205,13 +204,6 @@ export function getBlinkTimestamps(
     .sort((left, right) => left - right);
 }
 
-function formatMinute(timestamp: number): string {
-  const date = new Date(timestamp);
-  return `${String(date.getHours()).padStart(2, "0")}:${String(
-    date.getMinutes(),
-  ).padStart(2, "0")}`;
-}
-
 export function getTimelineCountBucketMs(
   viewDurationMs: number,
   plotWidthPx: number,
@@ -277,21 +269,9 @@ export function buildTimelineCountBuckets(
       const endAt = startAt + bucketMs;
       const visibleStartAt = Math.max(startAt, from);
       const visibleEndAt = Math.min(endAt, to);
-      const startDate = new Date(startAt);
-      const endDate = new Date(endAt);
-      const crossesLocalDate =
-        startDate.getFullYear() !== endDate.getFullYear() ||
-        startDate.getMonth() !== endDate.getMonth() ||
-        startDate.getDate() !== endDate.getDate();
       return {
         startAt,
         endAt,
-        label:
-          bucketMs === MINUTE_MS
-            ? formatMinute(startAt)
-            : `${formatMinute(startAt)}–${
-                crossesLocalDate ? "次日 " : ""
-              }${formatMinute(endAt)}`,
         blinkCount: 0,
         yawnCount: 0,
         standUpCount: 0,
@@ -359,16 +339,16 @@ export function formatObservedDuration(observedMs: number): DurationDisplay {
     ? Math.max(0, Math.floor(observedMs / 1_000))
     : 0;
   if (totalSeconds < 60) {
-    return { value: String(totalSeconds), unit: "秒" };
+    return { value: String(totalSeconds), unit: "seconds" };
   }
   const totalMinutes = Math.floor(totalSeconds / 60);
   if (totalMinutes < 60) {
-    return { value: String(totalMinutes), unit: "分钟" };
+    return { value: String(totalMinutes), unit: "minutes" };
   }
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
   return {
     value: `${hours}:${String(minutes).padStart(2, "0")}`,
-    unit: "小时",
+    unit: "hours",
   };
 }

@@ -1,0 +1,220 @@
+{
+  "app": {
+    "documentTitle": "Look Me · 护眼陪伴",
+    "metaDescription": "Look Me — 本地优先的眨眼与远眺陪伴应用",
+    "stageLabel": "Look Me 护眼陪伴",
+    "petAlt": "猫咪护眼伙伴",
+    "dragHint": "右键猫咪打开设置，按住左键拖动"
+  },
+  "main": {
+    "trayTooltip": "Look Me 护眼陪伴",
+    "menu": {
+      "settings": "猫咪设置",
+      "monitoring": "监测与提醒",
+      "petSize": "猫咪大小",
+      "petSizeSmall": "小",
+      "petSizeStandard": "标准",
+      "petSizeLarge": "大",
+      "petPersistent": "始终显示猫咪",
+      "panelVisible": "显示小组件",
+      "quit": "退出 Look Me"
+    }
+  },
+  "units": {
+    "seconds": "秒",
+    "minutes": "分钟",
+    "hours": "小时",
+    "times": "次",
+    "perMinute": "次/分"
+  },
+  "cameraErrors": {
+    "permissionDenied": "没有获得摄像头权限，眨眼提醒已暂停。",
+    "notFound": "没有找到可用摄像头，眨眼提醒已暂停。",
+    "busy": "摄像头正被其他应用占用，眨眼提醒已暂停。",
+    "unknown": "本地检测暂时无法启动，眨眼提醒已暂停。"
+  },
+  "status": {
+    "monitoringDisabled": "监测与提醒已关闭",
+    "systemSuspended": "系统睡眠时已关闭",
+    "screenLocked": "锁屏时已关闭",
+    "outsideScheduleWithTime": "时段外 · {{time}} 恢复",
+    "outsideSchedule": "时段外",
+    "cameraUnavailable": "摄像头暂时无法启动",
+    "preparing": "正在准备本地检测",
+    "waitingForFrames": "正在等待本地检测画面",
+    "noFaceBlinkPaused": "暂未检测到人脸，眨眼提醒已暂停",
+    "noFace": "暂未检测到人脸",
+    "detecting": "本地检测中",
+    "waitingToResume": "等待恢复本地检测",
+    "postureEstablished": "坐姿位置已建立",
+    "postureCalibrating": "正在建立坐姿位置",
+    "postureMonitoring": "坐姿监测中",
+    "stoodUp": "已识别向上离座",
+    "postureUnknown": "暂时无法判断离座方向",
+    "locking": "锁屏中",
+    "retrying": "重试 {{time}}",
+    "lockRetryTitle": "锁屏未生效，正在等待重试",
+    "lockCountdownTitle": "距定时锁屏",
+    "collecting": "采集中 {{seconds}} 秒",
+    "rate": "{{rate}} 次/分"
+  },
+  "settings": {
+    "eyebrow": "猫咪陪伴",
+    "title": "设置",
+    "close": "关闭设置",
+    "monitoring": "监测与提醒",
+    "blink": {
+      "title": "眨眼提醒",
+      "description": "连续 25 秒未眨眼时提醒",
+      "toggle": "开启眨眼提醒"
+    },
+    "distance": {
+      "title": "远眺提醒",
+      "description": "每 20 分钟提醒远眺 20 秒",
+      "toggle": "开启远眺提醒"
+    },
+    "sedentary": {
+      "title": "久坐提醒",
+      "description": "可设置 1–600 分钟",
+      "interval": "久坐提醒时间",
+      "toggle": "开启久坐提醒"
+    },
+    "forceLock": {
+      "title": "定时锁屏",
+      "description": "开屏累计到点锁定屏幕，跟随监测时段",
+      "interval": "定时锁屏间隔",
+      "toggle": "开启定时锁屏"
+    },
+    "schedule": {
+      "title": "限制监测时段",
+      "description": "关闭时全天监测与提醒",
+      "toggle": "限制摄像头监测时段",
+      "collapse": "收起监测时段",
+      "expand": "展开监测时段",
+      "start": "开始",
+      "end": "结束",
+      "startHour": "时段 {{index}} 开始小时",
+      "startMinute": "时段 {{index}} 开始分钟",
+      "endHour": "时段 {{index}} 结束小时",
+      "endMinute": "时段 {{index}} 结束分钟",
+      "remove": "删除时段 {{index}}",
+      "invalid": "结束时间需要晚于开始时间",
+      "add": "添加时段（{{count}}/{{max}}）"
+    },
+    "actions": {
+      "legend": "提醒动作",
+      "title": "提醒动作",
+      "description": "待机时偶尔播放 · 点击预览",
+      "auto": "自动轮换",
+      "yawn": "打哈欠",
+      "clap": "鼓掌",
+      "sit": "坐下",
+      "spin": "转圈",
+      "off": "保持安静"
+    },
+    "language": {
+      "title": "语言",
+      "description": "切换后立即应用到窗口与右键菜单",
+      "label": "应用语言",
+      "system": "跟随系统",
+      "zhCN": "简体中文",
+      "enUS": "English"
+    },
+    "localOnlyNote": "总开关在右键菜单；监测数据与动作偏好只保存在本机"
+  },
+  "coach": {
+    "sedentary": {
+      "eyebrow": "坐得有点久啦",
+      "title": "起来走一走吧",
+      "description": "离开座位后，会重新开始计算连续坐姿时间。",
+      "acknowledge": "知道了"
+    },
+    "distance": {
+      "prompt": "看看远处，休息 <strong>{{seconds}}</strong> 秒",
+      "remaining": "剩余 {{seconds}} 秒",
+      "skip": "跳过"
+    },
+    "permission": {
+      "eyebrow": "第一次见面",
+      "title": "让我在本机陪你眨眨眼",
+      "description": "摄像头画面只在设备上即时处理，不上传、不保存。它不是医疗诊断工具。",
+      "preparing": "正在准备…",
+      "enable": "开启本地检测",
+      "decline": "暂不开启",
+      "menuHint": "可随时在右键菜单中关闭",
+      "history": "查看历史曲线"
+    },
+    "blink": {
+      "eyebrow": "眼睛有点忙啦",
+      "title": "陪我慢慢眨 2 下",
+      "progress": "已完成 {{count}}/2 下"
+    }
+  },
+  "stats": {
+    "ariaLabel": "眨眼、看屏与离座统计",
+    "title": "眨眼，看屏与久坐时长",
+    "needsDetection": "需要开启本地检测",
+    "close": "收起统计",
+    "rollingRate": "近 1 分钟估算",
+    "screenToday": "今日有效看屏",
+    "empty": "点击「开启本地检测」后，频率会在这里出现。",
+    "continuousSitting": "连续坐姿",
+    "sittingToday": "今日久坐时长",
+    "standUpsToday": "今日起身",
+    "footnote": "坐姿按脸部位置估算；起身需满足完整站起轨迹",
+    "history": "查看行为时间轴",
+    "open": "查看统计",
+    "loadErrorAria": "行为时间轴加载失败",
+    "loadError": "时间轴加载失败",
+    "reload": "重新加载"
+  },
+  "history": {
+    "title": "行为时间轴",
+    "panelAria": "{{date}}行为时间轴",
+    "dateNav": "切换统计日期",
+    "previousDay": "前一天",
+    "date": "统计日期",
+    "nextDay": "后一天",
+    "close": "关闭行为时间轴",
+    "viewAria": "时间轴视图",
+    "events": "事件",
+    "counts": "次数统计",
+    "metricsAria": "次数统计指标",
+    "allDay": "全天",
+    "eventsChartAria": "六类事件的发生时间",
+    "countsChartAria": "{{interval}}{{metric}}次数",
+    "emptyEvents": "这个时间范围还没有事件",
+    "emptyCoverage": "这个时间范围还没有采集数据",
+    "eventNote": "每个点代表一次实际事件",
+    "countNote": "自动聚合 · {{interval}}；无采集留空，采集内无事件记 0",
+    "footnote": "本地事件 · 最近 30 天",
+    "bucketNoCoverage": "这个时间桶没有采集覆盖",
+    "metricCount_one": "{{metric}} {{count}} 次",
+    "metricCount_other": "{{metric}} {{count}} 次",
+    "nextDayPrefix": "次日 ",
+    "interval": {
+      "minute": "每分钟",
+      "minutes": "每 {{count}} 分钟",
+      "hour": "每小时",
+      "hours": "每 {{count}} 小时"
+    },
+    "lanes": {
+      "blinkDetected": "眨眼",
+      "seatedStarted": "坐姿开始",
+      "seatedEnded": "坐姿结束",
+      "screenStarted": "看屏开始",
+      "screenEnded": "看屏结束",
+      "yawnDetected": "打哈欠"
+    },
+    "metrics": {
+      "blinkCount": "眨眼",
+      "yawnCount": "哈欠",
+      "standUpCount": "站起",
+      "sitDownCount": "坐下"
+    },
+    "reasons": {
+      "standUp": "确认站起",
+      "trackingLost": "跟踪中断"
+    }
+  }
+}

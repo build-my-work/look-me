@@ -1,0 +1,220 @@
+{
+  "app": {
+    "documentTitle": "Look Me · Eye Care Companion",
+    "metaDescription": "Look Me — a local-first blink and distance-break companion",
+    "stageLabel": "Look Me eye care companion",
+    "petAlt": "Cat eye care companion",
+    "dragHint": "Right-click the cat for settings; hold left-click to drag"
+  },
+  "main": {
+    "trayTooltip": "Look Me Eye Care Companion",
+    "menu": {
+      "settings": "Companion Settings",
+      "monitoring": "Monitoring & Reminders",
+      "petSize": "Cat Size",
+      "petSizeSmall": "Small",
+      "petSizeStandard": "Standard",
+      "petSizeLarge": "Large",
+      "petPersistent": "Always Show Cat",
+      "panelVisible": "Show Widget",
+      "quit": "Quit Look Me"
+    }
+  },
+  "units": {
+    "seconds": "sec",
+    "minutes": "min",
+    "hours": "hr",
+    "times": "times",
+    "perMinute": "/min"
+  },
+  "cameraErrors": {
+    "permissionDenied": "Camera access was not granted, so blink reminders are paused.",
+    "notFound": "No camera was found, so blink reminders are paused.",
+    "busy": "The camera is in use by another app, so blink reminders are paused.",
+    "unknown": "On-device detection could not start, so blink reminders are paused."
+  },
+  "status": {
+    "monitoringDisabled": "Monitoring and reminders are off",
+    "systemSuspended": "Paused while the system sleeps",
+    "screenLocked": "Paused while the screen is locked",
+    "outsideScheduleWithTime": "Outside schedule · resumes at {{time}}",
+    "outsideSchedule": "Outside schedule",
+    "cameraUnavailable": "Camera is temporarily unavailable",
+    "preparing": "Preparing on-device detection",
+    "waitingForFrames": "Waiting for the camera feed",
+    "noFaceBlinkPaused": "No face detected; blink reminders are paused",
+    "noFace": "No face detected",
+    "detecting": "Detecting on device",
+    "waitingToResume": "Waiting to resume on-device detection",
+    "postureEstablished": "Seated position established",
+    "postureCalibrating": "Establishing your seated position",
+    "postureMonitoring": "Monitoring seated posture",
+    "stoodUp": "Standing movement detected",
+    "postureUnknown": "Unable to determine movement direction",
+    "locking": "Locking screen",
+    "retrying": "Retrying {{time}}",
+    "lockRetryTitle": "Screen lock did not take effect; waiting to retry",
+    "lockCountdownTitle": "Time until screen lock",
+    "collecting": "Collecting · {{seconds}} sec",
+    "rate": "{{rate}} /min"
+  },
+  "settings": {
+    "eyebrow": "CAT COMPANION",
+    "title": "Settings",
+    "close": "Close settings",
+    "monitoring": "Monitoring & Reminders",
+    "blink": {
+      "title": "Blink reminder",
+      "description": "Remind me after 25 seconds without a blink",
+      "toggle": "Enable blink reminders"
+    },
+    "distance": {
+      "title": "Distance-break reminder",
+      "description": "Look away for 20 seconds every 20 minutes",
+      "toggle": "Enable distance-break reminders"
+    },
+    "sedentary": {
+      "title": "Sitting reminder",
+      "description": "Set between 1 and 600 minutes",
+      "interval": "Sitting reminder interval",
+      "toggle": "Enable sitting reminders"
+    },
+    "forceLock": {
+      "title": "Scheduled screen lock",
+      "description": "Lock after accumulated screen-on time within monitoring hours",
+      "interval": "Screen lock interval",
+      "toggle": "Enable scheduled screen lock"
+    },
+    "schedule": {
+      "title": "Limit monitoring hours",
+      "description": "Turn off to monitor and remind all day",
+      "toggle": "Limit camera monitoring hours",
+      "collapse": "Collapse monitoring hours",
+      "expand": "Expand monitoring hours",
+      "start": "Start",
+      "end": "End",
+      "startHour": "Period {{index}} start hour",
+      "startMinute": "Period {{index}} start minute",
+      "endHour": "Period {{index}} end hour",
+      "endMinute": "Period {{index}} end minute",
+      "remove": "Remove period {{index}}",
+      "invalid": "The end time must be later than the start time",
+      "add": "Add period ({{count}}/{{max}})"
+    },
+    "actions": {
+      "legend": "Reminder action",
+      "title": "Reminder Action",
+      "description": "Plays occasionally while idle · click to preview",
+      "auto": "Rotate",
+      "yawn": "Yawn",
+      "clap": "Clap",
+      "sit": "Sit",
+      "spin": "Spin",
+      "off": "Stay quiet"
+    },
+    "language": {
+      "title": "Language",
+      "description": "Applies immediately to the window and context menu",
+      "label": "App language",
+      "system": "System default",
+      "zhCN": "简体中文",
+      "enUS": "English"
+    },
+    "localOnlyNote": "The master switch is in the context menu; monitoring data and action preferences stay on this device"
+  },
+  "coach": {
+    "sedentary": {
+      "eyebrow": "You've been sitting a while",
+      "title": "Time to move around",
+      "description": "Your continuous sitting time resets after you leave your seat.",
+      "acknowledge": "Got it"
+    },
+    "distance": {
+      "prompt": "Look into the distance for <strong>{{seconds}}</strong> seconds",
+      "remaining": "{{seconds}} seconds remaining",
+      "skip": "Skip"
+    },
+    "permission": {
+      "eyebrow": "NICE TO MEET YOU",
+      "title": "Let me help you remember to blink",
+      "description": "Camera frames are processed live on this device and are never uploaded or saved. Look Me is not a medical diagnostic tool.",
+      "preparing": "Preparing…",
+      "enable": "Enable on-device detection",
+      "decline": "Not now",
+      "menuHint": "You can turn it off anytime from the context menu",
+      "history": "View history"
+    },
+    "blink": {
+      "eyebrow": "Your eyes have been busy",
+      "title": "Blink slowly with me twice",
+      "progress": "{{count}} of 2 blinks completed"
+    }
+  },
+  "stats": {
+    "ariaLabel": "Blink, screen time, and sitting statistics",
+    "title": "Blinks, screen time, and sitting",
+    "needsDetection": "On-device detection needs to be enabled",
+    "close": "Collapse statistics",
+    "rollingRate": "Estimated last minute",
+    "screenToday": "Screen time today",
+    "empty": "Your blink rate will appear here after on-device detection starts.",
+    "continuousSitting": "Continuous sitting",
+    "sittingToday": "Sitting time today",
+    "standUpsToday": "Times stood today",
+    "footnote": "Sitting is estimated from face position; standing requires a complete upward movement",
+    "history": "View activity timeline",
+    "open": "View statistics",
+    "loadErrorAria": "Activity timeline failed to load",
+    "loadError": "Timeline failed to load",
+    "reload": "Reload"
+  },
+  "history": {
+    "title": "Activity Timeline",
+    "panelAria": "Activity timeline for {{date}}",
+    "dateNav": "Change statistics date",
+    "previousDay": "Previous day",
+    "date": "Statistics date",
+    "nextDay": "Next day",
+    "close": "Close activity timeline",
+    "viewAria": "Timeline view",
+    "events": "Events",
+    "counts": "Counts",
+    "metricsAria": "Count metric",
+    "allDay": "All day",
+    "eventsChartAria": "Occurrence times for six event types",
+    "countsChartAria": "{{metric}} count {{interval}}",
+    "emptyEvents": "No events in this time range",
+    "emptyCoverage": "No collected data in this time range",
+    "eventNote": "Each dot represents an actual event",
+    "countNote": "Auto-grouped · {{interval}}; gaps mean no coverage and covered periods with no events are 0",
+    "footnote": "Local events · last 30 days",
+    "bucketNoCoverage": "No collection coverage for this time bucket",
+    "metricCount_one": "{{metric}} {{count}} time",
+    "metricCount_other": "{{metric}} {{count}} times",
+    "nextDayPrefix": "next day ",
+    "interval": {
+      "minute": "per minute",
+      "minutes": "every {{count}} minutes",
+      "hour": "per hour",
+      "hours": "every {{count}} hours"
+    },
+    "lanes": {
+      "blinkDetected": "Blink",
+      "seatedStarted": "Sitting started",
+      "seatedEnded": "Sitting ended",
+      "screenStarted": "Screen viewing started",
+      "screenEnded": "Screen viewing ended",
+      "yawnDetected": "Yawn"
+    },
+    "metrics": {
+      "blinkCount": "Blinks",
+      "yawnCount": "Yawns",
+      "standUpCount": "Stand-ups",
+      "sitDownCount": "Sit-downs"
+    },
+    "reasons": {
+      "standUp": "Confirmed stand-up",
+      "trackingLost": "Tracking lost"
+    }
+  }
+}

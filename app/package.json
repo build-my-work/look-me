@@ -13,18 +13,19 @@
   },
   "private": true,
   "type": "module",
-  "main": "electron/main.mjs",
+  "main": "electron/main.bundle.mjs",
   "desktopName": "com.lookme.coach",
   "scripts": {
     "dev": "vite",
     "dev:desktop": "concurrently --kill-others-on-fail \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && LOOK_ME_DEV_URL=http://127.0.0.1:5173 electron electron/main.mjs\"",
     "build": "vite build && node scripts/prepare-sites-build.mjs",
+    "build:electron": "node scripts/build-electron.mjs",
     "build:renderer": "vite build",
-    "desktop:dir": "npm run build:renderer && electron-builder --dir",
-    "desktop:package": "npm run build:renderer && electron-builder",
-    "desktop:mac": "npm run build:renderer && electron-builder --mac",
-    "desktop:win": "npm run build:renderer && electron-builder --win",
-    "desktop:linux": "npm run build:renderer && electron-builder --linux",
+    "desktop:dir": "npm run build:renderer && npm run build:electron && electron-builder --dir",
+    "desktop:package": "npm run build:renderer && npm run build:electron && electron-builder",
+    "desktop:mac": "npm run build:renderer && npm run build:electron && electron-builder --mac",
+    "desktop:win": "npm run build:renderer && npm run build:electron && electron-builder --win",
+    "desktop:linux": "npm run build:renderer && npm run build:electron && electron-builder --linux",
     "preview": "vite preview",
     "start": "electron electron/main.mjs",
     "test": "vitest run src",
@@ -36,9 +37,11 @@
     "@mediapipe/tasks-vision": "1.0.1",
     "@phosphor-icons/react": "2.1.10",
     "@vitejs/plugin-react": "5.0.4",
+    "i18next": "26.4.0",
     "react": "19.2.0",
     "react-circular-progressbar": "2.2.0",
     "react-dom": "19.2.0",
+    "react-i18next": "17.0.12",
     "recharts": "3.10.1",
     "vite": "6.4.2"
   },
@@ -48,6 +51,7 @@
     "concurrently": "10.0.4",
     "electron": "43.4.0",
     "electron-builder": "26.15.3",
+    "esbuild": "0.28.2",
     "fake-indexeddb": "6.2.4",
     "typescript": "7.0.2",
     "vitest": "4.1.10",
@@ -64,7 +68,9 @@
     ],
     "files": [
       "dist/client/**",
-      "electron/**",
+      "electron/main.bundle.mjs",
+      "electron/preload.cjs",
+      "electron/bin/**",
       "package.json",
       "!node_modules/**"
     ],
@@ -74,11 +80,27 @@
     "mac": {
       "category": "public.app-category.healthcare-fitness",
       "minimumSystemVersion": "12.0",
+      "extraResources": [
+        {
+          "from": "build/locales/en.lproj",
+          "to": "en.lproj",
+          "filter": [
+            "InfoPlist.strings"
+          ]
+        },
+        {
+          "from": "build/locales/zh-Hans.lproj",
+          "to": "zh-Hans.lproj",
+          "filter": [
+            "InfoPlist.strings"
+          ]
+        }
+      ],
       "target": [
         "dmg"
       ],
       "extendInfo": {
-        "NSCameraUsageDescription": "Look Me 使用摄像头在本机识别眨眼；画面不会上传或保存。"
+        "NSCameraUsageDescription": "Look Me uses the camera to detect blinks locally. Frames are never uploaded or saved."
       }
     },
     "win": {

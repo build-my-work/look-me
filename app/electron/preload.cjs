@@ -1,7 +1,15 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
+function getArgument(name, fallback) {
+  const prefix = `--${name}=`;
+  const argument = process.argv.find((value) => value.startsWith(prefix));
+  return argument ? decodeURIComponent(argument.slice(prefix.length)) : fallback;
+}
+
 contextBridge.exposeInMainWorld("lookMe", {
   isDesktop: true,
+  languagePreference: getArgument("look-me-language-preference", "system"),
+  locale: getArgument("look-me-locale", "en-US"),
   setPointerEvents(enabled) {
     ipcRenderer.send("look-me:pointer-events", enabled);
   },
@@ -45,6 +53,14 @@ contextBridge.exposeInMainWorld("lookMe", {
   },
   forceLock() {
     return ipcRenderer.invoke("look-me:force-lock");
+  },
+  setLanguagePreference(preference) {
+    return ipcRenderer.invoke("look-me:set-language-preference", preference);
+  },
+  onLocaleChanged(listener) {
+    const handler = (_event, state) => listener(state);
+    ipcRenderer.on("look-me:locale-changed", handler);
+    return () => ipcRenderer.removeListener("look-me:locale-changed", handler);
   },
   onSystemAvailability(listener) {
     const handler = (_event, availability) => listener(availability);

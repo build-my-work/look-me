@@ -11,10 +11,13 @@ import {
   session,
   Tray,
 } from "electron";
+import i18next from "i18next";
+import enUS from "../locales/en-US.json" with { type: "json" };
+import zhCN from "../locales/zh-CN.json" with { type: "json" };
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
-import { appendFile, mkdir } from "node:fs/promises";
+import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -23,6 +26,8 @@ const APP_ROOT = path.dirname(ELECTRON_DIR);
 const RENDERER_ROOT = path.join(APP_ROOT, "dist", "client");
 const PRELOAD_PATH = path.join(ELECTRON_DIR, "preload.cjs");
 const APP_ID = "com.lookme.coach";
+const LANGUAGE_PREFERENCES = new Set(["system", "zh-CN", "en-US"]);
+const SUPPORTED_LOCALES = new Set(["zh-CN", "en-US"]);
 const WINDOW_WIDTH = 760;
 const WINDOW_HEIGHT = 390;
 const SETTINGS_WINDOW_WIDTH = 900;
@@ -40,6 +45,7 @@ const SMOKE_ENV_KEYS = [
   "LOOK_ME_ATTENTION_SMOKE",
   "LOOK_ME_DRAG_SMOKE",
   "LOOK_ME_HISTORY_SMOKE",
+  "LOOK_ME_I18N_SMOKE",
   "LOOK_ME_MONITORING_SMOKE",
   "LOOK_ME_PANEL_ANCHOR_SMOKE",
   "LOOK_ME_PERSISTENCE_SMOKE",
@@ -118,6 +124,8 @@ let petRailWindowX = null;
 let settingsMenuOpenCount = 0;
 let pointerHitTestTimer = null;
 let screenLockPollTimer = null;
+let languagePreference = "system";
+let resolvedLocale = "en-US";
 let rendererPointerEventsEnabled = false;
 let petPointerEventsEnabled = false;
 let nativePointerEventsEnabled = null;
@@ -126,6 +134,7 @@ const systemAvailability = {
   systemSuspended: false,
   lockCycle: 0,
 };
+const mainI18n = i18next.createInstance();
 
 if (SMOKE_ENV_KEYS.some((key) => process.env[key] === "1")) {
   app.setPath("userData", path.join(tmpdir(), `look-me-smoke-${process.pid}`));
@@ -134,6 +143,86 @@ if (SMOKE_ENV_KEYS.some((key) => process.env[key] === "1")) {
 const wait = (milliseconds) => new Promise((resolve) => {
   setTimeout(resolve, milliseconds);
 });
+
+function resolveSupportedLocale(languages) {
+  for (const language of languages) {
+    const normalized = language.toLowerCase();
+    if (normalized === "zh" || normalized.startsWith("zh-")) {
+      return "zh-CN";
+    }
+    if (normalized === "en" || normalized.startsWith("en-")) {
+      return "en-US";
+    }
+  }
+  return "en-US";
+}
+
+function resolveCurrentLocale() {
+  const forcedLocale = process.env.LOOK_ME_LOCALE;
+  if (SUPPORTED_LOCALES.has(forcedLocale)) {
+    return forcedLocale;
+  }
+  return languagePreference === "system"
+    ? resolveSupportedLocale(app.getPreferredSystemLanguages())
+    : languagePreference;
+}
+
+function getLanguageState() {
+  return { preference: languagePreference, locale: resolvedLocale };
+}
+
+function getLanguageSettingsPath() {
+  return path.join(app.getPath("userData"), "language.json");
+}
+
+async function initializeLanguage() {
+  try {
+    const stored = JSON.parse(
+      await readFile(getLanguageSettingsPath(), "utf8"),
+    );
+    if (LANGUAGE_PREFERENCES.has(stored?.preference)) {
+      languagePreference = stored.preference;
+    }
+  } catch (error) {
+    if (error?.code !== "ENOENT") {
+      appendMainLog(`language preference read failed: ${error?.message ?? error}`);
+    }
+  }
+
+  resolvedLocale = resolveCurrentLocale();
+  await mainI18n.init({
+    resources: {
+      "zh-CN": { translation: zhCN },
+      "en-US": { translation: enUS },
+    },
+    lng: resolvedLocale,
+    fallbackLng: "en-US",
+    supportedLngs: ["zh-CN", "en-US"],
+    interpolation: { escapeValue: false },
+    initAsync: false,
+  });
+}
+
+async function saveLanguagePreference(preference) {
+  const settingsPath = getLanguageSettingsPath();
+  await mkdir(path.dirname(settingsPath), { recursive: true });
+  await writeFile(
+    settingsPath,
+    `${JSON.stringify({ preference }, null, 2)}\n`,
+    "utf8",
+  );
+}
+
+async function applyLanguagePreference(preference) {
+  await saveLanguagePreference(preference);
+  languagePreference = preference;
+  resolvedLocale = resolveCurrentLocale();
+  await mainI18n.changeLanguage(resolvedLocale);
+  tray?.setToolTip(mainI18n.t("main.trayTooltip"));
+  updateTrayMenu();
+  mainWindow?.webContents.send("look-me:locale-changed", getLanguageState());
+  return getLanguageState();
+}
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -935,11 +1024,12 @@ async function runPetSettingsSmoke(window) {
     afterLeftClick.y === before.y &&
     afterClick.x === before.x && afterClick.y === before.y;
   const menuLabels = settingsMenu.items.map((item) => item.label).filter(Boolean);
+  const menuIds = settingsMenu.items.map((item) => item.id).filter(Boolean);
   const monitoringMenuItem = settingsMenu.items.find(
-    (item) => item.label === "监测与提醒",
+    (item) => item.id === "monitoring",
   );
   const panelMenuItem = settingsMenu.items.find(
-    (item) => item.label === "显示小组件",
+    (item) => item.id === "panel-visible",
   );
   const panelDependencySynced =
     panelMenuItem?.checked === panelVisible &&
@@ -949,13 +1039,13 @@ async function runPetSettingsSmoke(window) {
     monitoringMenuItem?.enabled === true &&
     monitoringMenuItem?.checked === monitoringEnabled;
   const scopedSettingsMenu =
-    menuLabels.join("|") === [
-      "猫咪设置",
-      "监测与提醒",
-      "猫咪大小",
-      "始终显示猫咪",
-      "显示小组件",
-      "退出 Look Me",
+    menuIds.join("|") === [
+      "settings",
+      "monitoring",
+      "pet-size",
+      "pet-persistent",
+      "panel-visible",
+      "quit",
     ].join("|");
   const firstPopupMenu = settingsMenu;
   const nextSize = petSize === "large" ? "small" : "large";
@@ -1135,7 +1225,9 @@ async function runPanelAnchorSmoke(window) {
       const stats = document.querySelector(".stats-panel")?.getBoundingClientRect();
       const status = document.querySelector(".idle-status-value");
       if (status) {
-        status.textContent = "暂未检测到人脸，眨眼提醒已暂停";
+        status.textContent = ${JSON.stringify(
+          mainI18n.t("status.noFaceBlinkPaused"),
+        )};
       }
       const panel = document.querySelector(".idle-companion")?.getBoundingClientRect();
       const serialize = (rect) => rect
@@ -1263,7 +1355,7 @@ async function runPanelAnchorSmoke(window) {
   await wait(200);
   const rightAfter = await measure();
   await window.webContents.executeJavaScript(
-    "document.querySelector('[aria-label=\"查看统计\"]')?.click()",
+    "document.querySelector('[data-action=\"open-stats\"]')?.click()",
   );
   await wait(150);
   const rightStats = await measure();
@@ -1290,7 +1382,7 @@ async function runPanelAnchorSmoke(window) {
   await wait(200);
   const leftAfter = await measure();
   await window.webContents.executeJavaScript(
-    "document.querySelector('[aria-label=\"查看统计\"]')?.click()",
+    "document.querySelector('[data-action=\"open-stats\"]')?.click()",
   );
   await wait(150);
   const leftStats = await measure();
@@ -1541,7 +1633,7 @@ async function runSettingsHeightSmoke(window) {
       window.localStorage.getItem("look-me:panel-visible:v1") === "true",
   }))()`);
   const hiddenWidgetMenuItem = settingsMenu.items.find(
-    (item) => item.label === "显示小组件",
+    (item) => item.id === "panel-visible",
   );
   const widgetHidesWithForceLock = Boolean(
     !hiddenWidget.companionVisible &&
@@ -1626,6 +1718,76 @@ async function runSettingsHeightSmoke(window) {
   app.exit(passed ? 0 : 1);
 }
 
+async function runI18nSmoke(window) {
+  window.show();
+  window.webContents.send("look-me:command", "camera-settings:show");
+  await wait(500);
+
+  const selectLanguage = async (preference) => {
+    const changed = await window.webContents.executeJavaScript(`(() => {
+      const select = document.querySelector("[data-language-preference]");
+      if (!select) return false;
+      select.value = ${JSON.stringify(preference)};
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+      return true;
+    })()`);
+    await wait(500);
+    return changed;
+  };
+  const measure = () => window.webContents.executeJavaScript(`(() => ({
+    locale: document.documentElement.lang,
+    preference: document.querySelector("[data-language-preference]")?.value ?? null,
+    title: document.title,
+    settingsTitle: document.querySelector("#camera-settings-title")?.textContent?.trim() ?? null,
+    languageOptions: document.querySelectorAll("[data-language-preference] option").length,
+  }))()`);
+  const getMenuLabels = () =>
+    settingsMenu.items.map((item) => item.label).filter(Boolean);
+
+  const selectedEnglish = await selectLanguage("en-US");
+  const english = await measure();
+  const englishMenuLabels = getMenuLabels();
+  const selectedChinese = await selectLanguage("zh-CN");
+  const chinese = await measure();
+  const chineseMenuLabels = getMenuLabels();
+  const selectedSystem = await selectLanguage("system");
+  const system = await measure();
+  const stored = JSON.parse(await readFile(getLanguageSettingsPath(), "utf8"));
+
+  const passed = Boolean(
+    selectedEnglish &&
+    english.locale === "en-US" &&
+    english.preference === "en-US" &&
+    english.title === "Look Me · Eye Care Companion" &&
+    english.settingsTitle === "Settings" &&
+    english.languageOptions === 3 &&
+    englishMenuLabels[0] === "Companion Settings" &&
+    englishMenuLabels.includes("Show Widget") &&
+    selectedChinese &&
+    chinese.locale === "zh-CN" &&
+    chinese.preference === "zh-CN" &&
+    chinese.title === "Look Me · 护眼陪伴" &&
+    chinese.settingsTitle === "设置" &&
+    chinese.languageOptions === 3 &&
+    chineseMenuLabels[0] === "猫咪设置" &&
+    chineseMenuLabels.includes("显示小组件") &&
+    selectedSystem &&
+    SUPPORTED_LOCALES.has(system.locale) &&
+    system.preference === "system" &&
+    stored.preference === "system"
+  );
+  console.log(`LOOK_ME_I18N ${JSON.stringify({
+    english,
+    englishMenuLabels,
+    chinese,
+    chineseMenuLabels,
+    system,
+    stored,
+    passed,
+  })}`);
+  app.exit(passed ? 0 : 1);
+}
+
 async function loadRenderer(window) {
   const demoQuery = process.env.LOOK_ME_MONITORING_SMOKE === "1"
     ? "?state=blink"
@@ -1633,7 +1795,8 @@ async function loadRenderer(window) {
       ? "?state=idle&freeze=1&historyData=1"
       : process.env.LOOK_ME_RAIL_DRAG_SMOKE === "1"
         ? "?state=idle&freeze=1&petCry=1"
-        : process.env.LOOK_ME_PANEL_ANCHOR_SMOKE === "1" ||
+        : process.env.LOOK_ME_I18N_SMOKE === "1" ||
+            process.env.LOOK_ME_PANEL_ANCHOR_SMOKE === "1" ||
             process.env.LOOK_ME_SETTINGS_HEIGHT_SMOKE === "1"
           ? "?state=idle&freeze=1"
           : process.env.LOOK_ME_DEMO === "1"
@@ -1681,6 +1844,10 @@ function createWindow() {
     backgroundColor: "#00000000",
     webPreferences: {
       preload: PRELOAD_PATH,
+      additionalArguments: [
+        `--look-me-language-preference=${encodeURIComponent(languagePreference)}`,
+        `--look-me-locale=${encodeURIComponent(resolvedLocale)}`,
+      ],
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
@@ -1745,6 +1912,10 @@ function createWindow() {
     }
     if (process.env.LOOK_ME_SETTINGS_HEIGHT_SMOKE === "1") {
       await runSettingsHeightSmoke(window);
+      return;
+    }
+    if (process.env.LOOK_ME_I18N_SMOKE === "1") {
+      await runI18nSmoke(window);
       return;
     }
     if (process.env.LOOK_ME_MONITORING_SMOKE === "1") {
@@ -1825,16 +1996,17 @@ function createWindow() {
       const restoredSettingsBounds = window.getBounds();
       const restoredSettingsPetAnchor = getPetAnchor();
       const menuLabels = settingsMenu.items.map((item) => item.label).filter(Boolean);
+      const menuIds = settingsMenu.items.map((item) => item.id).filter(Boolean);
       const monitoringMenuItem = settingsMenu.items.find(
-        (item) => item.label === "监测与提醒",
+        (item) => item.id === "monitoring",
       );
-      const shellMenuOnly = menuLabels.join("|") === [
-        "猫咪设置",
-        "监测与提醒",
-        "猫咪大小",
-        "始终显示猫咪",
-        "显示小组件",
-        "退出 Look Me",
+      const shellMenuOnly = menuIds.join("|") === [
+        "settings",
+        "monitoring",
+        "pet-size",
+        "pet-persistent",
+        "panel-visible",
+        "quit",
       ].join("|");
       selectMonitoringEnabled(originalMonitoringEnabled);
       await wait(100);
@@ -1927,11 +2099,11 @@ function createWindow() {
         "document.querySelectorAll('.idle-actions button').length",
       );
       await window.webContents.executeJavaScript(
-        "document.querySelector('[aria-label=\"查看统计\"]')?.click()",
+        "document.querySelector('[data-action=\"open-stats\"]')?.click()",
       );
       await wait(150);
       const statsState = await window.webContents.executeJavaScript(
-        "(() => ({ shown: Boolean(document.querySelector('.stats-panel')), labels: Array.from(document.querySelectorAll('.stats-metrics dt')).map((element) => element.textContent?.trim()) }))()",
+        "(() => ({ shown: Boolean(document.querySelector('.stats-panel')), labels: Array.from(document.querySelectorAll('.stats-metrics dt')).map((element) => element.textContent?.trim()), ids: Array.from(document.querySelectorAll('[data-stat]')).map((element) => element.dataset.stat) }))()",
       );
       await window.webContents.executeJavaScript(
         "document.querySelector('.stats-history-button')?.click()",
@@ -1949,7 +2121,7 @@ function createWindow() {
         "(() => { const pet = document.querySelector('.coach-pet-shell'); const image = document.querySelector('.coach-pet'); if (!pet || !image) return { visible: false, imageLoaded: false, fitsViewport: false }; const rect = pet.getBoundingClientRect(); const style = getComputedStyle(pet); return { visible: style.display !== 'none' && style.visibility !== 'hidden' && Number(style.opacity) > 0 && rect.width > 0 && rect.height > 0, imageLoaded: image.complete && image.naturalWidth > 0, fitsViewport: rect.right > 0 && rect.bottom > 0 && rect.left < innerWidth && rect.top < innerHeight, rect: { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom } }; })()",
       );
       const initialChart = await window.webContents.executeJavaScript(
-        "(() => ({ count: document.querySelectorAll('.history-chart-plot .recharts-wrapper').length, panelView: document.querySelector('.history-panel')?.dataset.historyView ?? null, mode: document.querySelector('.history-chart-plot')?.dataset.mode ?? null, modeLabels: Array.from(document.querySelectorAll('.history-mode-switch button')).map((element) => element.textContent?.trim()), selectedModes: Array.from(document.querySelectorAll('.history-mode-switch button')).map((element) => element.getAttribute('aria-selected')), metricButtons: document.querySelectorAll('.history-metric-switch button').length, summaries: document.querySelectorAll('.history-summary').length, yAxes: document.querySelectorAll('.history-chart-plot .recharts-yAxis').length, range: document.querySelector('.history-heading p')?.textContent?.trim() ?? null, viewDurationMs: Number(document.querySelector('.history-chart-plot')?.dataset.viewDurationMs ?? NaN), viewStartAt: Number(document.querySelector('.history-chart-plot')?.dataset.viewStartAt ?? NaN), eventAxisStepMs: Number(document.querySelector('.history-chart-plot')?.dataset.eventAxisStepMs ?? NaN), zoomControls: document.querySelectorAll('[aria-label=\"放大时间轴\"], [aria-label=\"缩小时间轴\"], [aria-label=\"重置时间轴\"]').length }))()",
+        "(() => ({ count: document.querySelectorAll('.history-chart-plot .recharts-wrapper').length, panelView: document.querySelector('.history-panel')?.dataset.historyView ?? null, mode: document.querySelector('.history-chart-plot')?.dataset.mode ?? null, modeIds: Array.from(document.querySelectorAll('[data-history-mode]')).map((element) => element.dataset.historyMode), selectedModes: Array.from(document.querySelectorAll('[data-history-mode]')).map((element) => element.getAttribute('aria-selected')), metricButtons: document.querySelectorAll('[data-history-metric]').length, summaries: document.querySelectorAll('.history-summary').length, yAxes: document.querySelectorAll('.history-chart-plot .recharts-yAxis').length, range: document.querySelector('.history-heading p')?.textContent?.trim() ?? null, viewDurationMs: Number(document.querySelector('.history-chart-plot')?.dataset.viewDurationMs ?? NaN), viewStartAt: Number(document.querySelector('.history-chart-plot')?.dataset.viewStartAt ?? NaN), eventAxisStepMs: Number(document.querySelector('.history-chart-plot')?.dataset.eventAxisStepMs ?? NaN), zoomControls: document.querySelectorAll('.history-zoom-controls button').length }))()",
       );
       const chartCenter = await window.webContents.executeJavaScript(
         "(() => { const plot = document.querySelector('.history-chart-plot')?.getBoundingClientRect(); return plot ? { x: Math.round(plot.left + plot.width / 2), y: Math.round(plot.top + plot.height / 2) } : null; })()",
@@ -1978,7 +2150,7 @@ function createWindow() {
         await wait(200);
       }
       const pannedEvents = await window.webContents.executeJavaScript(
-        "(() => ({ mode: document.querySelector('.history-chart-plot')?.dataset.mode ?? null, range: document.querySelector('.history-heading p')?.textContent?.trim() ?? null, viewDurationMs: Number(document.querySelector('.history-chart-plot')?.dataset.viewDurationMs ?? NaN), viewStartAt: Number(document.querySelector('.history-chart-plot')?.dataset.viewStartAt ?? NaN), eventAxisStepMs: Number(document.querySelector('.history-chart-plot')?.dataset.eventAxisStepMs ?? NaN), scatterGroups: document.querySelectorAll('.recharts-scatter').length, eventSymbols: document.querySelectorAll('.recharts-scatter .recharts-symbols').length, laneLabels: Array.from(document.querySelectorAll('.history-chart-plot .recharts-yAxis-tick-labels .recharts-cartesian-axis-tick-value')).map((element) => element.textContent?.trim()) }))()",
+        "(() => ({ mode: document.querySelector('.history-chart-plot')?.dataset.mode ?? null, range: document.querySelector('.history-heading p')?.textContent?.trim() ?? null, viewDurationMs: Number(document.querySelector('.history-chart-plot')?.dataset.viewDurationMs ?? NaN), viewStartAt: Number(document.querySelector('.history-chart-plot')?.dataset.viewStartAt ?? NaN), eventAxisStepMs: Number(document.querySelector('.history-chart-plot')?.dataset.eventAxisStepMs ?? NaN), scatterGroups: document.querySelectorAll('.recharts-scatter').length, eventSymbols: document.querySelectorAll('.recharts-scatter .recharts-symbols').length, eventLanes: document.querySelector('.history-chart-plot')?.dataset.eventLanes?.split(',') ?? [] }))()",
       );
       if (chartCenter) {
         window.webContents.sendInputEvent({
@@ -2009,11 +2181,11 @@ function createWindow() {
         "(() => ({ mode: document.querySelector('.history-chart-plot')?.dataset.mode ?? null, range: document.querySelector('.history-heading p')?.textContent?.trim() ?? null, viewDurationMs: Number(document.querySelector('.history-chart-plot')?.dataset.viewDurationMs ?? NaN), viewStartAt: Number(document.querySelector('.history-chart-plot')?.dataset.viewStartAt ?? NaN), eventAxisStepMs: Number(document.querySelector('.history-chart-plot')?.dataset.eventAxisStepMs ?? NaN) }))()",
       );
       await window.webContents.executeJavaScript(
-        "Array.from(document.querySelectorAll('.history-mode-switch button')).find((element) => element.textContent?.trim() === '次数统计')?.click()",
+        "document.querySelector('[data-history-mode=\"minutes\"]')?.click()",
       );
       await wait(200);
       const minuteChart = await window.webContents.executeJavaScript(
-        "(() => ({ panelView: document.querySelector('.history-panel')?.dataset.historyView ?? null, mode: document.querySelector('.history-chart-plot')?.dataset.mode ?? null, viewDurationMs: Number(document.querySelector('.history-chart-plot')?.dataset.viewDurationMs ?? NaN), viewStartAt: Number(document.querySelector('.history-chart-plot')?.dataset.viewStartAt ?? NaN), eventAxisStep: document.querySelector('.history-chart-plot')?.dataset.eventAxisStepMs ?? null, countBucketMs: Number(document.querySelector('.history-chart-plot')?.dataset.countBucketMs ?? NaN), countPointCount: Number(document.querySelector('.history-chart-plot')?.dataset.countPointCount ?? NaN), metricLabels: Array.from(document.querySelectorAll('.history-metric-switch button')).map((element) => element.textContent?.trim()), selectedMetric: document.querySelector('.history-metric-switch button[aria-pressed=\"true\"]')?.textContent?.trim() ?? null, lineCount: document.querySelectorAll('.history-chart-plot .recharts-line-curve').length, scatterGroups: document.querySelectorAll('.history-chart-plot .recharts-scatter').length, summaries: document.querySelectorAll('.history-summary').length, note: document.querySelector('.history-view-note')?.textContent?.trim() ?? null }))()",
+        "(() => ({ panelView: document.querySelector('.history-panel')?.dataset.historyView ?? null, mode: document.querySelector('.history-chart-plot')?.dataset.mode ?? null, viewDurationMs: Number(document.querySelector('.history-chart-plot')?.dataset.viewDurationMs ?? NaN), viewStartAt: Number(document.querySelector('.history-chart-plot')?.dataset.viewStartAt ?? NaN), eventAxisStep: document.querySelector('.history-chart-plot')?.dataset.eventAxisStepMs ?? null, countBucketMs: Number(document.querySelector('.history-chart-plot')?.dataset.countBucketMs ?? NaN), countPointCount: Number(document.querySelector('.history-chart-plot')?.dataset.countPointCount ?? NaN), metricIds: Array.from(document.querySelectorAll('[data-history-metric]')).map((element) => element.dataset.historyMetric), selectedMetric: document.querySelector('[data-history-metric][aria-pressed=\"true\"]')?.dataset.historyMetric ?? null, lineCount: document.querySelectorAll('.history-chart-plot .recharts-line-curve').length, scatterGroups: document.querySelectorAll('.history-chart-plot .recharts-scatter').length, summaries: document.querySelectorAll('.history-summary').length, noteKind: document.querySelector('.history-view-note')?.dataset.noteKind ?? null }))()",
       );
       if (chartCenter) {
         for (let index = 0; index < 2; index += 1) {
@@ -2033,14 +2205,14 @@ function createWindow() {
         "(() => ({ mode: document.querySelector('.history-chart-plot')?.dataset.mode ?? null, viewDurationMs: Number(document.querySelector('.history-chart-plot')?.dataset.viewDurationMs ?? NaN), viewStartAt: Number(document.querySelector('.history-chart-plot')?.dataset.viewStartAt ?? NaN), countBucketMs: Number(document.querySelector('.history-chart-plot')?.dataset.countBucketMs ?? NaN), countPointCount: Number(document.querySelector('.history-chart-plot')?.dataset.countPointCount ?? NaN) }))()",
       );
       await window.webContents.executeJavaScript(
-        "Array.from(document.querySelectorAll('.history-metric-switch button')).find((element) => element.textContent?.trim() === '站起')?.click()",
+        "document.querySelector('[data-history-metric=\"standUpCount\"]')?.click()",
       );
       await wait(150);
       const standUpChart = await window.webContents.executeJavaScript(
-        "(() => ({ selectedMetric: document.querySelector('.history-metric-switch button[aria-pressed=\"true\"]')?.textContent?.trim() ?? null, viewDurationMs: Number(document.querySelector('.history-chart-plot')?.dataset.viewDurationMs ?? NaN), lineCount: document.querySelectorAll('.history-chart-plot .recharts-line-curve').length }))()",
+        "(() => ({ selectedMetric: document.querySelector('[data-history-metric][aria-pressed=\"true\"]')?.dataset.historyMetric ?? null, viewDurationMs: Number(document.querySelector('.history-chart-plot')?.dataset.viewDurationMs ?? NaN), lineCount: document.querySelectorAll('.history-chart-plot .recharts-line-curve').length }))()",
       );
       await window.webContents.executeJavaScript(
-        "Array.from(document.querySelectorAll('.history-mode-switch button')).find((element) => element.textContent?.trim() === '事件')?.click()",
+        "document.querySelector('[data-history-mode=\"events\"]')?.click()",
       );
       await wait(150);
       const restoredEventChart = await window.webContents.executeJavaScript(
@@ -2088,25 +2260,25 @@ function createWindow() {
         restoredHistoryPetAnchor.x === compactHistoryPetAnchor.x &&
         restoredHistoryPetAnchor.y === compactHistoryPetAnchor.y;
       const expectedStats = [
-        "近 1 分钟估算",
-        "今日有效看屏",
-        "连续坐姿",
-        "今日久坐时长",
-        "今日起身",
+        "rolling-rate",
+        "screen-today",
+        "continuous-sitting",
+        "sitting-today",
+        "stand-ups-today",
       ];
       const expectedLanes = [
-        "眨眼",
-        "坐姿开始",
-        "坐姿结束",
-        "看屏开始",
-        "看屏结束",
-        "打哈欠",
+        "blink.detected",
+        "seated.started",
+        "seated.ended",
+        "screen.started",
+        "screen.ended",
+        "yawn.detected",
       ];
       const passed =
         panelShown &&
         panelActionCount === 1 &&
         statsState.shown &&
-        statsState.labels.join(",") === expectedStats.join(",") &&
+        statsState.ids.join(",") === expectedStats.join(",") &&
         shown &&
         historyWindowExpanded &&
         historyWindowRestored &&
@@ -2118,14 +2290,14 @@ function createWindow() {
         initialChart.count === 1 &&
         initialChart.panelView === "events" &&
         initialChart.mode === "events" &&
-        initialChart.modeLabels.join(",") === "事件,次数统计" &&
+        initialChart.modeIds.join(",") === "events,minutes" &&
         initialChart.selectedModes.join(",") === "true,false" &&
         initialChart.metricButtons === 0 &&
         initialChart.summaries === 0 &&
         initialChart.yAxes === 1 &&
         initialChart.viewDurationMs === 5 * 60_000 &&
         initialChart.eventAxisStepMs === 10_000 &&
-        !initialChart.range?.includes("全天") &&
+        Boolean(initialChart.range) &&
         initialChart.zoomControls === 0 &&
         chartCenter &&
         liveEventCursorState.exists &&
@@ -2140,7 +2312,7 @@ function createWindow() {
         pannedEvents.eventAxisStepMs === 10_000 &&
         pannedEvents.scatterGroups > 0 &&
         pannedEvents.eventSymbols > 0 &&
-        expectedLanes.every((label) => pannedEvents.laneLabels.includes(label)) &&
+        expectedLanes.every((lane) => pannedEvents.eventLanes.includes(lane)) &&
         draggedEvents.mode === "events" &&
         draggedEvents.viewDurationMs === 5 * 60_000 &&
         draggedEvents.viewStartAt < pannedEvents.viewStartAt &&
@@ -2152,17 +2324,18 @@ function createWindow() {
         minuteChart.eventAxisStep === null &&
         minuteChart.countBucketMs === 60_000 &&
         minuteChart.countPointCount > 0 &&
-        minuteChart.metricLabels.join(",") === "眨眼,哈欠,站起,坐下" &&
-        minuteChart.selectedMetric === "眨眼" &&
+        minuteChart.metricIds.join(",") ===
+          "blinkCount,yawnCount,standUpCount,sitDownCount" &&
+        minuteChart.selectedMetric === "blinkCount" &&
         minuteChart.lineCount === 1 &&
         minuteChart.scatterGroups === 0 &&
         minuteChart.summaries === 0 &&
-        minuteChart.note?.includes("自动聚合") &&
+        minuteChart.noteKind === "minutes" &&
         minuteZoomedChart.mode === "minutes" &&
         minuteZoomedChart.viewDurationMs > minuteChart.viewDurationMs &&
         minuteZoomedChart.countBucketMs > minuteChart.countBucketMs &&
         minuteZoomedChart.countPointCount < minuteChart.countPointCount &&
-        standUpChart.selectedMetric === "站起" &&
+        standUpChart.selectedMetric === "standUpCount" &&
         standUpChart.viewDurationMs === minuteZoomedChart.viewDurationMs &&
         standUpChart.lineCount === 1 &&
         restoredEventChart.mode === "events" &&
@@ -2236,7 +2409,7 @@ function createWindow() {
         "window.localStorage.getItem('look-me:panel-visible:v1') === 'true'",
       );
       const enabledPanelMenuItem = settingsMenu.items.find(
-        (item) => item.label === "显示小组件",
+        (item) => item.id === "panel-visible",
       );
       const panelMenuEnabled =
         enabledPanelMenuItem?.enabled === true &&
@@ -2255,7 +2428,7 @@ function createWindow() {
         "Boolean(document.querySelector('.idle-companion'))",
       );
       const disabledPanelMenuItem = settingsMenu.items.find(
-        (item) => item.label === "显示小组件",
+        (item) => item.id === "panel-visible",
       );
       const panelMenuStillEnabled =
         disabledPanelMenuItem?.enabled === true &&
@@ -2364,11 +2537,13 @@ function updateTrayMenu() {
   }
   settingsMenu = Menu.buildFromTemplate([
       {
-        label: "猫咪设置",
+        id: "settings",
+        label: mainI18n.t("main.menu.settings"),
         click: showCameraSettings,
       },
       {
-        label: "监测与提醒",
+        id: "monitoring",
+        label: mainI18n.t("main.menu.monitoring"),
         type: "checkbox",
         checked: monitoringEnabled,
         enabled: monitoringSettingsReady,
@@ -2376,22 +2551,26 @@ function updateTrayMenu() {
       },
       { type: "separator" },
       {
-        label: "猫咪大小",
+        id: "pet-size",
+        label: mainI18n.t("main.menu.petSize"),
         submenu: [
           {
-            label: "小",
+            id: "pet-size-small",
+            label: mainI18n.t("main.menu.petSizeSmall"),
             type: "radio",
             checked: petSize === "small",
             click: () => selectPetSize("small"),
           },
           {
-            label: "标准",
+            id: "pet-size-standard",
+            label: mainI18n.t("main.menu.petSizeStandard"),
             type: "radio",
             checked: petSize === "standard",
             click: () => selectPetSize("standard"),
           },
           {
-            label: "大",
+            id: "pet-size-large",
+            label: mainI18n.t("main.menu.petSizeLarge"),
             type: "radio",
             checked: petSize === "large",
             click: () => selectPetSize("large"),
@@ -2399,20 +2578,23 @@ function updateTrayMenu() {
         ],
       },
       {
-        label: "始终显示猫咪",
+        id: "pet-persistent",
+        label: mainI18n.t("main.menu.petPersistent"),
         type: "checkbox",
         checked: petPersistent,
         click: () => selectPetPersistence(!petPersistent),
       },
       {
-        label: "显示小组件",
+        id: "panel-visible",
+        label: mainI18n.t("main.menu.panelVisible"),
         type: "checkbox",
         checked: panelVisible,
         click: () => selectPanelVisibility(!panelVisible),
       },
       { type: "separator" },
       {
-        label: "退出 Look Me",
+        id: "quit",
+        label: mainI18n.t("main.menu.quit"),
         click: () => {
           isQuitting = true;
           app.quit();
@@ -2497,7 +2679,7 @@ function createTray() {
     : path.join(APP_ROOT, "public", "assets", "heterochromia-cat-idle.png");
   const icon = nativeImage.createFromPath(iconPath).resize({ width: 18, height: 23 });
   tray = new Tray(icon);
-  tray.setToolTip("Look Me 护眼陪伴");
+  tray.setToolTip(mainI18n.t("main.trayTooltip"));
   updateTrayMenu();
   tray.on("click", showWindow);
 }
@@ -2860,6 +3042,18 @@ ipcMain.handle("look-me:get-system-availability", (event) => {
   return systemAvailability;
 });
 
+ipcMain.handle("look-me:set-language-preference", async (event, preference) => {
+  const window = BrowserWindow.fromWebContents(event.sender);
+  if (
+    !window ||
+    window !== mainWindow ||
+    !LANGUAGE_PREFERENCES.has(preference)
+  ) {
+    throw new Error("Invalid language preference request");
+  }
+  return applyLanguagePreference(preference);
+});
+
 // macOS 26 删除了 CGSession 命令行工具；优先用打包进来的 helper
 // （调用 LoginUIKit 的 SACLockScreenImmediate），老系统回落 CGSession，
 // 最后兜底 pmset displaysleepnow（依赖“唤醒后要求输入密码”设置）。
@@ -2925,12 +3119,13 @@ ipcMain.on("look-me:quit", () => {
   app.quit();
 });
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   if (process.platform === "darwin") {
     app.setActivationPolicy("accessory");
   } else if (process.platform === "win32") {
     app.setAppUserModelId(APP_ID);
   }
+  await initializeLanguage();
   registerRendererProtocol();
   configureMediaPermissions();
   configurePowerMonitoring();

@@ -13,6 +13,11 @@ import { MouthSignal } from "./mouth-signal";
 import { YawnSignal } from "./yawn-signal";
 
 export type FaceMonitorStatus = "idle" | "starting" | "ready" | "error";
+export type FaceMonitorErrorCode =
+  | "permissionDenied"
+  | "notFound"
+  | "busy"
+  | "unknown";
 
 export interface BlinkDetectionEvent {
   id: number;
@@ -26,7 +31,7 @@ export interface YawnDetectionEvent {
 
 export interface FaceMonitor {
   status: FaceMonitorStatus;
-  errorMessage: string | null;
+  errorCode: FaceMonitorErrorCode | null;
   faceVisible: boolean;
   lastDetectionAt: number | null;
   blinkCount: number;
@@ -53,24 +58,24 @@ function getBlendshapeScore(
   return categories.find((category) => category.categoryName === name)?.score ?? 0;
 }
 
-function describeCameraError(error: unknown): string {
+function describeCameraError(error: unknown): FaceMonitorErrorCode {
   if (error instanceof DOMException) {
     if (error.name === "NotAllowedError") {
-      return "没有获得摄像头权限，眨眼提醒已暂停。";
+      return "permissionDenied";
     }
     if (error.name === "NotFoundError") {
-      return "没有找到可用摄像头，眨眼提醒已暂停。";
+      return "notFound";
     }
     if (error.name === "NotReadableError") {
-      return "摄像头正被其他应用占用，眨眼提醒已暂停。";
+      return "busy";
     }
   }
-  return "本地检测暂时无法启动，眨眼提醒已暂停。";
+  return "unknown";
 }
 
 export function useFaceMonitor(): FaceMonitor {
   const [status, setStatus] = useState<FaceMonitorStatus>("idle");
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<FaceMonitorErrorCode | null>(null);
   const [faceVisible, setFaceVisible] = useState(false);
   const [lastDetectionAt, setLastDetectionAt] = useState<number | null>(null);
   const [blinkCount, setBlinkCount] = useState(0);
@@ -149,7 +154,7 @@ export function useFaceMonitor(): FaceMonitor {
     setBlinkEvents([]);
     setYawnEvents([]);
     setStatus("idle");
-    setErrorMessage(null);
+    setErrorCode(null);
   }, [cleanup]);
 
   const start = useCallback((): Promise<boolean> => {
@@ -163,7 +168,7 @@ export function useFaceMonitor(): FaceMonitor {
     const requestId = startGenerationRef.current + 1;
     startGenerationRef.current = requestId;
     setStatus("starting");
-    setErrorMessage(null);
+    setErrorCode(null);
     const startPromise = (async () => {
       let acquiredStream: MediaStream | null = null;
       let acquiredLandmarker: FaceLandmarker | null = null;
@@ -256,7 +261,7 @@ export function useFaceMonitor(): FaceMonitor {
               if (requestId === startGenerationRef.current) {
                 cleanup();
                 setStatus("error");
-                setErrorMessage(describeCameraError(error));
+                setErrorCode(describeCameraError(error));
               }
               return;
             }
@@ -367,7 +372,7 @@ export function useFaceMonitor(): FaceMonitor {
         }
         cleanup();
         setStatus("error");
-        setErrorMessage(describeCameraError(error));
+        setErrorCode(describeCameraError(error));
         return false;
       } finally {
         if (requestId === startGenerationRef.current) {
@@ -383,7 +388,7 @@ export function useFaceMonitor(): FaceMonitor {
 
   return {
     status,
-    errorMessage,
+    errorCode,
     faceVisible,
     lastDetectionAt,
     blinkCount,

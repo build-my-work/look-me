@@ -1,5 +1,8 @@
 /// <reference types="vite/client" />
 
+type AppLanguagePreference = import("./language").AppLanguagePreference;
+type AppLocale = import("./language").AppLocale;
+
 type LookMePetSize = "small" | "standard" | "large";
 type LookMeCommand =
   | "distance"
@@ -50,6 +53,8 @@ interface LookMeForceLockResult {
 
 interface LookMeBridge {
   isDesktop: true;
+  languagePreference: AppLanguagePreference;
+  locale: AppLocale;
   setPointerEvents: (enabled: boolean) => void;
   dragWindow: (
     phase: "start" | "move" | "end",
@@ -68,6 +73,15 @@ interface LookMeBridge {
   syncPanelVisibility: (visible: boolean) => void;
   getSystemAvailability: () => Promise<LookMeSystemAvailability>;
   forceLock: () => Promise<LookMeForceLockResult>;
+  setLanguagePreference: (
+    preference: AppLanguagePreference,
+  ) => Promise<{ preference: AppLanguagePreference; locale: AppLocale }>;
+  onLocaleChanged: (
+    listener: (state: {
+      preference: AppLanguagePreference;
+      locale: AppLocale;
+    }) => void,
+  ) => () => void;
   onSystemAvailability: (
     listener: (availability: LookMeSystemAvailability) => void,
   ) => () => void;
