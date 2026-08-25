@@ -1,23 +1,23 @@
 {
   "app": {
-    "documentTitle": "Look Me · 护眼陪伴",
-    "metaDescription": "Look Me — 本地优先的眨眼与远眺陪伴应用",
-    "stageLabel": "Look Me 护眼陪伴",
-    "petAlt": "猫咪护眼伙伴",
-    "dragHint": "右键猫咪打开设置，按住左键拖动"
+    "documentTitle": "Lumi · 护眼伙伴",
+    "metaDescription": "Lumi 在本机提醒你眨眼、远眺和起身",
+    "stageLabel": "Lumi 护眼伙伴",
+    "petAlt": "Lumi 护眼伙伴",
+    "dragHint": "右键 Lumi 打开设置，按住左键拖动"
   },
   "main": {
-    "trayTooltip": "Look Me 护眼陪伴",
+    "trayTooltip": "Lumi · 护眼伙伴",
     "menu": {
-      "settings": "猫咪设置",
+      "settings": "Lumi 设置",
       "monitoring": "监测与提醒",
-      "petSize": "猫咪大小",
+      "petSize": "Lumi 大小",
       "petSizeSmall": "小",
       "petSizeStandard": "标准",
       "petSizeLarge": "大",
-      "petPersistent": "始终显示猫咪",
+      "petPersistent": "始终显示 Lumi",
       "panelVisible": "显示小组件",
-      "quit": "退出 Look Me"
+      "quit": "退出 Lumi"
     }
   },
   "units": {
@@ -59,7 +59,7 @@
     "rate": "{{rate}} 次/分"
   },
   "settings": {
-    "eyebrow": "猫咪陪伴",
+    "eyebrow": "LUMI",
     "title": "设置",
     "close": "关闭设置",
     "monitoring": "监测与提醒",
@@ -136,7 +136,7 @@
     },
     "permission": {
       "eyebrow": "第一次见面",
-      "title": "让我在本机陪你眨眨眼",
+      "title": "让 Lumi 在本机陪你眨眨眼",
       "description": "摄像头画面只在设备上即时处理，不上传、不保存。它不是医疗诊断工具。",
       "preparing": "正在准备…",
       "enable": "开启本地检测",
@@ -146,7 +146,7 @@
     },
     "blink": {
       "eyebrow": "眼睛有点忙啦",
-      "title": "陪我慢慢眨 2 下",
+      "title": "陪 Lumi 慢慢眨 2 下",
       "progress": "已完成 {{count}}/2 下"
     }
   },

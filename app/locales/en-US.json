@@ -1,23 +1,23 @@
 {
   "app": {
-    "documentTitle": "Look Me · Eye Care Companion",
-    "metaDescription": "Look Me — a local-first blink and distance-break companion",
-    "stageLabel": "Look Me eye care companion",
-    "petAlt": "Cat eye care companion",
-    "dragHint": "Right-click the cat for settings; hold left-click to drag"
+    "documentTitle": "Lumi · Eye Care Companion",
+    "metaDescription": "Lumi gives on-device reminders to blink, look away, and stand up",
+    "stageLabel": "Lumi, your eye care companion",
+    "petAlt": "Lumi, your eye care companion",
+    "dragHint": "Right-click Lumi for settings; hold left-click to drag"
   },
   "main": {
-    "trayTooltip": "Look Me Eye Care Companion",
+    "trayTooltip": "Lumi · Eye Care Companion",
     "menu": {
-      "settings": "Companion Settings",
+      "settings": "Lumi Settings",
       "monitoring": "Monitoring & Reminders",
-      "petSize": "Cat Size",
+      "petSize": "Lumi Size",
       "petSizeSmall": "Small",
       "petSizeStandard": "Standard",
       "petSizeLarge": "Large",
-      "petPersistent": "Always Show Cat",
+      "petPersistent": "Always Show Lumi",
       "panelVisible": "Show Widget",
-      "quit": "Quit Look Me"
+      "quit": "Quit Lumi"
     }
   },
   "units": {
@@ -59,7 +59,7 @@
     "rate": "{{rate}} /min"
   },
   "settings": {
-    "eyebrow": "CAT COMPANION",
+    "eyebrow": "LUMI",
     "title": "Settings",
     "close": "Close settings",
     "monitoring": "Monitoring & Reminders",
@@ -136,8 +136,8 @@
     },
     "permission": {
       "eyebrow": "NICE TO MEET YOU",
-      "title": "Let me help you remember to blink",
-      "description": "Camera frames are processed live on this device and are never uploaded or saved. Look Me is not a medical diagnostic tool.",
+      "title": "Let Lumi help you remember to blink",
+      "description": "Camera frames are processed live on this device and are never uploaded or saved. Lumi is not a medical diagnostic tool.",
       "preparing": "Preparing…",
       "enable": "Enable on-device detection",
       "decline": "Not now",
@@ -146,7 +146,7 @@
     },
     "blink": {
       "eyebrow": "Your eyes have been busy",
-      "title": "Blink slowly with me twice",
+      "title": "Blink slowly with Lumi twice",
       "progress": "{{count}} of 2 blinks completed"
     }
   },

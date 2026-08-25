@@ -1758,18 +1758,18 @@ async function runI18nSmoke(window) {
     selectedEnglish &&
     english.locale === "en-US" &&
     english.preference === "en-US" &&
-    english.title === "Look Me · Eye Care Companion" &&
+    english.title === "Lumi · Eye Care Companion" &&
     english.settingsTitle === "Settings" &&
     english.languageOptions === 3 &&
-    englishMenuLabels[0] === "Companion Settings" &&
+    englishMenuLabels[0] === "Lumi Settings" &&
     englishMenuLabels.includes("Show Widget") &&
     selectedChinese &&
     chinese.locale === "zh-CN" &&
     chinese.preference === "zh-CN" &&
-    chinese.title === "Look Me · 护眼陪伴" &&
+    chinese.title === "Lumi · 护眼伙伴" &&
     chinese.settingsTitle === "设置" &&
     chinese.languageOptions === 3 &&
-    chineseMenuLabels[0] === "猫咪设置" &&
+    chineseMenuLabels[0] === "Lumi 设置" &&
     chineseMenuLabels.includes("显示小组件") &&
     selectedSystem &&
     SUPPORTED_LOCALES.has(system.locale) &&

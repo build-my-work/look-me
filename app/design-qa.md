@@ -1,4 +1,4 @@
-# Design QA: Look Me option 2
+# Design QA: Lumi option 2
 
 ## Source and implementation
 
@@ -45,7 +45,7 @@ Resolution: made Skip a direct portal child and adjusted the selected preview st
 ## Daily history curve extension
 
 - State: idle, daily history open, deterministic sample data for visual verification.
-- The 760 × 300 native capture keeps 猫咪伙伴 in the foreground while moving all chart labels and controls beyond the character silhouette.
+- The 760 × 300 native capture keeps Lumi in the foreground while moving all chart labels and controls beyond the character silhouette.
 - One teal curve spans 00:00-23:59; sensing gaps stay visibly disconnected instead of falling to zero.
 - The header contains only previous day, a 30-day date selector, next day, and close. Three quiet text summaries provide context without adding scores or targets.
 - Pass 1 found clipped Y-axis labels caused by a negative chart margin. The labels were moved fully inside the chart and re-captured.
@@ -106,10 +106,10 @@ Resolution: made Skip a direct portal child and adjusted the selected preview st
 
 ## Optional persistent-pet setting
 
-- “始终显示猫咪” lives in the tray, defaults off, and does not add controls to the compact companion surface. The redundant one-shot “显示猫咪” entry has been removed.
+- “始终显示 Lumi” lives in the tray, defaults off, and does not add controls to the compact companion surface. The redundant one-shot “显示 Lumi” entry has been removed.
 - When enabled, healthy and post-blink cooldown states show the existing pet without tears at the upper-right; the window footprint, pet size, and drag target are unchanged.
 - The setting changes presentation only, so descent, crying, rampage, blink recovery, Reduce Motion, and manual cards retain their approved behavior.
-- Browser regression inspection and packaged renderer, rail-position, history, and small-pet drag smokes passed without layout changes. The packaged native-menu smoke also confirmed that “始终显示猫咪” is present and “显示猫咪” is absent.
+- Browser regression inspection and packaged renderer, rail-position, history, and small-pet drag smokes passed without layout changes. The packaged native-menu smoke also confirmed that “始终显示 Lumi” is present and “显示 Lumi” is absent.
 - Showing an existing window no longer recenters it on the display under the pointer; the native-menu smoke verifies that a dragged window keeps the same coordinates after another show request.
 - Leaving the automatic attention rail no longer recenters the native window. Packaged attention and settings smokes verify identical coordinates before and after a rail-to-parked transition, covering camera/settings and other presentation-only state changes.
 - P0: none. P1: none. P2: none.
@@ -175,7 +175,7 @@ final result: passed
 
 - Added one visually dominant monitoring master switch, plus subordinate distance-break reminder and daily-window controls that become quiet and disabled when the master switch is off.
 - The master switch gates all active coaching. The separate distance-break switch suppresses only automatic distance breaks, dismisses an active break, and resets its baseline so re-enabling cannot produce a catch-up prompt.
-- Native 760 × 300 Electron pixel QA verified that 猫咪伙伴 remains clear of the controls, the panel stays inside the transparent surface, and macOS-localized AM/PM time values remain fully visible.
+- Native 760 × 300 Electron pixel QA verified that Lumi remains clear of the controls, the panel stays inside the transparent surface, and macOS-localized AM/PM time values remain fully visible.
 - Accessibility QA verified labeled master, distance-reminder, and schedule checkboxes; labeled start/end time selects; disabled-state semantics; keyboard focus treatment; and an inline invalid-window message.
 - Local preview QA verified that the new reminder row and footer fit the fixed `620 × 276` settings card without overflow, and that the independent preference survives reload.
 - Native tray/Pet-menu smoke QA verified the shell-only menu, repeated Pet-menu opening, dragging, and the intentional absence of duplicate camera and manual distance actions.

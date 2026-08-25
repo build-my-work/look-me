@@ -59,8 +59,8 @@
   },
   "build": {
     "appId": "com.lookme.coach",
-    "productName": "Look Me",
-    "artifactName": "Look-Me-${version}-${os}-${arch}.${ext}",
+    "productName": "Lumi",
+    "artifactName": "Lumi-${version}-${os}-${arch}.${ext}",
     "icon": "public/assets/heterochromia-cat-idle.png",
     "asar": true,
     "asarUnpack": [
@@ -100,7 +100,7 @@
         "dmg"
       ],
       "extendInfo": {
-        "NSCameraUsageDescription": "Look Me uses the camera to detect blinks locally. Frames are never uploaded or saved."
+        "NSCameraUsageDescription": "Lumi uses the camera to detect blinks locally. Frames are never uploaded or saved."
       }
     },
     "win": {
