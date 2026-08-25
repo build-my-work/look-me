@@ -135,6 +135,13 @@ test("sitemap and robots output agree", () => {
   assert.match(robots, /Sitemap: https:\/\/lookme\.anme\.cc\/sitemap-index\.xml/);
 });
 
+test("production pages retain Google Search Console verification", () => {
+  assert.match(
+    readPage("/"),
+    /<meta name="google-site-verification" content="SVWkTpZ3X7QfIpQI_NUQf5P_fAJuYcNEkL4wBAymljk"/,
+  );
+});
+
 test("public copy stays inside the non-medical product boundary", () => {
   const forbiddenClaims = [
     /dry eye treatment app/i,
