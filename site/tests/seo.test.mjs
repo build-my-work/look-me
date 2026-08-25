@@ -135,10 +135,10 @@ test("sitemap and robots output agree", () => {
   assert.match(robots, /Sitemap: https:\/\/lookme\.anme\.cc\/sitemap-index\.xml/);
 });
 
-test("production pages retain Google Search Console verification", () => {
-  assert.match(
-    readPage("/"),
-    /<meta name="google-site-verification" content="SVWkTpZ3X7QfIpQI_NUQf5P_fAJuYcNEkL4wBAymljk"/,
+test("production build retains Google Search Console verification", () => {
+  assert.equal(
+    readFileSync(join(distPath, "google9aed7b03b65548b4.html"), "utf8").trim(),
+    "google-site-verification: google9aed7b03b65548b4.html",
   );
 });
 
