@@ -1,0 +1,89 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import SiteHeader from "../../../components/SiteHeader.astro";
+import SiteFooter from "../../../components/SiteFooter.astro";
+import DownloadCta from "../../../components/DownloadCta.astro";
+import { breadcrumbSchema, languageAlternates } from "../../../lib/site";
+
+const path = "/zh-cn/privacy/";
+const title = "Lumi 隐私说明｜摄像头画面仅在本机处理";
+const description = "查看 Lumi 会处理、保存和删除哪些数据：摄像头画面只在本机内存中处理，时间轴保留六类行为事件 30 天，不需要账号，也不上传照片或视频。";
+---
+
+<BaseLayout
+  title={title}
+  description={description}
+  path={path}
+  locale="zh-CN"
+  alternates={languageAlternates("/privacy/", path)}
+  schemas={[breadcrumbSchema([{ name: "首页", path: "/zh-cn/" }, { name: "隐私", path }])]}
+>
+  <SiteHeader locale="zh-CN" currentPath={path} alternatePath="/privacy/" />
+  <main id="main-content">
+    <header class="page-hero shell">
+      <p class="eyebrow">隐私清单 · 更新于 2026 年 8 月 25 日</p>
+      <h1>摄像头画面在本机处理，随后丢弃。</h1>
+      <p>眨眼和坐姿功能需要实时摄像头信号。Lumi 在你的电脑内存中处理这些画面，长期保存的只有少量行为事件。</p>
+    </header>
+
+    <section class="section-tight section-dark" aria-labelledby="inventory-heading">
+      <div class="shell privacy-layout">
+        <div class="content-block">
+          <p class="eyebrow">摘要</p>
+          <h2 id="inventory-heading">没有监测账号，也没有云端后端。</h2>
+          <p>隐藏 Lumi 或状态小组件只改变显示。总开关、监测时段、锁屏和休眠状态会改变摄像头是否运行。</p>
+        </div>
+        <div class="privacy-ledger">
+          <div class="ledger-row"><span>摄像头画面</span><strong>在内存中处理，随后丢弃</strong></div>
+          <div class="ledger-row"><span>人脸信号</span><strong>供本地检测逻辑使用，不持久化</strong></div>
+          <div class="ledger-row"><span>时间轴</span><strong>在本机 IndexedDB 保存 30 天</strong></div>
+          <div class="ledger-row"><span>云端账号</span><strong>没有</strong></div>
+          <div class="ledger-row"><span>屏幕录制</span><strong>没有</strong></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="shell-narrow article-body">
+        <h2>监测时会处理什么</h2>
+        <ul>
+          <li>操作系统提供的摄像头画面。</li>
+          <li>人脸是否存在的置信度，以及眨眼、嘴部和坐姿检测所需的少量 blendshape 与关键点。</li>
+          <li>当前会话中的时间、冷却和提醒状态。</li>
+        </ul>
+        <p>这些数据只用于当前监测会话。摄像头画面和原始推断数组不会写入时间轴。</p>
+
+        <h2>本地会保存什么</h2>
+        <p>最近 30 天的时间轴保存六类事件：完整眨眼、哈欠、看屏区间的开始与结束、坐姿区间的开始与结束。</p>
+        <p>提醒开关、久坐间隔、监测时段、Lumi 显示设置和语言也保存在本机，用于恢复你的选择。</p>
+
+        <h2>不会保存什么</h2>
+        <ul>
+          <li>照片或录像。</li>
+          <li>屏幕内容、浏览记录、文档文字或键盘输入。</li>
+          <li>原始人脸关键点、生物识别模板、张嘴画面或坐姿校准坐标。</li>
+          <li>邮箱、账号资料或云端身份。</li>
+        </ul>
+
+        <h2>摄像头何时运行</h2>
+        <p>总开关已开启、当前时间位于监测时段、电脑处于唤醒和解锁状态且摄像头权限可用时，监测才能运行。暂停、离开时段、锁屏或休眠后会停止采集并释放摄像头。</p>
+
+        <h2>保留与删除</h2>
+        <p>超过 30 天的时间轴事件会自动删除。卸载后是否保留应用资料，取决于操作系统以及应用配置目录是否同时被移除。</p>
+
+        <h2>预览版限制</h2>
+        <p>当前公开安装包尚未签名。macOS 公证和 Windows 代码签名完成前，系统可能显示安全提示。请只从官方 GitHub 仓库下载。</p>
+
+        <div class="article-callout">
+          <strong>这份清单对应当前实现</strong>
+          <p>如果产品改动影响采集、保存、保留时间或网络传输，这一页也应在同一版本更新。</p>
+        </div>
+
+        <p><a class="text-link" href="https://github.com/build-my-work/look-me" target="_blank" rel="noreferrer">查看源代码<span aria-hidden="true"> →</span></a></p>
+      </div>
+    </section>
+
+    <DownloadCta locale="zh-CN" />
+  </main>
+  <SiteFooter locale="zh-CN" />
+</BaseLayout>

@@ -5,10 +5,10 @@ import SiteFooter from "../../components/SiteFooter.astro";
 import CatStage from "../../components/CatStage.astro";
 import AttentionTrace from "../../components/AttentionTrace.astro";
 import DownloadCta from "../../components/DownloadCta.astro";
-import { softwareApplicationSchema, websiteSchema } from "../../lib/site";
+import { chineseSoftwareApplicationSchema, chineseWebsiteSchema, languageAlternates } from "../../lib/site";
 
-const title = "Look Me 看看我｜本地眨眼、远眺与久坐提醒";
-const description = "一只会根据真实看屏状态提醒你眨眼、远眺和起身的桌面猫咪伙伴。摄像头画面仅在本机内存处理，不上传、不保存。";
+const title = "Lumi 眨眼提醒软件｜本机眨眼监测与护眼提醒";
+const description = "Lumi 在本机检测完整眨眼，长时间没有检测到眨眼时提醒你慢慢眨两下。支持 macOS、Windows 和 Linux，摄像头画面不上传、不保存。";
 ---
 
 <BaseLayout
@@ -16,61 +16,86 @@ const description = "一只会根据真实看屏状态提醒你眨眼、远眺�
   description={description}
   path="/zh-cn/"
   locale="zh-CN"
-  alternates={[
-    { hreflang: "en", path: "/" },
-    { hreflang: "zh-Hans", path: "/zh-cn/" },
-    { hreflang: "x-default", path: "/" },
-  ]}
-  schemas={[websiteSchema, softwareApplicationSchema]}
+  alternates={languageAlternates("/", "/zh-cn/")}
+  schemas={[chineseWebsiteSchema, chineseSoftwareApplicationSchema]}
 >
-  <SiteHeader locale="zh-CN" currentPath="/zh-cn/" />
+  <SiteHeader locale="zh-CN" currentPath="/zh-cn/" alternatePath="/" />
 
   <main id="main-content">
     <section class="hero">
       <div class="shell hero-grid">
         <div class="hero-copy">
-          <p class="eyebrow">本机处理 · MACOS、WINDOWS 与 LINUX</p>
-          <h1>提醒不必准时，<span class="soft-line">但要来得正好。</span></h1>
-          <p>Look Me 是住在桌面角落的猫咪伙伴。他会根据实际看屏和眨眼状态，提醒你眨眨眼、看看远处、起来走走。没有账号，不上传摄像头画面，也不会用固定计时器猜测你是否在电脑前。</p>
+          <p class="eyebrow">本机眨眼检测 · MACOS、WINDOWS 与 LINUX</p>
+          <h1>长时间没眨眼时，<span class="soft-line">Lumi 会提醒你。</span></h1>
+          <p>Lumi 会检测完整眨眼。发现你一段时间没眨眼时，它会提醒你慢慢眨两下。摄像头画面只在本机内存处理，不上传，也不保存。</p>
           <div class="hero-actions">
-            <a class="button" href="#download">免费下载</a>
-            <a class="button button-secondary" href="/how-it-works/">查看工作原理</a>
+            <a class="button" href="/zh-cn/download/">免费下载 Lumi</a>
+            <a class="button button-secondary" href="/zh-cn/blink-reminder/">看看怎样检测眨眼</a>
           </div>
-          <p class="hero-note">检测和最近 30 天的行为时间轴都只留在这台电脑里。</p>
+          <p class="hero-note">还可以按实际看屏时间提醒远眺和起身，每项提醒都能单独关闭。</p>
         </div>
         <CatStage locale="zh-CN" />
       </div>
       <div class="shell"><AttentionTrace locale="zh-CN" /></div>
     </section>
 
-    <section class="section" id="features" aria-labelledby="features-heading">
+    <section class="section" aria-labelledby="blink-heading">
       <div class="shell">
         <div class="section-heading">
           <div>
-            <p class="eyebrow">不是另一个固定闹钟</p>
-            <h2 id="features-heading">时钟知道时间，Look Me 留意你的状态。</h2>
+            <p class="eyebrow">眨眼监测与提醒</p>
+            <h2 id="blink-heading">一次完整眨眼，要经过张开、闭合、再张开。</h2>
           </div>
-          <p>看不到你、电脑锁屏、超出监测时段或主动暂停时，相关检测会停下来并释放摄像头。每一类提醒都能独立关闭。</p>
+          <p>监测开启且人脸信号可用时，Lumi 才会检测眨眼。主动暂停、锁屏或电脑休眠后，摄像头会被释放。</p>
+        </div>
+        <div class="proof-grid">
+          <article class="proof-card">
+            <span>01 / 检测</span>
+            <h3>确认一次完整眨眼</h3>
+            <p>Lumi 会检查双眼的张开、闭合和重新张开过程。单个不确定的画面不会记作眨眼。</p>
+          </article>
+          <article class="proof-card">
+            <span>02 / 等待</span>
+            <h3>记录两次眨眼的间隔</h3>
+            <p>每检测到一次完整眨眼，间隔会重新开始。只有长时间没有检测到眨眼时，提醒才会出现。</p>
+          </article>
+          <article class="proof-card">
+            <span>03 / 提醒</span>
+            <h3>慢慢眨两下</h3>
+            <p>Lumi 检测到两次眨眼后会结束提醒，并进入冷却，不会马上再次出现。</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section-tint" id="features" aria-labelledby="features-heading">
+      <div class="shell">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">其他提醒与记录</p>
+            <h2 id="features-heading">你来决定 Lumi 记录什么。</h2>
+          </div>
+          <p>眨眼、远眺和久坐提醒可以分别开关。总开关和监测时段决定摄像头何时可以运行。</p>
         </div>
         <div class="feature-rail">
           <article class="feature-row">
             <span class="feature-time">长时间未检测到眨眼</span>
-            <h3>陪猫咪慢慢眨两下</h3>
-            <p>应用会确认双眼完成一次张开—闭合—再张开的过程，再记录一次完整眨眼。提醒完成后进入冷却，不会连续催促。</p>
+            <h3>慢慢眨两下</h3>
+            <p>完成两次眨眼即可结束提示。关闭眨眼提醒不会影响远眺和久坐提醒。</p>
           </article>
           <article class="feature-row">
             <span class="feature-time">累计看屏 20 分钟</span>
             <h3>看看约 6 米外的地方</h3>
-            <p>出现一个 20 秒的远眺场景。计时依据可用的人脸信号推进，离开座位时不会继续把空椅子算作看屏。</p>
+            <p>出现一个 20 秒的远眺场景。人脸信号不可用时，看屏计时会暂停。</p>
           </article>
           <article class="feature-row">
             <span class="feature-time">按你的间隔</span>
             <h3>起来走一走</h3>
-            <p>久坐提醒可设置为 1 到 600 分钟。完整站起才记录一次，短暂跟丢不会被当成你已经起身。</p>
+            <p>久坐提醒可设置为 1 到 600 分钟。完整站起才记录一次，短暂跟丢不会被当成已经起身。</p>
           </article>
           <article class="feature-row">
             <span class="feature-time">最近 30 天</span>
-            <h3>回看自己的节奏</h3>
+            <h3>查看本地记录</h3>
             <p>按天查看眨眼、哈欠、看屏和坐姿事件。记录保存在本机 IndexedDB，超过 30 天后自动删除。</p>
           </article>
         </div>
@@ -82,9 +107,9 @@ const description = "一只会根据真实看屏状态提醒你眨眼、远眺�
         <img src="/assets/horizon-break.webp" width="1400" height="420" loading="lazy" alt="远处群山与湖面的柔和插画" />
         <div class="horizon-copy">
           <p class="eyebrow">20 · 20 · 20</p>
-          <h2 id="rule-heading">让持续近距离用眼停一会儿。</h2>
+          <h2 id="rule-heading">看远处 20 秒。</h2>
           <p>美国验光协会建议：每使用屏幕 20 分钟，花 20 秒看看约 20 英尺（6 米）外的地方，以帮助缓解数字视疲劳。</p>
-          <a class="text-link" href="/tools/20-20-20-timer/" hreflang="en">打开免费网页计时器<span aria-hidden="true"> →</span></a>
+          <a class="text-link" href="/zh-cn/tools/20-20-20-timer/">打开免费网页计时器<span aria-hidden="true"> →</span></a>
         </div>
       </div>
     </section>
@@ -92,9 +117,9 @@ const description = "一只会根据真实看屏状态提醒你眨眼、远眺�
     <section class="section section-dark" id="privacy" aria-labelledby="privacy-heading">
       <div class="shell privacy-layout">
         <div class="content-block">
-          <p class="eyebrow">本地，就是留在本地</p>
-          <h2 id="privacy-heading">摄像头可以提供帮助，不需要变成云服务。</h2>
-          <p>MediaPipe 在你的电脑内存中处理画面。Look Me 只保留很小的行为事件，不保存照片、视频或人脸坐标，也不需要账号。</p>
+          <p class="eyebrow">摄像头数据留在这台电脑</p>
+          <h2 id="privacy-heading">画面在内存中处理，随后丢弃。</h2>
+          <p>MediaPipe 在你的电脑上运行。Lumi 会把少量行为事件保存在本地 30 天，不保存照片、视频、人脸坐标或屏幕内容。</p>
         </div>
         <div class="privacy-ledger">
           <div class="ledger-row"><span>处理</span><strong>摄像头帧，仅在本机内存</strong></div>
@@ -109,13 +134,14 @@ const description = "一只会根据真实看屏状态提醒你眨眼、远眺�
     <section class="section" aria-labelledby="boundary-heading">
       <div class="shell privacy-layout">
         <div class="quote-panel">
-          <blockquote>“习惯提醒可以帮你停一下，但不能告诉你眼睛为什么不舒服。”</blockquote>
-          <p>Look Me 不是医疗设备，不能诊断干眼病、测量泪液质量或代替眼科检查。</p>
+          <p class="eyebrow">LUMI 能做什么</p>
+          <h2>提醒你眨眼和休息。</h2>
+          <p>它能记录完整眨眼和看屏区间，也能在间隔过长时发出提醒。</p>
         </div>
         <div class="content-block">
-          <p class="eyebrow">能力边界</p>
-          <h2 id="boundary-heading">帮助建立习惯，不包装成治疗。</h2>
-          <p>如果眼睛持续疼痛、发红、怕光、有分泌物或视力突然变化，请及时咨询专业人员，不要等待软件提醒解决问题。</p>
+          <p class="eyebrow">医疗边界</p>
+          <h2 id="boundary-heading">眼睛持续不舒服时，请去检查。</h2>
+          <p>Lumi 不能诊断干眼病、测量泪液质量或代替眼科检查。眼睛持续疼痛、发红、怕光、有分泌物或视力突然变化时，请及时咨询专业人员。</p>
         </div>
       </div>
     </section>

@@ -1,0 +1,92 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import SiteHeader from "../../../components/SiteHeader.astro";
+import SiteFooter from "../../../components/SiteFooter.astro";
+import ArticleHeader from "../../../components/ArticleHeader.astro";
+import SourceList from "../../../components/SourceList.astro";
+import DownloadCta from "../../../components/DownloadCta.astro";
+import { articleSchema, breadcrumbSchema, languageAlternates } from "../../../lib/site";
+
+const path = "/zh-cn/20-20-20-rule/";
+const title = "20-20-20 护眼法怎么做｜屏幕休息指南";
+const description = "20-20-20 护眼法是指每看屏幕 20 分钟，用 20 秒看向约 20 英尺（6 米）外。了解具体做法、适用边界，以及眼睛不适时何时应去检查。";
+const aoa = "https://www.aoa.org/healthy-eyes/eye-and-vision-conditions/computer-vision-syndrome";
+const nei = "https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/dry-eye";
+const sources = [
+  { title: "Computer vision syndrome", publisher: "American Optometric Association", href: aoa },
+  { title: "Dry Eye", publisher: "National Eye Institute", href: nei },
+];
+---
+
+<BaseLayout
+  title={title}
+  description={description}
+  path={path}
+  locale="zh-CN"
+  alternates={languageAlternates("/20-20-20-rule/", path)}
+  schemas={[
+    articleSchema({ title, description, path, citations: [aoa, nei], locale: "zh-CN" }),
+    breadcrumbSchema([{ name: "首页", path: "/zh-cn/" }, { name: "20-20-20 护眼法", path }]),
+  ]}
+>
+  <SiteHeader locale="zh-CN" currentPath={path} alternatePath="/20-20-20-rule/" />
+  <main id="main-content">
+    <ArticleHeader
+      locale="zh-CN"
+      eyebrow="屏幕休息指南"
+      title="20-20-20 是一次短暂的远眺休息。"
+      description="每看屏幕 20 分钟，用 20 秒看向约 20 英尺（6 米）外。这是一般性的屏幕休息建议，不能用来诊断或治疗眼病。"
+    />
+
+    <div class="article-layout">
+      <nav class="article-toc" aria-label="本文目录">
+        <strong>本文目录</strong>
+        <a href="#meaning">具体做法</a>
+        <a href="#why">为什么看远处</a>
+        <a href="#practice">怎样坚持</a>
+        <a href="#limits">适用边界</a>
+        <a href="#sources-heading">参考资料</a>
+      </nav>
+
+      <article class="article-body">
+        <img src="/assets/horizon-break.webp" width="1400" height="420" alt="远处的山和水面" />
+
+        <h2 id="meaning">20-20-20 是什么意思</h2>
+        <p>美国验光协会把 20-20-20 作为帮助缓解数字视疲劳的方法：每使用屏幕 20 分钟，花 20 秒看向 20 英尺外。20 英尺约等于 6 米。重点是暂时把视线从近处屏幕移开。</p>
+
+        <div class="definition-grid" aria-label="20-20-20 的三个部分">
+          <div class="definition-card"><strong>20 分钟</strong><p>在持续看屏过程中设置一个容易记住的间隔。</p></div>
+          <div class="definition-card"><strong>20 英尺</strong><p>选择约 6 米外的真实物体。</p></div>
+          <div class="definition-card"><strong>20 秒</strong><p>让视线在远处停留一会儿。</p></div>
+        </div>
+
+        <h2 id="why">为什么要看远处</h2>
+        <p>数字视疲劳也叫计算机视觉综合征，指长时间使用电脑、平板、电子阅读器和手机时出现的一组眼部与视觉问题。远眺会暂时改变持续近距离聚焦的任务。</p>
+        <p>这 20 秒也可以用来正常眨眼、放松肩膀，并检查屏幕亮度、反光或观看距离是否让你不舒服。</p>
+
+        <div class="article-callout">
+          <strong>这条规则不能诊断眼睛不适</strong>
+          <p>20-20-20 是一般习惯建议。它不能判断疼痛、发红、视物模糊或干涩的原因，也不能治疗干眼病。</p>
+        </div>
+
+        <h2 id="practice">怎样更容易坚持</h2>
+        <ol>
+          <li><strong>提前选好远处目标。</strong>窗外、走廊尽头或大房间的另一侧都可以。</li>
+          <li><strong>休息时不要换成手机。</strong>手机仍是近距离视觉任务。</li>
+          <li><strong>自然眨眼。</strong>不需要用力挤眼，也不用把它做成眼部训练。</li>
+          <li><strong>选择你会继续使用的提醒。</strong>可以先用免费网页计时器，也可以让 Lumi 按实际看屏时间推进。</li>
+        </ol>
+
+        <p><a class="button" href="/zh-cn/tools/20-20-20-timer/">打开免费 20-20-20 计时器</a></p>
+
+        <h2 id="limits">什么时候不能只靠休息提醒</h2>
+        <p>眼睛不适有很多可能原因。提醒软件无法检查眼表、验光度数、泪液质量或是否患有干眼病。美国国家眼科研究所也指出，干眼治疗要根据原因决定。</p>
+        <p>症状持续或加重，尤其出现明显疼痛、严重发红、怕光、分泌物、眼外伤或视力突然变化时，请及时就医。佩戴隐形眼镜后出现明显疼痛或发红，应取下镜片并联系眼科专业人员。</p>
+
+        <SourceList sources={sources} locale="zh-CN" />
+        <DownloadCta compact locale="zh-CN" />
+      </article>
+    </div>
+  </main>
+  <SiteFooter locale="zh-CN" />
+</BaseLayout>

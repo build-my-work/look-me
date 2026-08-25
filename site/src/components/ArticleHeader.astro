@@ -4,9 +4,12 @@ interface Props {
   title: string;
   description: string;
   updated?: string;
+  locale?: "en" | "zh-CN";
 }
 
-const { eyebrow, title, description, updated = "August 25, 2026" } = Astro.props;
+const { eyebrow, title, description, updated, locale = "en" } = Astro.props;
+const isChinese = locale === "zh-CN";
+const displayedDate = updated ?? (isChinese ? "2026 年 8 月 25 日" : "August 25, 2026");
 ---
 
 <header class="article-hero shell-narrow">
@@ -14,8 +17,8 @@ const { eyebrow, title, description, updated = "August 25, 2026" } = Astro.props
   <h1>{title}</h1>
   <p class="article-dek">{description}</p>
   <div class="article-byline">
-    <span>By Look Me</span>
-    <span>Source-checked against primary eye-care guidance</span>
-    <time datetime="2026-08-25">Updated {updated}</time>
+    <span>{isChinese ? "Lumi 项目整理" : "Prepared by the Lumi project"}</span>
+    <span>{isChinese ? "参考资料见文末" : "References are listed below"}</span>
+    <time datetime="2026-08-25">{isChinese ? `更新于 ${displayedDate}` : `Updated ${displayedDate}`}</time>
   </div>
 </header>

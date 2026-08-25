@@ -9,10 +9,10 @@ const marks = [0, 1, 0, 0, 1, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1,
 ---
 
 <div class="attention-trace" role="img" aria-label={isChinese ? "一段专注时段中的眨眼节奏示意" : "An illustrative blink rhythm during one focused screen session"}>
-  <div class="trace-meta"><span>09:41:02</span><strong>{isChinese ? "注意力轨迹" : "Attention trace"}</strong><span>09:42:02</span></div>
+  <div class="trace-meta"><span>09:41:02</span><strong>{isChinese ? "眨眼记录" : "Blink trace"}</strong><span>09:42:02</span></div>
   <div class="trace-line" aria-hidden="true">
     {marks.map((active) => <i class:list={{ active: Boolean(active) }}></i>)}
     <span class="trace-cat"><img src="/assets/cat-idle-384.webp" width="22" height="28" alt="" /></span>
   </div>
-  <div class="trace-legend"><span><i></i>{isChinese ? "完整眨眼" : "complete blink"}</span><span>{isChinese ? "没有眨眼时，提醒才会靠近" : "the reminder approaches only when the gap grows"}</span></div>
+  <div class="trace-legend"><span><i></i>{isChinese ? "完整眨眼" : "complete blink"}</span><span>{isChinese ? "眨眼间隔过长时会出现提醒" : "a long gap can trigger a reminder"}</span></div>
 </div>

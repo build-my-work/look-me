@@ -4,10 +4,10 @@ import SiteHeader from "../../components/SiteHeader.astro";
 import SiteFooter from "../../components/SiteFooter.astro";
 import CatStage from "../../components/CatStage.astro";
 import DownloadCta from "../../components/DownloadCta.astro";
-import { breadcrumbSchema, softwareApplicationSchema } from "../../lib/site";
+import { breadcrumbSchema, languageAlternates, softwareApplicationSchema } from "../../lib/site";
 
 const path = "/blink-reminder/";
-const title = "Blink Reminder App for Mac, Windows & Linux | Look Me";
+const title = "Blink Reminder App for Mac, Windows & Linux | Lumi";
 const description = "A context-aware blink reminder that detects complete blinks locally, pauses when sensing is unavailable, and asks for two slow blinks after a long gap.";
 ---
 
@@ -15,24 +15,25 @@ const description = "A context-aware blink reminder that detects complete blinks
   title={title}
   description={description}
   path={path}
+  alternates={languageAlternates(path, "/zh-cn/blink-reminder/")}
   schemas={[
     softwareApplicationSchema,
     breadcrumbSchema([{ name: "Home", path: "/" }, { name: "Blink reminder", path }]),
   ]}
 >
-  <SiteHeader currentPath={path} />
+  <SiteHeader currentPath={path} alternatePath="/zh-cn/blink-reminder/" />
   <main id="main-content">
     <section class="hero">
       <div class="shell hero-grid">
         <div class="hero-copy">
           <p class="eyebrow">CONTEXT-AWARE BLINK REMINDER</p>
-          <h1>Remember to blink <span class="soft-line">without watching another clock.</span></h1>
-          <p>Look Me detects complete blinks on your device. After a prolonged gap, the desktop cat invites two slow blinks, then gives you space instead of repeating the prompt.</p>
+          <h1>Lumi detects complete blinks <span class="soft-line">and reminds you after a long gap.</span></h1>
+          <p>A small prompt asks you to blink slowly twice. Completing those blinks closes the prompt and starts a cooldown.</p>
           <div class="hero-actions">
             <a class="button" href="/download/">Download free</a>
             <a class="button button-secondary" href="/privacy/">Read the privacy model</a>
           </div>
-          <p class="hero-note">No target blink score. No camera upload. No medical diagnosis.</p>
+          <p class="hero-note">Camera frames are processed on your computer and discarded.</p>
         </div>
         <CatStage />
       </div>
@@ -41,37 +42,31 @@ const description = "A context-aware blink reminder that detects complete blinks
     <section class="section section-tint" aria-labelledby="sequence-heading">
       <div class="shell">
         <div class="section-heading">
-          <div><p class="eyebrow">OPEN · CLOSE · OPEN</p><h2 id="sequence-heading">A complete sequence, not one noisy frame.</h2></div>
-          <p>The detector combines both-eye blendshape signals with an eye-aspect-ratio check. It looks for a balanced transition and filters one-eye movement, long closure, and weak distant-face noise.</p>
+          <div><p class="eyebrow">OPEN · CLOSE · OPEN</p><h2 id="sequence-heading">How Lumi recognizes a complete blink.</h2></div>
+          <p>The detector combines signals from both eyes with an eye-aspect-ratio check. It confirms a full transition and filters one-eye movement, long closure, and weak distant-face signals.</p>
         </div>
         <div class="feature-rail">
           <article class="feature-row"><span class="feature-time">01 / OBSERVE</span><h3>Confirm a usable face signal</h3><p>If confidence is low, the face is obscured, or camera access is unavailable, blink sensing pauses and the interface says why.</p></article>
           <article class="feature-row"><span class="feature-time">02 / DETECT</span><h3>Recognize one full blink</h3><p>Both eyes need to move through a plausible open–closed–open sequence. A single uncertain frame is not enough.</p></article>
-          <article class="feature-row"><span class="feature-time">03 / RESPOND</span><h3>Mirror it with the companion</h3><p>The cat blinks back, making the invisible event visible without turning it into a score.</p></article>
+          <article class="feature-row"><span class="feature-time">03 / RESPOND</span><h3>Mirror it with Lumi</h3><p>Lumi blinks back, making the invisible event visible without turning it into a score.</p></article>
           <article class="feature-row"><span class="feature-time">04 / NUDGE</span><h3>Invite two slow blinks after a gap</h3><p>When the configured behavior detects a long no-blink interval, a small prompt appears. Completing two blinks ends it; a cooldown limits repetition.</p></article>
         </div>
       </div>
     </section>
 
-    <section class="section" aria-labelledby="comparison-heading">
+    <section class="section" aria-labelledby="pause-heading">
       <div class="shell-narrow article-body">
-        <p class="eyebrow">TIMER VS SIGNAL</p>
-        <h2 id="comparison-heading">Why not just set a repeating notification?</h2>
-        <div class="comparison-table">
-          <table>
-            <thead><tr><th>Behavior</th><th>Fixed timer</th><th>Look Me blink reminder</th></tr></thead>
-            <tbody>
-              <tr><td>You step away</td><td>The clock continues.</td><td>Sensing pauses when no usable face signal is present.</td></tr>
-              <tr><td>You already blink normally</td><td>The notification still arrives.</td><td>The no-blink interval restarts after a detected complete blink.</td></tr>
-              <tr><td>The camera is blocked</td><td>The timer cannot know.</td><td>The app reports sensing as unavailable instead of fabricating a signal.</td></tr>
-              <tr><td>You complete the prompt</td><td>You dismiss a notification.</td><td>Two detected blinks complete the interaction and begin a cooldown.</td></tr>
-            </tbody>
-          </table>
-        </div>
+        <p class="eyebrow">WHEN SENSING PAUSES</p>
+        <h2 id="pause-heading">The reminder waits for a usable face signal.</h2>
+        <p>If you step away, block the camera, or move outside a usable range, blink sensing changes to unavailable and the no-blink interval stops. It resumes when the signal returns.</p>
+        <p>Locking the screen, putting the computer to sleep, leaving the configured monitoring window, or using the master pause switch releases the camera.</p>
+
+        <h2>What Lumi records</h2>
+        <p>The local timeline stores the time of each detected complete blink. It does not store the camera frame, raw face landmarks, or an ideal blink-rate target.</p>
 
         <div class="article-callout">
-          <strong>This is habit support, not dry-eye treatment</strong>
-          <p>Look Me cannot diagnose dry eye disease, assess tear quality, or determine an ideal blink rate for you. Persistent or concerning eye symptoms require professional evaluation.</p>
+          <strong>The blink reminder does not assess eye health</strong>
+          <p>Lumi cannot diagnose dry eye disease, assess tear quality, or determine an ideal blink rate for you. Persistent or concerning eye symptoms require professional evaluation.</p>
         </div>
       </div>
     </section>

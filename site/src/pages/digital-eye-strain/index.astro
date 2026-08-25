@@ -5,7 +5,7 @@ import SiteFooter from "../../components/SiteFooter.astro";
 import ArticleHeader from "../../components/ArticleHeader.astro";
 import SourceList from "../../components/SourceList.astro";
 import DownloadCta from "../../components/DownloadCta.astro";
-import { articleSchema, breadcrumbSchema } from "../../lib/site";
+import { articleSchema, breadcrumbSchema, languageAlternates } from "../../lib/site";
 
 const path = "/digital-eye-strain/";
 const title = "Digital Eye Strain: Screen Breaks, Blinking, and Limits";
@@ -24,17 +24,18 @@ const sources = [
   title={title}
   description={description}
   path={path}
+  alternates={languageAlternates(path, "/zh-cn/digital-eye-strain/")}
   schemas={[
     articleSchema({ title, description, path, citations: [aoa, nei, mayo] }),
     breadcrumbSchema([{ name: "Home", path: "/" }, { name: "Digital eye strain", path }]),
   ]}
 >
-  <SiteHeader currentPath={path} />
+  <SiteHeader currentPath={path} alternatePath="/zh-cn/digital-eye-strain/" />
   <main id="main-content">
     <ArticleHeader
       eyebrow="SCREEN HABIT GUIDE"
-      title="Digital eye strain is a cluster of symptoms, not one diagnosis."
-      description="Long screen sessions can be associated with tired, uncomfortable, dry-feeling eyes, blurred vision, and headaches. Those symptoms can also have other causes—so the useful response begins with habits and ends with knowing when to get examined."
+      title="Digital eye strain describes a group of symptoms."
+      description="Long screen sessions can be associated with tired, uncomfortable, dry-feeling eyes, blurred vision, and headaches. Those symptoms can also have other causes, especially when they persist."
     />
 
     <div class="article-layout">
@@ -82,7 +83,7 @@ const sources = [
         </ol>
 
         <h3>Where a context-aware reminder helps</h3>
-        <p>A reminder is most useful when the problem is remembering. Look Me can pause its rhythm while sensing is unavailable, keep distance and blink reminders independent, and place small behavior events on a local timeline. It cannot inspect your eyes, prescribe a treatment, or establish a medically meaningful blink target.</p>
+        <p>A reminder is most useful when the problem is remembering. Lumi can pause its rhythm while sensing is unavailable, keep distance and blink reminders independent, and place small behavior events on a local timeline. It cannot inspect your eyes, prescribe a treatment, or establish a medically meaningful blink target.</p>
 
         <h2 id="care">When is software not enough?</h2>
         <p>Arrange an eye examination when symptoms persist, recur frequently, interfere with work, or do not improve with basic environmental and break changes. Seek prompt care for significant pain, marked redness, light sensitivity, discharge, injury, or sudden visual change.</p>

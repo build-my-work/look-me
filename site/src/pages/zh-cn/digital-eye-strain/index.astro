@@ -1,0 +1,94 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import SiteHeader from "../../../components/SiteHeader.astro";
+import SiteFooter from "../../../components/SiteFooter.astro";
+import ArticleHeader from "../../../components/ArticleHeader.astro";
+import SourceList from "../../../components/SourceList.astro";
+import DownloadCta from "../../../components/DownloadCta.astro";
+import { articleSchema, breadcrumbSchema, languageAlternates } from "../../../lib/site";
+
+const path = "/zh-cn/digital-eye-strain/";
+const title = "数字视疲劳是什么｜症状、屏幕休息与就医时机";
+const description = "数字视疲劳是长时间使用电脑、手机等设备时可能出现的一组症状，包括眼睛疲劳、干涩感、视物模糊和头痛。了解日常调整与需要检查的情况。";
+const aoa = "https://www.aoa.org/healthy-eyes/eye-and-vision-conditions/computer-vision-syndrome";
+const nei = "https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/dry-eye";
+const mayo = "https://www.mayoclinic.org/diseases-conditions/dry-eyes/symptoms-causes/syc-20371863";
+const sources = [
+  { title: "Computer vision syndrome", publisher: "American Optometric Association", href: aoa },
+  { title: "Dry Eye", publisher: "National Eye Institute", href: nei },
+  { title: "Dry eyes — symptoms and causes", publisher: "Mayo Clinic", href: mayo },
+];
+---
+
+<BaseLayout
+  title={title}
+  description={description}
+  path={path}
+  locale="zh-CN"
+  alternates={languageAlternates("/digital-eye-strain/", path)}
+  schemas={[
+    articleSchema({ title, description, path, citations: [aoa, nei, mayo], locale: "zh-CN" }),
+    breadcrumbSchema([{ name: "首页", path: "/zh-cn/" }, { name: "数字视疲劳", path }]),
+  ]}
+>
+  <SiteHeader locale="zh-CN" currentPath={path} alternatePath="/digital-eye-strain/" />
+  <main id="main-content">
+    <ArticleHeader
+      locale="zh-CN"
+      eyebrow="屏幕用眼指南"
+      title="数字视疲劳指的是一组症状。"
+      description="长时间看屏幕可能伴随眼睛疲劳、干涩感、视物模糊和头痛。这些症状也可能有其他原因，尤其是在反复或持续出现时。"
+    />
+
+    <div class="article-layout">
+      <nav class="article-toc" aria-label="本文目录">
+        <strong>本文目录</strong>
+        <a href="#definition">它是什么</a>
+        <a href="#symptoms">常见表现</a>
+        <a href="#screens">屏幕与干涩</a>
+        <a href="#habits">日常调整</a>
+        <a href="#care">何时检查</a>
+        <a href="#sources-heading">参考资料</a>
+      </nav>
+
+      <article class="article-body">
+        <h2 id="definition">什么是数字视疲劳</h2>
+        <p>美国验光协会使用“计算机视觉综合征”和“数字视疲劳”描述长期使用电脑、平板、电子阅读器和手机时出现的一组眼部与视觉问题。它描述的是不适模式，不代表某一种确定的疾病。</p>
+        <p>同样是工作一天后眼睛疲劳，原因可能不同，例如持续近距离聚焦、度数不合适、反光、空气干燥、隐形眼镜、眨眼变化或其他眼表问题。</p>
+
+        <h2 id="symptoms">常见表现</h2>
+        <div class="definition-grid">
+          <div class="definition-card"><strong>眼部不适</strong><p>疲劳、酸痛、灼热、异物感或干涩感。</p></div>
+          <div class="definition-card"><strong>视觉变化</strong><p>短暂模糊、重新对焦变慢，或难以持续看清近处。</p></div>
+          <div class="definition-card"><strong>其他不适</strong><p>头痛、颈肩紧张，或需要停下当前任务。</p></div>
+        </div>
+        <p>这些感受与干眼症状有重叠，但症状相似不等于诊断相同。提醒软件无法区分泪液不足、蒸发过快、眼睑或腺体问题、药物和环境等因素。</p>
+
+        <h2 id="screens">为什么看屏幕后可能觉得干涩</h2>
+        <p>看屏工作往往同时包含持续近距离聚焦、注意力集中、固定视线方向，以及空调、低湿度或反光等室内环境。专注任务中，眨眼次数或完整程度也可能改变。</p>
+        <p>眨眼会把泪膜铺开。提醒可以让你停下来正常眨眼，却无法判断泪膜是否健康，也不能检查腺体、药物、隐形眼镜或全身性疾病是否有关。</p>
+        <p>如果主要困扰是干涩，可以继续阅读<a href="/zh-cn/dry-eyes-from-screen/">看电脑后眼睛干涩</a>的专题页。</p>
+
+        <h2 id="habits">长时间看屏时可以怎样调整</h2>
+        <ol>
+          <li><strong>中断持续近距离聚焦。</strong>用 <a href="/zh-cn/20-20-20-rule/">20-20-20</a> 作为远眺节奏。</li>
+          <li><strong>正常眨眼。</strong>短提醒可以帮你想起来，但不需要用力挤眼。</li>
+          <li><strong>让文字更容易看清。</strong>放大字号，调整屏幕距离和高度，减少前倾。</li>
+          <li><strong>处理反光和极端亮度差。</strong>让屏幕与周围环境的亮度更舒服。</li>
+          <li><strong>改变任务和姿势。</strong>较长时段里站起来、走动，并切换观看距离。</li>
+        </ol>
+
+        <h3>眨眼提醒能做的部分</h3>
+        <p>Lumi 能在本机检测完整眨眼，长时间没有检测到眨眼时提醒你，也能按可用人脸信号累计看屏时间。它不能检查眼睛、开具治疗方案或给出有医学意义的眨眼目标。</p>
+
+        <h2 id="care">什么时候需要专业检查</h2>
+        <p>症状持续、经常反复、影响工作，或简单调整环境与休息后仍没有改善时，请安排眼科检查。出现明显疼痛、严重发红、怕光、分泌物、眼外伤或视力突然变化时，应及时就医。</p>
+        <p>佩戴隐形眼镜后出现明显发红、疼痛、怕光、分泌物或视物突然模糊时，应取下镜片并尽快联系眼科专业人员。</p>
+
+        <SourceList sources={sources} locale="zh-CN" />
+        <DownloadCta compact locale="zh-CN" />
+      </article>
+    </div>
+  </main>
+  <SiteFooter locale="zh-CN" />
+</BaseLayout>

@@ -5,37 +5,33 @@ import SiteFooter from "../components/SiteFooter.astro";
 import CatStage from "../components/CatStage.astro";
 import AttentionTrace from "../components/AttentionTrace.astro";
 import DownloadCta from "../components/DownloadCta.astro";
-import { softwareApplicationSchema, websiteSchema } from "../lib/site";
+import { languageAlternates, softwareApplicationSchema, websiteSchema } from "../lib/site";
 
-const title = "Look Me — Smart Blink & Eye Break Reminder";
-const description = "A private desktop companion that notices long screen sessions and reminds you to blink, look away, and stand up—without uploading camera footage.";
+const title = "Blink Reminder App with On-Device Detection | Lumi";
+const description = "Lumi detects complete blinks on your device and reminds you after a long gap. It also supports 20-20-20 and stand-up breaks on Mac, Windows, and Linux.";
 ---
 
 <BaseLayout
   title={title}
   description={description}
   path="/"
-  alternates={[
-    { hreflang: "en", path: "/" },
-    { hreflang: "zh-Hans", path: "/zh-cn/" },
-    { hreflang: "x-default", path: "/" },
-  ]}
+  alternates={languageAlternates("/", "/zh-cn/")}
   schemas={[websiteSchema, softwareApplicationSchema]}
 >
-  <SiteHeader currentPath="/" />
+  <SiteHeader currentPath="/" alternatePath="/zh-cn/" />
 
   <main id="main-content">
     <section class="hero">
       <div class="shell hero-grid">
         <div class="hero-copy">
-          <p class="eyebrow">PRIVATE BY DESIGN · MACOS, WINDOWS & LINUX</p>
-          <h1>A reminder that <span class="soft-line">waits for the right moment.</span></h1>
-          <p>Look Me is a tiny desktop companion that notices when a screen session runs long, then nudges you to blink, look into the distance, or stand up. No account. No camera upload. No noisy timer guessing when you are there.</p>
+          <p class="eyebrow">ON-DEVICE BLINK DETECTION · MACOS, WINDOWS & LINUX</p>
+          <h1>Lumi notices <span class="soft-line">long gaps between blinks.</span></h1>
+          <p>Lumi detects complete blinks on your computer. After a long gap, a small prompt asks you to blink slowly twice. Camera frames are processed in memory and discarded.</p>
           <div class="hero-actions">
-            <a class="button" href="/download/">Download free</a>
-            <a class="button button-secondary" href="/how-it-works/">See how it works</a>
+            <a class="button" href="/download/">Download Lumi</a>
+            <a class="button button-secondary" href="/blink-reminder/">How blink detection works</a>
           </div>
-          <p class="hero-note">Detection and 30-day activity history stay on this device.</p>
+          <p class="hero-note">Distance-break and stand-up reminders are included and can be switched off separately.</p>
         </div>
         <CatStage />
       </div>
@@ -46,26 +42,26 @@ const description = "A private desktop companion that notices long screen sessio
       <div class="shell">
         <div class="section-heading">
           <div>
-            <p class="eyebrow">WHY CONTEXT MATTERS</p>
-            <h2 id="why-heading">A timer knows the clock. Look Me notices the session.</h2>
+            <p class="eyebrow">HOW THE BLINK REMINDER WORKS</p>
+            <h2 id="why-heading">From a complete blink to a two-blink reminder.</h2>
           </div>
-          <p>Fixed reminders arrive during calls, after you have already stepped away, or while the app cannot see you. Look Me pauses when sensing is unavailable and responds to observable habits instead.</p>
+          <p>Blink sensing runs only while monitoring is active and the face signal is usable. You can pause it at any time, and locking or sleeping the computer releases the camera.</p>
         </div>
         <div class="proof-grid">
           <article class="proof-card">
-            <span>01 / BLINK</span>
-            <h3>Waits for a complete blink</h3>
-            <p>It looks for an open–close–open sequence across both eyes before recording a blink. A long gap can trigger a gentle two-blink prompt.</p>
+            <span>01 / DETECT</span>
+            <h3>Confirm a complete blink</h3>
+            <p>Lumi looks for an open–close–open sequence across both eyes. One uncertain frame does not count as a blink.</p>
           </article>
           <article class="proof-card">
-            <span>02 / DISTANCE</span>
-            <h3>Counts observed screen time</h3>
-            <p>The 20-minute distance-break rhythm advances while a usable face signal is present, rather than treating an empty chair as screen time.</p>
+            <span>02 / WAIT</span>
+            <h3>Measure the gap</h3>
+            <p>Every detected complete blink restarts the no-blink interval. The reminder appears only after that gap becomes prolonged.</p>
           </article>
           <article class="proof-card">
-            <span>03 / PRESENCE</span>
-            <h3>Stops when you are away</h3>
-            <p>Lock the screen, leave the configured schedule, or pause monitoring and the camera is released. Hiding the widget does not silently change collection behavior.</p>
+            <span>03 / REMIND</span>
+            <h3>Blink slowly twice</h3>
+            <p>Two detected blinks complete the prompt. Lumi then starts a cooldown so the reminder does not immediately return.</p>
           </article>
         </div>
       </div>
@@ -75,16 +71,16 @@ const description = "A private desktop companion that notices long screen sessio
       <div class="shell">
         <div class="section-heading">
           <div>
-            <p class="eyebrow">ONE QUIET COMPANION</p>
-            <h2 id="features-heading">Three habits, one readable rhythm.</h2>
+            <p class="eyebrow">OTHER REMINDERS AND RECORDS</p>
+            <h2 id="features-heading">Choose what Lumi keeps track of.</h2>
           </div>
-          <p>Each reminder can be switched off independently. The companion stays out of the way until the corresponding behavior calls for it.</p>
+          <p>Blink, distance, and sedentary reminders have separate switches. A master monitoring switch and schedule control when camera sensing can run.</p>
         </div>
         <div class="feature-rail">
           <article class="feature-row">
             <span class="feature-time">AFTER A LONG GAP</span>
-            <h3>Blink with the cat twice</h3>
-            <p>When enabled, a prolonged gap between detected blinks invites two slow blinks. Completing them dismisses the prompt; a cooldown prevents repeated nudges.</p>
+            <h3>Respond to a long blink gap</h3>
+            <p>A small prompt asks for two slow blinks. Complete them to dismiss it, or turn the blink reminder off without changing the other features.</p>
           </article>
           <article class="feature-row">
             <span class="feature-time">EVERY 20 MINUTES</span>
@@ -94,7 +90,7 @@ const description = "A private desktop companion that notices long screen sessio
           <article class="feature-row">
             <span class="feature-time">YOUR INTERVAL</span>
             <h3>Stand up on your schedule</h3>
-            <p>Choose a sedentary interval from 1 to 600 minutes. Look Me distinguishes a completed stand-up movement from a brief tracking loss.</p>
+            <p>Choose a sedentary interval from 1 to 600 minutes. Lumi distinguishes a completed stand-up movement from a brief tracking loss.</p>
           </article>
           <article class="feature-row">
             <span class="feature-time">LAST 30 DAYS</span>
@@ -110,7 +106,7 @@ const description = "A private desktop companion that notices long screen sessio
         <img src="/assets/horizon-break.webp" width="1400" height="420" loading="lazy" alt="A soft illustration of distant hills and a lake at sunrise" />
         <div class="horizon-copy">
           <p class="eyebrow">20 · 20 · 20</p>
-          <h2 id="rule-heading">Give near focus a pause.</h2>
+          <h2 id="rule-heading">Look at a distant object for 20 seconds.</h2>
           <p>The American Optometric Association recommends looking at something 20 feet away for 20 seconds after every 20 minutes of screen use to help ease digital eye strain.</p>
           <a class="text-link" href="/tools/20-20-20-timer/">Start the free browser timer<span aria-hidden="true"> →</span></a>
         </div>
@@ -120,9 +116,9 @@ const description = "A private desktop companion that notices long screen sessio
     <section class="section section-dark" id="privacy" aria-labelledby="privacy-heading">
       <div class="shell privacy-layout">
         <div class="content-block">
-          <p class="eyebrow">LOCAL MEANS LOCAL</p>
-          <h2 id="privacy-heading">The camera can help without becoming a cloud service.</h2>
-          <p>MediaPipe analyzes frames in memory on your computer. Look Me keeps small behavior events—not photos, video, or face coordinates—and requires no account.</p>
+          <p class="eyebrow">CAMERA DATA STAYS ON YOUR DEVICE</p>
+          <h2 id="privacy-heading">Frames are processed in memory and discarded.</h2>
+          <p>MediaPipe runs on your computer. Lumi saves small behavior events in a local timeline for 30 days. It does not save photos, video, face coordinates, or screen contents.</p>
         </div>
         <div class="privacy-ledger">
           <div class="ledger-row"><span>Processed</span><strong>Camera frames, in memory, on this device</strong></div>
@@ -137,13 +133,14 @@ const description = "A private desktop companion that notices long screen sessio
     <section class="section" aria-labelledby="difference-heading">
       <div class="shell privacy-layout">
         <div class="quote-panel">
-          <blockquote>“A reminder is useful only if you have not learned to ignore it.”</blockquote>
-          <p>Look Me uses a visible companion, responsive timing, and explicit controls so the reminder feels connected to what is happening—not like another productivity alarm.</p>
+          <p class="eyebrow">VISIBLE FEEDBACK</p>
+          <h2>The cat blinks when Lumi detects one.</h2>
+          <p>The small desktop companion mirrors detected blinks and shows reminder state without turning your activity into a score.</p>
         </div>
         <div class="content-block">
-          <p class="eyebrow">BUILT TO BE KEPT ON</p>
-          <h2 id="difference-heading">A companion, not a compliance dashboard.</h2>
-          <p>There are no streaks, health scores, accounts, or leaderboards. The cat mirrors a detected blink, yawns occasionally, and offers a small amount of life between reminders.</p>
+          <p class="eyebrow">YOUR CONTROLS</p>
+          <h2 id="difference-heading">Every reminder has its own switch.</h2>
+          <p>Lumi does not assign streaks or health scores. You can hide the desktop companion, pause monitoring, or disable any reminder independently.</p>
           <p style="margin-top:20px"><a class="text-link" href="/blink-reminder/">Explore the blink reminder<span aria-hidden="true"> →</span></a></p>
         </div>
       </div>
@@ -152,12 +149,12 @@ const description = "A private desktop companion that notices long screen sessio
     <section class="section section-tint" aria-labelledby="faq-heading">
       <div class="shell">
         <div class="section-heading">
-          <div><p class="eyebrow">BEFORE YOU INSTALL</p><h2 id="faq-heading">The honest answers.</h2></div>
-          <p>Look Me supports screen habits. It is not a medical device and cannot tell you why your eyes feel uncomfortable.</p>
+          <div><p class="eyebrow">BEFORE YOU INSTALL</p><h2 id="faq-heading">Questions about sensing and privacy.</h2></div>
+          <p>Lumi supports screen habits. It is not a medical device and cannot tell you why your eyes feel uncomfortable.</p>
         </div>
         <div class="faq-list">
           <details>
-            <summary>Does Look Me diagnose or treat dry eye?</summary>
+            <summary>Does Lumi diagnose or treat dry eye?</summary>
             <p>No. It can remind you to blink and take breaks, but it cannot diagnose dry eye disease, measure tear quality, or replace an eye examination. Read the <a href="/dry-eyes-from-screen/">dry eyes and screen use guide</a>; persistent pain, redness, light sensitivity, discharge, or sudden vision change needs professional care.</p>
           </details>
           <details>

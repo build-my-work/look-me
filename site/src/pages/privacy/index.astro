@@ -3,28 +3,28 @@ import BaseLayout from "../../layouts/BaseLayout.astro";
 import SiteHeader from "../../components/SiteHeader.astro";
 import SiteFooter from "../../components/SiteFooter.astro";
 import DownloadCta from "../../components/DownloadCta.astro";
-import { breadcrumbSchema } from "../../lib/site";
+import { breadcrumbSchema, languageAlternates } from "../../lib/site";
 
 const path = "/privacy/";
-const title = "Look Me Privacy: On-Device Camera Processing";
-const description = "See exactly what Look Me processes, stores, never stores, and deletes: on-device camera frames, six local event types, no account, and no cloud upload.";
+const title = "Lumi Privacy: On-Device Camera Processing";
+const description = "See exactly what Lumi processes, stores, never stores, and deletes: on-device camera frames, six local event types, no account, and no cloud upload.";
 ---
 
-<BaseLayout title={title} description={description} path={path} schemas={[breadcrumbSchema([{ name: "Home", path: "/" }, { name: "Privacy", path }])] }>
-  <SiteHeader currentPath={path} />
+<BaseLayout title={title} description={description} path={path} alternates={languageAlternates(path, "/zh-cn/privacy/")} schemas={[breadcrumbSchema([{ name: "Home", path: "/" }, { name: "Privacy", path }])] }>
+  <SiteHeader currentPath={path} alternatePath="/zh-cn/privacy/" />
   <main id="main-content">
     <header class="page-hero shell">
       <p class="eyebrow">PRIVACY INVENTORY · UPDATED AUGUST 25, 2026</p>
-      <h1>What the camera sees is not what the app keeps.</h1>
-      <p>Look Me needs a live camera signal for context-aware blink and posture features. That signal is processed in memory on your computer and discarded. The durable record is a small local timeline of behavior events.</p>
+      <h1>Camera frames are processed locally and discarded.</h1>
+      <p>Lumi needs a live camera signal for context-aware blink and posture features. That signal is processed in memory on your computer and discarded. The durable record is a small local timeline of behavior events.</p>
     </header>
 
     <section class="section-tight section-dark" aria-labelledby="inventory-heading">
       <div class="shell privacy-layout">
         <div class="content-block">
-          <p class="eyebrow">THE SHORT VERSION</p>
-          <h2 id="inventory-heading">No account. No camera upload. No saved frames.</h2>
-          <p>The application does not include a cloud backend for monitoring data. Hiding the companion or status widget changes presentation; using the monitoring switch, schedule, lock state, or sleep state changes camera activity.</p>
+          <p class="eyebrow">SUMMARY</p>
+          <h2 id="inventory-heading">Lumi has no monitoring account or cloud backend.</h2>
+          <p>The application does not include a cloud backend for monitoring data. Hiding Lumi or the status widget changes presentation; using the monitoring switch, schedule, lock state, or sleep state changes camera activity.</p>
         </div>
         <div class="privacy-ledger">
           <div class="ledger-row"><span>Camera frames</span><strong>Processed in memory, then discarded</strong></div>
@@ -54,7 +54,7 @@ const description = "See exactly what Look Me processes, stores, never stores, a
           <li>The start and end of an observed screen interval.</li>
           <li>The start and end of a seated interval.</li>
         </ul>
-        <p>Preferences such as reminder switches, sedentary interval, monitoring windows, companion settings, and language are also stored locally so the app can restore your choices.</p>
+        <p>Preferences such as reminder switches, sedentary interval, monitoring windows, Lumi settings, and language are also stored locally so the app can restore your choices.</p>
 
         <h2 id="never-stored">Data the app does not store</h2>
         <ul>
@@ -67,7 +67,7 @@ const description = "See exactly what Look Me processes, stores, never stores, a
 
         <h2 id="camera-lifecycle">When the camera runs</h2>
         <p>The camera can run when monitoring is enabled, the current time falls within an active monitoring window, the computer is awake and unlocked, and camera permission is available. Pausing monitoring, leaving the schedule, locking the screen, or putting the computer to sleep stops collection and releases the camera.</p>
-        <p>Hiding the desktop companion or the status widget does not imply that monitoring has stopped. The interface keeps those presentation controls separate from the monitoring switch.</p>
+        <p>Hiding Lumi or the status widget does not imply that monitoring has stopped. The interface keeps those presentation controls separate from the monitoring switch.</p>
 
         <h2 id="retention">Retention and deletion</h2>
         <p>Timeline events older than 30 days are removed automatically. Because the data is local, uninstall behavior can vary by operating system and whether the application profile is removed. A future account sync or cloud backup feature would require a new privacy design and is not part of the current product.</p>
@@ -76,8 +76,8 @@ const description = "See exactly what Look Me processes, stores, never stores, a
         <p>Current public packages are unsigned preview builds. Code signing and notarization are still required before the download experience can provide normal operating-system publisher verification. Download only from the official GitHub repository and review the public source if you are unsure.</p>
 
         <div class="article-callout">
-          <strong>Privacy is a behavior contract</strong>
-          <p>This page describes the current checked-in implementation. Product changes that alter collection, storage, retention, or transmission should update this page in the same release.</p>
+          <strong>This page follows the current implementation</strong>
+          <p>Any product change that alters collection, storage, retention, or transmission must update this inventory in the same release.</p>
         </div>
 
         <p><a class="text-link" href="https://github.com/build-my-work/look-me" target="_blank" rel="noreferrer">Inspect the source repository<span aria-hidden="true"> →</span></a></p>

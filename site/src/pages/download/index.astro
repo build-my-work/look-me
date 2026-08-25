@@ -2,19 +2,19 @@
 import BaseLayout from "../../layouts/BaseLayout.astro";
 import SiteHeader from "../../components/SiteHeader.astro";
 import SiteFooter from "../../components/SiteFooter.astro";
-import { breadcrumbSchema, softwareApplicationSchema } from "../../lib/site";
+import { breadcrumbSchema, languageAlternates, softwareApplicationSchema } from "../../lib/site";
 
 const path = "/download/";
-const title = "Download Look Me for Mac, Windows & Linux";
-const description = "Download the latest free Look Me preview for macOS, Windows, or Linux, with clear system requirements, privacy details, and unsigned-build notices.";
+const title = "Download Lumi Blink Reminder for Mac, Windows & Linux";
+const description = "Download the free Lumi blink reminder preview for macOS, Windows, or Linux. Review system requirements, local camera processing, and unsigned-build notices.";
 ---
 
-<BaseLayout title={title} description={description} path={path} schemas={[softwareApplicationSchema, breadcrumbSchema([{ name: "Home", path: "/" }, { name: "Download", path }])] }>
-  <SiteHeader currentPath={path} />
+<BaseLayout title={title} description={description} path={path} alternates={languageAlternates(path, "/zh-cn/download/")} schemas={[softwareApplicationSchema, breadcrumbSchema([{ name: "Home", path: "/" }, { name: "Download", path }])] }>
+  <SiteHeader currentPath={path} alternatePath="/zh-cn/download/" />
   <main id="main-content">
     <header class="page-hero shell">
       <p class="eyebrow">FREE PREVIEW · OPEN SOURCE</p>
-      <h1>Choose the build for your desktop.</h1>
+      <h1>Download Lumi for your desktop.</h1>
       <p>Every platform build comes from the same public source repository. Current releases are unsigned previews, so read the platform note before installing.</p>
     </header>
 
@@ -46,10 +46,10 @@ const description = "Download the latest free Look Me preview for macOS, Windows
         <p>Choose the asset matching your operating system and architecture. Release pages also include generated notes and SHA-256 checksums when published by the release workflow.</p>
         <p><a class="button" href="https://github.com/build-my-work/look-me/releases/latest" target="_blank" rel="noreferrer">Open GitHub Releases</a></p>
 
-        <div class="status-banner"><strong>Unsigned preview:</strong> Look Me does not yet have macOS notarization or Windows code signing. Operating-system warnings are expected. Do not download builds from mirrors or unrelated sites.</div>
+        <div class="status-banner"><strong>Unsigned preview:</strong> Lumi does not yet have macOS notarization or Windows code signing. Operating-system warnings are expected. Do not download builds from mirrors or unrelated sites.</div>
 
         <h2>What happens on first launch?</h2>
-        <p>The app opens a small desktop companion and a local status panel. Context-aware blink and posture features need camera permission. If permission is denied or a usable face signal is unavailable, those features pause instead of replacing the missing input with a timer.</p>
+        <p>The app opens Lumi, a small desktop companion, alongside a local status panel. Context-aware blink and posture features need camera permission. If permission is denied or a usable face signal is unavailable, those features pause instead of replacing the missing input with a timer.</p>
 
         <h2>Prefer to inspect the source?</h2>
         <p>The repository includes the Electron main process, React renderer, tests, packaging configuration, and release workflow. You can review it before deciding whether to run a preview build.</p>

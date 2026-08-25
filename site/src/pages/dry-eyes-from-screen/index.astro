@@ -5,7 +5,7 @@ import SiteFooter from "../../components/SiteFooter.astro";
 import ArticleHeader from "../../components/ArticleHeader.astro";
 import SourceList from "../../components/SourceList.astro";
 import DownloadCta from "../../components/DownloadCta.astro";
-import { articleSchema, breadcrumbSchema } from "../../lib/site";
+import { articleSchema, breadcrumbSchema, languageAlternates } from "../../lib/site";
 
 const path = "/dry-eyes-from-screen/";
 const title = "Dry Eyes From Screens: Breaks, Blinking & When to Get Help";
@@ -24,17 +24,18 @@ const sources = [
   title={title}
   description={description}
   path={path}
+  alternates={languageAlternates(path, "/zh-cn/dry-eyes-from-screen/")}
   schemas={[
     articleSchema({ title, description, path, citations: [aoa, nei, mayo] }),
     breadcrumbSchema([{ name: "Home", path: "/" }, { name: "Dry eyes from screens", path }]),
   ]}
 >
-  <SiteHeader currentPath={path} />
+  <SiteHeader currentPath={path} alternatePath="/zh-cn/dry-eyes-from-screen/" />
   <main id="main-content">
     <ArticleHeader
       eyebrow="DRY EYES & SCREEN USE"
-      title="Dry eyes from screens: what the screen can—and cannot—explain."
-      description="Long computer sessions can leave eyes feeling dry, gritty, tired, or blurry. Screen habits may contribute, but the same symptoms can have several causes. Here is a practical way to separate a useful break habit from a medical conclusion."
+      title="Screen use can contribute to dry-feeling eyes."
+      description="Long computer sessions can leave eyes feeling dry, gritty, tired, or blurry. The same symptoms can have several causes. Persistent discomfort should be evaluated by an eye-care professional."
     />
 
     <div class="article-layout">
@@ -54,7 +55,7 @@ const sources = [
         <p>That does not mean a screen is always the underlying cause. Dry eye disease can involve tear production or evaporation, eyelid and oil-gland function, contact lenses, medicines, age, environment, and other health factors. A person can also have digital eye strain without dry eye disease—or both at the same time.</p>
 
         <div class="article-callout">
-          <strong>A useful wording distinction</strong>
+          <strong>Symptoms do not establish a cause</strong>
           <p>“My eyes feel dry after computer work” describes an experience and a pattern. “I have dry eye disease because of my screen” is a diagnosis and a causal claim that a website or reminder app cannot establish.</p>
         </div>
 
@@ -76,7 +77,7 @@ const sources = [
         <p>Different products serve different purposes, and “redness relief” is not the same as treating an underlying dry-eye problem. If you need drops repeatedly, wear contact lenses, or are unsure what is appropriate, ask an eye-care professional rather than using a software article as a treatment plan.</p>
 
         <h2 id="app">Can a blink reminder app help?</h2>
-        <p>An app can help with the part that is genuinely a memory problem: noticing a long unbroken session, looking away, or returning to a normal blink. Look Me processes camera frames on the device, pauses its screen-time rhythm when a usable face signal is unavailable, and can invite two slow blinks after a prolonged detected gap.</p>
+        <p>An app can help with the part that is genuinely a memory problem: noticing a long unbroken session, looking away, or returning to a normal blink. Lumi processes camera frames on the device, pauses its screen-time rhythm when a usable face signal is unavailable, and can invite two slow blinks after a prolonged detected gap.</p>
         <p>It cannot see the tear film, inspect the eye surface, evaluate oil glands, identify a medicine side effect, or tell whether a contact lens is safe to keep wearing. It also does not assign a health score or claim that completing reminders treats dry eye.</p>
 
         <div class="definition-grid">
@@ -92,8 +93,8 @@ const sources = [
         <h2>Related guides and tools</h2>
         <ul>
           <li><a href="/tools/20-20-20-timer/">Run the free 20-20-20 browser timer</a> without installing anything.</li>
-          <li><a href="/blink-reminder/">See how the private blink reminder works</a> and what it deliberately does not measure.</li>
-          <li><a href="/eye-break-reminder/">Compare a context-aware eye-break reminder with a fixed timer</a>.</li>
+          <li><a href="/blink-reminder/">See how the private blink reminder works</a> and which data it records.</li>
+          <li><a href="/eye-break-reminder/">See how Lumi counts observed screen time</a>.</li>
         </ul>
 
         <SourceList sources={sources} />

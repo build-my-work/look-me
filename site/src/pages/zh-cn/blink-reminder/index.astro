@@ -1,0 +1,78 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import SiteHeader from "../../../components/SiteHeader.astro";
+import SiteFooter from "../../../components/SiteFooter.astro";
+import CatStage from "../../../components/CatStage.astro";
+import DownloadCta from "../../../components/DownloadCta.astro";
+import { breadcrumbSchema, chineseSoftwareApplicationSchema, languageAlternates } from "../../../lib/site";
+
+const path = "/zh-cn/blink-reminder/";
+const title = "眨眼提醒软件｜本机检测完整眨眼 - Lumi";
+const description = "Lumi 在本机检测双眼张开、闭合、再张开的完整过程。长时间没有检测到眨眼时，它会提醒你慢慢眨两下，画面不上传、不保存。";
+---
+
+<BaseLayout
+  title={title}
+  description={description}
+  path={path}
+  locale="zh-CN"
+  alternates={languageAlternates("/blink-reminder/", path)}
+  schemas={[
+    chineseSoftwareApplicationSchema,
+    breadcrumbSchema([{ name: "首页", path: "/zh-cn/" }, { name: "眨眼提醒", path }]),
+  ]}
+>
+  <SiteHeader locale="zh-CN" currentPath={path} alternatePath="/blink-reminder/" />
+  <main id="main-content">
+    <section class="hero">
+      <div class="shell hero-grid">
+        <div class="hero-copy">
+          <p class="eyebrow">本机眨眼监测</p>
+          <h1>检测到长时间没眨眼，<span class="soft-line">Lumi 会提醒你。</span></h1>
+          <p>Lumi 会确认一次完整眨眼，而不是只看某一帧。间隔过长时，桌面上会出现一个小提示，请你慢慢眨两下。</p>
+          <div class="hero-actions">
+            <a class="button" href="/zh-cn/download/">免费下载</a>
+            <a class="button button-secondary" href="/zh-cn/privacy/">摄像头数据如何处理</a>
+          </div>
+          <p class="hero-note">不设健康分数，也不会判断你的眨眼率是否正常。</p>
+        </div>
+        <CatStage locale="zh-CN" />
+      </div>
+    </section>
+
+    <section class="section section-tint" aria-labelledby="sequence-heading">
+      <div class="shell">
+        <div class="section-heading">
+          <div><p class="eyebrow">张开 · 闭合 · 再张开</p><h2 id="sequence-heading">Lumi 怎样确认一次完整眨眼。</h2></div>
+          <p>检测器结合双眼信号和眼睛纵横比，过滤单眼动作、长时间闭眼和远距离弱信号。</p>
+        </div>
+        <div class="feature-rail">
+          <article class="feature-row"><span class="feature-time">01 / 信号</span><h3>先确认人脸信号可用</h3><p>置信度低、脸部被遮挡或没有摄像头权限时，眨眼检测会暂停，界面会说明原因。</p></article>
+          <article class="feature-row"><span class="feature-time">02 / 眨眼</span><h3>检查完整过程</h3><p>双眼需要完成合理的张开、闭合、再张开过程。单个不确定的画面不会计数。</p></article>
+          <article class="feature-row"><span class="feature-time">03 / 间隔</span><h3>从最近一次眨眼重新计时</h3><p>每检测到一次完整眨眼，间隔会重新开始。长时间没有检测到眨眼时才会出现提示。</p></article>
+          <article class="feature-row"><span class="feature-time">04 / 完成</span><h3>慢慢眨两下</h3><p>两次眨眼完成后提示关闭，并进入冷却，避免马上再次提醒。</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" aria-labelledby="pause-heading">
+      <div class="shell-narrow article-body">
+        <p class="eyebrow">检测暂停</p>
+        <h2 id="pause-heading">暂时看不到你时，眨眼间隔会停下来。</h2>
+        <p>离开座位、遮住摄像头或超出可用范围后，检测状态会变成“不可用”。信号恢复后再继续。</p>
+        <p>锁屏、电脑休眠、离开设定的监测时段或关闭总开关后，Lumi 会释放摄像头。</p>
+
+        <h2>本地记录里有什么</h2>
+        <p>时间轴只保存检测到完整眨眼的时间，不保存摄像头画面、原始人脸关键点或所谓的理想眨眼率。</p>
+
+        <div class="article-callout">
+          <strong>眨眼提醒不会判断眼睛是否健康</strong>
+          <p>Lumi 不能诊断干眼病、检查泪膜，也不能给出适合个人的眨眼率。眼睛持续不适时，请咨询专业人员。</p>
+        </div>
+      </div>
+    </section>
+
+    <DownloadCta locale="zh-CN" />
+  </main>
+  <SiteFooter locale="zh-CN" />
+</BaseLayout>

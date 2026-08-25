@@ -5,7 +5,7 @@ import SiteFooter from "../../components/SiteFooter.astro";
 import ArticleHeader from "../../components/ArticleHeader.astro";
 import SourceList from "../../components/SourceList.astro";
 import DownloadCta from "../../components/DownloadCta.astro";
-import { articleSchema, breadcrumbSchema } from "../../lib/site";
+import { articleSchema, breadcrumbSchema, languageAlternates } from "../../lib/site";
 
 const path = "/20-20-20-rule/";
 const title = "The 20-20-20 Rule for Eyes: A Practical Guide";
@@ -22,17 +22,18 @@ const sources = [
   title={title}
   description={description}
   path={path}
+  alternates={languageAlternates(path, "/zh-cn/20-20-20-rule/")}
   schemas={[
     articleSchema({ title, description, path, citations: [aoa, nei] }),
     breadcrumbSchema([{ name: "Home", path: "/" }, { name: "20-20-20 rule", path }]),
   ]}
 >
-  <SiteHeader currentPath={path} />
+  <SiteHeader currentPath={path} alternatePath="/zh-cn/20-20-20-rule/" />
   <main id="main-content">
     <ArticleHeader
       eyebrow="EYE BREAK GUIDE"
-      title="The 20-20-20 rule, without the folklore."
-      description="Every 20 minutes, look at something about 20 feet away for 20 seconds. It is a simple way to interrupt continuous near focus—not a cure, diagnosis, or promise of perfect eye health."
+      title="The 20-20-20 rule is a short break from near focus."
+      description="Every 20 minutes, look at something about 20 feet away for 20 seconds. This is general screen-break guidance. It does not diagnose or treat an eye condition."
     />
 
     <div class="article-layout">
@@ -62,7 +63,7 @@ const sources = [
         <p>A distance break changes the visual task for a moment. It also creates a natural opportunity to blink, relax the shoulders, and check whether lighting, glare, or viewing distance is making the session less comfortable.</p>
 
         <div class="article-callout">
-          <strong>A useful habit, not a medical claim</strong>
+          <strong>The rule does not diagnose eye discomfort</strong>
           <p>The 20-20-20 rule is practical general guidance. It does not establish the cause of pain, redness, blurred vision, or dryness, and it does not treat dry eye disease.</p>
         </div>
 
@@ -71,7 +72,7 @@ const sources = [
           <li><strong>Choose a real distant target.</strong> A window view, the far side of a large room, or a point down a corridor works better than another nearby screen.</li>
           <li><strong>Keep the break visually quiet.</strong> Moving from a laptop to a phone preserves the same near-focus task.</li>
           <li><strong>Let normal blinking happen.</strong> You do not need to squeeze your eyelids or perform an eye exercise.</li>
-          <li><strong>Use a reminder you will keep enabled.</strong> Start with the free browser timer, or use Look Me when you want the timer to pause while you are away.</li>
+          <li><strong>Use a reminder you will keep enabled.</strong> Start with the free browser timer, or use Lumi when you want the timer to pause while you are away.</li>
         </ol>
 
         <p><a class="button" href="/tools/20-20-20-timer/">Open the free 20-20-20 timer</a></p>

@@ -1,4 +1,4 @@
-# Look Me website
+# Lumi website
 
 The public website is an English-first, multilingual Astro site that builds to static HTML. The current production origin is `https://lookme.anme.cc`.
 

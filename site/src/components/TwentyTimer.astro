@@ -1,12 +1,44 @@
-<section class="timer-shell" data-twenty-timer aria-labelledby="timer-heading">
+---
+import type { Locale } from "../lib/site";
+
+interface Props {
+  locale?: Locale;
+}
+
+const { locale = "en" } = Astro.props;
+const isChinese = locale === "zh-CN";
+const copy = isChinese
+  ? {
+      heading: "免费 20-20-20 网页计时器",
+      ready: "准备开始",
+      initialMessage: "开始看屏时启动计时。",
+      start: "开始 20 分钟计时",
+      pause: "暂停",
+      reset: "重置",
+      preview: "预览 20 秒远眺",
+      notifications: "开启浏览器通知",
+    }
+  : {
+      heading: "Free 20-20-20 browser timer",
+      ready: "Ready",
+      initialMessage: "Start when you begin a focused screen session.",
+      start: "Start 20-minute cycle",
+      pause: "Pause",
+      reset: "Reset",
+      preview: "Preview 20-second break",
+      notifications: "Enable notifications",
+    };
+---
+
+<section class="timer-shell" data-twenty-timer data-locale={locale} aria-labelledby="timer-heading">
   <div class="timer-topline">
-    <span id="timer-heading">Free 20-20-20 browser timer</span>
-    <span class="timer-state" data-timer-state>Ready</span>
+    <span id="timer-heading">{copy.heading}</span>
+    <span class="timer-state" data-timer-state>{copy.ready}</span>
   </div>
   <div class="timer-body">
     <div>
       <div class="timer-display" data-timer-display aria-live="off">20:00</div>
-      <p class="timer-message" data-timer-message aria-live="polite">Start when you begin a focused screen session.</p>
+      <p class="timer-message" data-timer-message aria-live="polite">{copy.initialMessage}</p>
     </div>
     <div class="timer-cat" aria-hidden="true">
       <img src="/assets/cat-idle-384.webp" width="384" height="480" alt="" />
@@ -14,11 +46,11 @@
   </div>
   <div class="timer-progress" aria-hidden="true"><span data-timer-progress></span></div>
   <div class="timer-controls">
-    <button type="button" data-timer-start>Start 20-minute cycle</button>
-    <button type="button" data-timer-pause hidden>Pause</button>
-    <button type="button" data-timer-reset>Reset</button>
-    <button type="button" data-timer-preview>Preview 20-second break</button>
-    <button type="button" data-timer-notifications hidden>Enable notifications</button>
+    <button type="button" data-timer-start>{copy.start}</button>
+    <button type="button" data-timer-pause hidden>{copy.pause}</button>
+    <button type="button" data-timer-reset>{copy.reset}</button>
+    <button type="button" data-timer-preview>{copy.preview}</button>
+    <button type="button" data-timer-notifications hidden>{copy.notifications}</button>
   </div>
 </section>
 
@@ -26,9 +58,40 @@
   const root = document.querySelector<HTMLElement>("[data-twenty-timer]");
 
   if (root) {
+    const isChinese = root.dataset.locale === "zh-CN";
+    const copy = isChinese
+      ? {
+          notificationTitle: "看远处 20 秒",
+          notificationBody: "找一个大约 6 米外的物体，Lumi 会帮你计时。",
+          ready: "准备开始",
+          breakState: "远眺休息",
+          focusState: "看屏计时",
+          breakMessage: "看向大约 6 米外的物体，让眼睛暂停近距离聚焦。",
+          focusMessage: "继续当前任务。20 分钟后会提醒你远眺 20 秒。",
+          initialMessage: "开始看屏时启动计时。",
+          lookAway: "看远处",
+          focus: "看屏",
+          notificationDenied: "浏览器已阻止通知",
+          notifications: "开启浏览器通知",
+        }
+      : {
+          notificationTitle: "Look away for 20 seconds",
+          notificationBody: "Find something about 20 feet (6 metres) away. Lumi will keep time.",
+          ready: "Ready",
+          breakState: "Distance break",
+          focusState: "Focus session",
+          breakMessage: "Look at something about 20 feet (6 metres) away. Let your near focus rest.",
+          focusMessage: "Keep working. The timer will invite a 20-second distance break.",
+          initialMessage: "Start when you begin a focused screen session.",
+          lookAway: "Look away",
+          focus: "Focus",
+          notificationDenied: "Notifications blocked by browser",
+          notifications: "Enable notifications",
+        };
     const WORK_MS = 20 * 60 * 1000;
     const BREAK_MS = 20 * 1000;
     const STORAGE_KEY = "look-me:20-20-20-timer:v1";
+    const defaultPageTitle = document.title;
     const display = root.querySelector<HTMLElement>("[data-timer-display]");
     const message = root.querySelector<HTMLElement>("[data-timer-message]");
     const stateLabel = root.querySelector<HTMLElement>("[data-timer-state]");
@@ -78,8 +141,8 @@
 
     const notify = () => {
       if ("Notification" in window && Notification.permission === "granted") {
-        new Notification("Look away for 20 seconds", {
-          body: "Find something about 20 feet (6 metres) away. The cat will keep time.",
+        new Notification(copy.notificationTitle, {
+          body: copy.notificationBody,
           icon: "/assets/icon-192.png",
         });
       }
@@ -96,16 +159,16 @@
       if (!display || !message || !stateLabel || !progress || !startButton || !pauseButton) return;
       const value = formatTime(timer.remaining);
       display.textContent = value;
-      stateLabel.textContent = timer.mode === "break" ? "Distance break" : timer.running ? "Focus session" : "Ready";
+      stateLabel.textContent = timer.mode === "break" ? copy.breakState : timer.running ? copy.focusState : copy.ready;
       message.textContent = timer.mode === "break"
-        ? "Look at something about 20 feet (6 metres) away. Let your near focus rest."
+        ? copy.breakMessage
         : timer.running
-          ? "Keep working. The timer will invite a 20-second distance break."
-          : "Start when you begin a focused screen session.";
+          ? copy.focusMessage
+          : copy.initialMessage;
       progress.style.transform = `scaleX(${Math.max(0, Math.min(1, timer.remaining / durationForMode()))})`;
       startButton.hidden = timer.running;
       pauseButton.hidden = !timer.running;
-      document.title = timer.running ? `${value} · ${timer.mode === "break" ? "Look away" : "Focus"} · Look Me` : "Free 20-20-20 Timer | Look Me";
+      document.title = timer.running ? `${value} · ${timer.mode === "break" ? copy.lookAway : copy.focus} · Lumi` : defaultPageTitle;
       persist();
     };
 
@@ -157,7 +220,7 @@
       notificationButton.addEventListener("click", async () => {
         const permission = await Notification.requestPermission();
         notificationButton.hidden = permission === "granted";
-        notificationButton.textContent = permission === "denied" ? "Notifications blocked by browser" : "Enable notifications";
+        notificationButton.textContent = permission === "denied" ? copy.notificationDenied : copy.notifications;
       });
     }
 

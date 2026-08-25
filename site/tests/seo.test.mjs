@@ -20,6 +20,26 @@ const requiredPages = [
   "/privacy/",
   "/download/",
   "/tools/20-20-20-timer/",
+  "/zh-cn/blink-reminder/",
+  "/zh-cn/20-20-20-rule/",
+  "/zh-cn/digital-eye-strain/",
+  "/zh-cn/dry-eyes-from-screen/",
+  "/zh-cn/how-it-works/",
+  "/zh-cn/privacy/",
+  "/zh-cn/download/",
+  "/zh-cn/tools/20-20-20-timer/",
+];
+
+const localizedPairs = [
+  ["/", "/zh-cn/"],
+  ["/blink-reminder/", "/zh-cn/blink-reminder/"],
+  ["/20-20-20-rule/", "/zh-cn/20-20-20-rule/"],
+  ["/digital-eye-strain/", "/zh-cn/digital-eye-strain/"],
+  ["/dry-eyes-from-screen/", "/zh-cn/dry-eyes-from-screen/"],
+  ["/how-it-works/", "/zh-cn/how-it-works/"],
+  ["/privacy/", "/zh-cn/privacy/"],
+  ["/download/", "/zh-cn/download/"],
+  ["/tools/20-20-20-timer/", "/zh-cn/tools/20-20-20-timer/"],
 ];
 
 function pageFile(path) {
@@ -50,7 +70,7 @@ test("every indexable page has unique metadata and one h1", () => {
     const title = html.match(/<title>([^<]+)<\/title>/)?.[1];
     const description = html.match(/<meta name="description" content="([^"]+)"/)?.[1];
     assert.ok(title, `missing title: ${path}`);
-    const minimumDescriptionLength = path === "/zh-cn/" ? 45 : 70;
+    const minimumDescriptionLength = path.startsWith("/zh-cn/") ? 45 : 70;
     assert.ok(description && description.length >= minimumDescriptionLength && description.length <= 180, `description length is out of range: ${path}`);
     assert.equal((html.match(/<h1\b/g) ?? []).length, 1, `expected exactly one h1: ${path}`);
     assert.match(html, /<link rel="canonical" href="https:\/\/lookme\.anme\.cc\//, `missing canonical: ${path}`);
@@ -81,16 +101,31 @@ test("internal root-relative links resolve in the production build", () => {
   }
 });
 
-test("home language alternates are reciprocal and explicit", () => {
+test("localized pages have reciprocal language alternates", () => {
+  for (const [englishPath, chinesePath] of localizedPairs) {
+    const english = readPage(englishPath);
+    const chinese = readPage(chinesePath);
+    const escapedEnglish = `https://lookme.anme.cc${englishPath}`.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const escapedChinese = `https://lookme.anme.cc${chinesePath}`.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    for (const html of [english, chinese]) {
+      assert.match(html, new RegExp(`hreflang="en" href="${escapedEnglish}"`));
+      assert.match(html, new RegExp(`hreflang="zh-Hans" href="${escapedChinese}"`));
+      assert.match(html, new RegExp(`hreflang="x-default" href="${escapedEnglish}"`));
+    }
+    assert.match(english, /<html lang="en">/);
+    assert.match(chinese, /<html lang="zh-CN">/);
+  }
+});
+
+test("home pages lead with blink detection and long-gap reminders", () => {
   const english = readPage("/");
   const chinese = readPage("/zh-cn/");
-  for (const html of [english, chinese]) {
-    assert.match(html, /hreflang="en" href="https:\/\/lookme\.anme\.cc\/"/);
-    assert.match(html, /hreflang="zh-Hans" href="https:\/\/lookme\.anme\.cc\/zh-cn\/"/);
-    assert.match(html, /hreflang="x-default" href="https:\/\/lookme\.anme\.cc\/"/);
-  }
-  assert.match(english, /<html lang="en">/);
-  assert.match(chinese, /<html lang="zh-CN">/);
+  const englishText = english.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+  const chineseText = chinese.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+  assert.match(english, /<title>[^<]*Blink Reminder[^<]*<\/title>/);
+  assert.match(englishText, /Lumi notices long gaps between blinks/i);
+  assert.match(chinese, /<title>[^<]*眨眼提醒[^<]*<\/title>/);
+  assert.match(chineseText, /长时间没眨眼时， Lumi 会提醒你/);
 });
 
 test("sitemap and robots output agree", () => {
@@ -117,8 +152,11 @@ test("public copy stays inside the non-medical product boundary", () => {
 
 test("the free timer exposes accessible controls and privacy copy", () => {
   const html = readPage("/tools/20-20-20-timer/");
+  const chinese = readPage("/zh-cn/tools/20-20-20-timer/");
   assert.match(html, /data-timer-start/);
   assert.match(html, /aria-live="polite"/);
   assert.match(html, /does not use your camera/i);
   assert.match(html, /session storage/i);
+  assert.match(chinese, /开始 20 分钟计时/);
+  assert.match(chinese, /网页计时器不会调用摄像头/);
 });

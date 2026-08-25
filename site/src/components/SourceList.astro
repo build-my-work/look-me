@@ -7,17 +7,19 @@ interface Source {
 
 interface Props {
   sources: Source[];
+  locale?: "en" | "zh-CN";
 }
 
-const { sources } = Astro.props;
+const { sources, locale = "en" } = Astro.props;
+const isChinese = locale === "zh-CN";
 ---
 
 <aside class="sources" aria-labelledby="sources-heading">
-  <h2 id="sources-heading">Sources and further reading</h2>
+  <h2 id="sources-heading">{isChinese ? "参考资料" : "Sources and further reading"}</h2>
   <ol>
     {sources.map((source) => (
       <li><a href={source.href} target="_blank" rel="noreferrer">{source.title}</a><span>{source.publisher}</span></li>
     ))}
   </ol>
-  <p>Look Me summarizes these sources for general education. This page has not been medically reviewed and is not a substitute for professional care.</p>
+  <p>{isChinese ? "本文根据以上资料整理，仅用于一般信息参考，未经医疗专业人员审阅，不能代替诊断或治疗建议。" : "This page summarizes the sources above for general information. It has not been reviewed by a medical professional and cannot replace professional care."}</p>
 </aside>

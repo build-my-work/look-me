@@ -4,28 +4,29 @@ import SiteHeader from "../../components/SiteHeader.astro";
 import SiteFooter from "../../components/SiteFooter.astro";
 import AttentionTrace from "../../components/AttentionTrace.astro";
 import DownloadCta from "../../components/DownloadCta.astro";
-import { articleSchema, breadcrumbSchema } from "../../lib/site";
+import { articleSchema, breadcrumbSchema, languageAlternates } from "../../lib/site";
 
 const path = "/how-it-works/";
-const title = "How Look Me Detects Blinks and Screen Sessions Locally";
-const description = "A transparent explanation of Look Me's on-device MediaPipe pipeline, blink sequence detection, screen and posture intervals, local storage, and failure behavior.";
+const title = "How Lumi Detects Blinks and Screen Sessions Locally";
+const description = "A transparent explanation of Lumi's on-device MediaPipe pipeline, blink sequence detection, screen and posture intervals, local storage, and failure behavior.";
 ---
 
 <BaseLayout
   title={title}
   description={description}
   path={path}
+  alternates={languageAlternates(path, "/zh-cn/how-it-works/")}
   schemas={[
     articleSchema({ title, description, path }),
     breadcrumbSchema([{ name: "Home", path: "/" }, { name: "How it works", path }]),
   ]}
 >
-  <SiteHeader currentPath={path} />
+  <SiteHeader currentPath={path} alternatePath="/zh-cn/how-it-works/" />
   <main id="main-content">
     <header class="page-hero shell">
       <p class="eyebrow">THE LOCAL SIGNAL PIPELINE</p>
-      <h1>One camera frame. Three small state machines. No upload.</h1>
-      <p>Look Me uses Google MediaPipe Face Landmarker on your computer, then sends the same inferred face state to independent blink, mouth, and posture logic. The renderer stores behavior events—not frames.</p>
+      <h1>Blink detection runs on your computer.</h1>
+      <p>Lumi uses Google MediaPipe Face Landmarker locally. The same inferred face state feeds separate blink, mouth, and posture logic. The renderer stores small behavior events; camera frames are discarded.</p>
     </header>
 
     <div class="shell"><AttentionTrace /></div>
@@ -33,14 +34,14 @@ const description = "A transparent explanation of Look Me's on-device MediaPipe 
     <section class="section-tight" aria-labelledby="pipeline-heading">
       <div class="shell">
         <div class="section-heading">
-          <div><p class="eyebrow">FRAME TO EVENT</p><h2 id="pipeline-heading">The pipeline is deliberately narrow.</h2></div>
-          <p>Each layer has a different responsibility: acquire a frame, infer landmarks locally, decide whether a behavior occurred, then store the smallest useful event.</p>
+          <div><p class="eyebrow">FRAME TO EVENT</p><h2 id="pipeline-heading">From a camera frame to a local event.</h2></div>
+          <p>Lumi acquires a frame, infers landmarks locally, checks whether a behavior occurred, and stores the smallest useful event.</p>
         </div>
         <div class="feature-rail">
           <article class="feature-row"><span class="feature-time">01 / CAMERA</span><h3>Acquire only while monitoring can run</h3><p>Monitoring respects the master switch, configured schedule, lock and sleep state, camera permission, and page visibility. Pausing releases the camera stream.</p></article>
-          <article class="feature-row"><span class="feature-time">02 / MEDIAPIPE</span><h3>Infer face signals on the device</h3><p>MediaPipe processes frames in memory. Look Me reads a small set of blendshape values and landmarks needed for blink, mouth, and posture logic.</p></article>
+          <article class="feature-row"><span class="feature-time">02 / MEDIAPIPE</span><h3>Infer face signals on the device</h3><p>MediaPipe processes frames in memory. Lumi reads a small set of blendshape values and landmarks needed for blink, mouth, and posture logic.</p></article>
           <article class="feature-row"><span class="feature-time">03 / SIGNALS</span><h3>Confirm behavior over time</h3><p>A blink is an open–close–open sequence, a yawn requires a sustained mouth opening, and posture uses a learned stable baseline rather than a single coordinate.</p></article>
-          <article class="feature-row"><span class="feature-time">04 / EVENTS</span><h3>Store facts, not interpretations</h3><p>The timeline records six event types: blink, yawn, and the start or end of screen and seated intervals. Reminder prompts remain transient runtime state.</p></article>
+          <article class="feature-row"><span class="feature-time">04 / EVENTS</span><h3>Store six event types</h3><p>The timeline records blink, yawn, and the start or end of screen and seated intervals. Reminder prompts remain transient runtime state.</p></article>
         </div>
       </div>
     </section>
@@ -49,17 +50,17 @@ const description = "A transparent explanation of Look Me's on-device MediaPipe 
       <div class="shell-narrow article-body">
         <p class="eyebrow">BLINK CONFIRMATION</p>
         <h2 id="blink-heading">Why a blink needs more than one frame</h2>
-        <p>A small eyelid coefficient can come from distance, angle, noise, or one-eye movement. Look Me checks the timing of both eyes and uses an eye-aspect-ratio signal to confirm weaker distant-face changes. A long closure is not counted as a series of blinks.</p>
-        <p>When sensing confidence drops, the correct result is “unavailable,” not a guessed blink rate. The no-blink reminder pauses until a usable signal returns.</p>
+        <p>A small eyelid coefficient can come from distance, angle, noise, or one-eye movement. Lumi checks the timing of both eyes and uses an eye-aspect-ratio signal to confirm weaker distant-face changes. A long closure is not counted as a series of blinks.</p>
+        <p>When sensing confidence drops, the status changes to “unavailable” and the no-blink reminder pauses until a usable signal returns.</p>
 
-        <h2 id="screen-heading">What “screen time” means inside Look Me</h2>
-        <p>Look Me does not inspect screen content. A screen interval means monitoring is active and the app has a usable presence signal. That makes it a practical local activity measure, not a claim about attention, productivity, gaze direction, or the exact distance between your eyes and the display.</p>
+        <h2 id="screen-heading">What “screen time” means inside Lumi</h2>
+        <p>Lumi does not inspect screen content. A screen interval means monitoring is active and the app has a usable presence signal. That makes it a practical local activity measure, not a claim about attention, productivity, gaze direction, or the exact distance between your eyes and the display.</p>
 
         <h2 id="posture-heading">How stand-up events avoid obvious false positives</h2>
         <p>The posture signal first learns a stable seated baseline. A completed rise can end a seated interval and count as standing up. Sudden tracking loss, sideways departure, or an unavailable camera ends the interval differently and is not promoted into a successful stand-up event.</p>
 
         <div class="article-callout">
-          <strong>Observable behavior is not a health score</strong>
+          <strong>The timeline does not assess health</strong>
           <p>The app intentionally avoids judging whether your blink rate, posture, or screen time is medically healthy. It stores events so you can review your own rhythm.</p>
         </div>
 

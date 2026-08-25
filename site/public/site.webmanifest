@@ -1,6 +1,6 @@
 {
-  "name": "Look Me Eye Companion",
-  "short_name": "Look Me",
+  "name": "Lumi Eye Companion",
+  "short_name": "Lumi",
   "description": "A private, context-aware blink and eye break reminder for desktop.",
   "start_url": "/",
   "display": "browser",

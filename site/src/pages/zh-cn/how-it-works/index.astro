@@ -1,0 +1,74 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import SiteHeader from "../../../components/SiteHeader.astro";
+import SiteFooter from "../../../components/SiteFooter.astro";
+import AttentionTrace from "../../../components/AttentionTrace.astro";
+import DownloadCta from "../../../components/DownloadCta.astro";
+import { articleSchema, breadcrumbSchema, languageAlternates } from "../../../lib/site";
+
+const path = "/zh-cn/how-it-works/";
+const title = "Lumi 如何在本机检测眨眼与看屏状态";
+const description = "了解 Lumi 的本机 MediaPipe 处理流程：怎样确认完整眨眼、记录看屏和坐姿区间、保存最近 30 天的行为事件，以及检测不可用时会发生什么。";
+---
+
+<BaseLayout
+  title={title}
+  description={description}
+  path={path}
+  locale="zh-CN"
+  alternates={languageAlternates("/how-it-works/", path)}
+  schemas={[
+    articleSchema({ title, description, path, locale: "zh-CN" }),
+    breadcrumbSchema([{ name: "首页", path: "/zh-cn/" }, { name: "工作原理", path }]),
+  ]}
+>
+  <SiteHeader locale="zh-CN" currentPath={path} alternatePath="/how-it-works/" />
+  <main id="main-content">
+    <header class="page-hero shell">
+      <p class="eyebrow">本机信号处理</p>
+      <h1>眨眼检测在你的电脑上运行。</h1>
+      <p>Lumi 在本机使用 Google MediaPipe Face Landmarker。同一份人脸状态分别交给眨眼、嘴部和坐姿逻辑处理，摄像头画面随后丢弃。</p>
+    </header>
+
+    <div class="shell"><AttentionTrace locale="zh-CN" /></div>
+
+    <section class="section-tight" aria-labelledby="pipeline-heading">
+      <div class="shell">
+        <div class="section-heading">
+          <div><p class="eyebrow">从画面到事件</p><h2 id="pipeline-heading">一帧画面怎样变成本地记录。</h2></div>
+          <p>Lumi 获取画面，在本机推断关键点，检查行为是否发生，最后只保存需要的事件。</p>
+        </div>
+        <div class="feature-rail">
+          <article class="feature-row"><span class="feature-time">01 / 摄像头</span><h3>符合条件时才运行</h3><p>总开关、监测时段、锁屏和休眠状态、摄像头权限都会影响监测。暂停后会释放摄像头。</p></article>
+          <article class="feature-row"><span class="feature-time">02 / MEDIAPIPE</span><h3>在本机推断人脸信号</h3><p>MediaPipe 在内存中处理画面。Lumi 只读取眨眼、嘴部和坐姿逻辑所需的少量信号。</p></article>
+          <article class="feature-row"><span class="feature-time">03 / 检测</span><h3>结合一段时间确认行为</h3><p>眨眼需要完整的张开、闭合、再张开过程；哈欠需要持续张嘴；坐姿使用稳定的基线。</p></article>
+          <article class="feature-row"><span class="feature-time">04 / 记录</span><h3>保存六类事件</h3><p>时间轴记录眨眼、哈欠，以及看屏和坐姿区间的开始与结束。提醒本身不会写入时间轴。</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section-tint" aria-labelledby="details-heading">
+      <div class="shell-narrow article-body">
+        <h2 id="details-heading">为什么不能用单帧判断眨眼</h2>
+        <p>眼睑信号变小可能来自距离、角度、噪声或单眼动作。Lumi 会检查双眼的变化过程，并用眼睛纵横比辅助确认远距离的弱信号。长时间闭眼不会被连续记成多次眨眼。</p>
+        <p>信号置信度下降后，状态会变成“不可用”，眨眼提醒随即暂停。</p>
+
+        <h2>“看屏时间”在 Lumi 里指什么</h2>
+        <p>Lumi 不读取屏幕内容。看屏区间表示监测正在运行，同时有人脸信号可用。这不是对注意力、工作效率、视线方向或眼睛到屏幕距离的判断。</p>
+
+        <h2>最近 30 天会保存什么</h2>
+        <p>时间轴保存在应用的 IndexedDB 中，包含事件时间和配对的区间标识。超过 30 天的记录会自动删除。原始画面、人脸关键点数组、张嘴序列和坐姿校准坐标不会保存。</p>
+
+        <div class="article-callout">
+          <strong>这些记录不是健康评分</strong>
+          <p>Lumi 不判断你的眨眼率、坐姿或看屏时间是否符合医学标准。记录只用于回看自己的使用节奏。</p>
+        </div>
+
+        <p><a class="text-link" href="/zh-cn/privacy/">查看完整隐私清单<span aria-hidden="true"> →</span></a></p>
+      </div>
+    </section>
+
+    <DownloadCta locale="zh-CN" />
+  </main>
+  <SiteFooter locale="zh-CN" />
+</BaseLayout>

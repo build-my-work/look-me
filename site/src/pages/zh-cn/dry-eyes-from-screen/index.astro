@@ -1,0 +1,109 @@
+---
+import BaseLayout from "../../../layouts/BaseLayout.astro";
+import SiteHeader from "../../../components/SiteHeader.astro";
+import SiteFooter from "../../../components/SiteFooter.astro";
+import ArticleHeader from "../../../components/ArticleHeader.astro";
+import SourceList from "../../../components/SourceList.astro";
+import DownloadCta from "../../../components/DownloadCta.astro";
+import { articleSchema, breadcrumbSchema, languageAlternates } from "../../../lib/site";
+
+const path = "/zh-cn/dry-eyes-from-screen/";
+const title = "看电脑眼睛干涩怎么办｜屏幕习惯与就医时机";
+const description = "看电脑后眼睛干涩、发涩或视物模糊，屏幕习惯可能是影响因素之一。了解眨眼、远眺和环境调整能帮到什么，以及症状持续时为什么需要眼科检查。";
+const aoa = "https://www.aoa.org/healthy-eyes/eye-and-vision-conditions/computer-vision-syndrome";
+const nei = "https://www.nei.nih.gov/eye-health-information/eye-conditions-and-diseases/dry-eye";
+const mayo = "https://www.mayoclinic.org/diseases-conditions/dry-eyes/symptoms-causes/syc-20371863";
+const sources = [
+  { title: "Computer vision syndrome", publisher: "American Optometric Association", href: aoa },
+  { title: "Dry Eye", publisher: "National Eye Institute", href: nei },
+  { title: "Dry eyes — symptoms and causes", publisher: "Mayo Clinic", href: mayo },
+];
+---
+
+<BaseLayout
+  title={title}
+  description={description}
+  path={path}
+  locale="zh-CN"
+  alternates={languageAlternates("/dry-eyes-from-screen/", path)}
+  schemas={[
+    articleSchema({ title, description, path, citations: [aoa, nei, mayo], locale: "zh-CN" }),
+    breadcrumbSchema([{ name: "首页", path: "/zh-cn/" }, { name: "看电脑眼睛干涩", path }]),
+  ]}
+>
+  <SiteHeader locale="zh-CN" currentPath={path} alternatePath="/dry-eyes-from-screen/" />
+  <main id="main-content">
+    <ArticleHeader
+      locale="zh-CN"
+      eyebrow="屏幕与眼睛干涩"
+      title="屏幕使用可能让眼睛感觉干涩。"
+      description="长时间看电脑后，眼睛可能出现干涩、异物感、疲劳或视物模糊。同样的症状也可能有其他原因，持续不适不能只靠提醒软件处理。"
+    />
+
+    <div class="article-layout">
+      <nav class="article-toc" aria-label="本文目录">
+        <strong>本文目录</strong>
+        <a href="#cause">屏幕会导致干眼吗</a>
+        <a href="#why">为什么觉得干涩</a>
+        <a href="#habits">可以尝试什么</a>
+        <a href="#app">眨眼提醒的作用</a>
+        <a href="#care">何时去检查</a>
+        <a href="#sources-heading">参考资料</a>
+      </nav>
+
+      <article class="article-body">
+        <h2 id="cause">看屏幕会导致干眼吗</h2>
+        <p>屏幕使用可能是眼睛干涩感的影响因素之一。美国国家眼科研究所把长时间使用电脑、平板或手机列为与干眼相关的情况，并建议限制看屏时间、从持续盯屏中休息。</p>
+        <p>这不代表每一次干涩都由屏幕直接造成。干眼病可能涉及泪液分泌不足或蒸发过快，也可能与眼睑和睑板腺、隐形眼镜、药物、年龄、环境或其他健康因素有关。数字视疲劳和干眼病也可能同时存在。</p>
+
+        <div class="article-callout">
+          <strong>症状不能直接说明原因</strong>
+          <p>“看电脑后觉得眼睛干”是在描述感受和出现时机。“因为屏幕得了干眼病”则是诊断和因果判断，需要专业检查。</p>
+        </div>
+
+        <h2 id="why">为什么专注看电脑时容易觉得干涩</h2>
+        <p>近距离工作会让人长时间保持注意力、观看距离和视线方向。专注任务中，眨眼次数或完整程度可能改变，泪膜因此没有及时、均匀地铺在眼表。</p>
+        <p>环境也会影响感受。风扇或空调直接吹向脸部、室内湿度低、屏幕反光，或者屏幕位置过高，都可能让不适更明显。</p>
+        <p>干涩只是数字视疲劳可能出现的一部分。持续近距离聚焦、度数不合适、字号过小、对比度和颈肩姿势也可能有关。可以阅读<a href="/zh-cn/digital-eye-strain/">数字视疲劳指南</a>了解这组症状。</p>
+
+        <h2 id="habits">长时间看屏时可以尝试什么</h2>
+        <ol>
+          <li><strong>暂时看远处。</strong>可以用 <a href="/zh-cn/20-20-20-rule/">20-20-20</a> 作为简单节奏：每 20 分钟，用 20 秒看向约 6 米外。</li>
+          <li><strong>恢复自然、完整的眨眼。</strong>提醒的作用是让你想起来，不需要用力挤眼。</li>
+          <li><strong>调整屏幕附近的空气。</strong>避免风扇或出风口直接吹脸，留意不适是否总在特别干燥的房间出现。</li>
+          <li><strong>让屏幕更容易看清。</strong>放大字号、减少反光，并保持舒服的观看距离。</li>
+          <li><strong>改变任务和姿势。</strong>站起来、走动，交替远近观看，不要把休息继续花在更小的屏幕上。</li>
+          <li><strong>就诊时提供具体信息。</strong>是否佩戴隐形眼镜、正在服用的药物、症状出现时间、是否发红，以及单眼还是双眼不适，都可能有用。</li>
+        </ol>
+
+        <h3>眼药水怎么选</h3>
+        <p>不同产品用途不同，缓解充血不等于处理干眼原因。如果经常需要滴眼药水、佩戴隐形眼镜，或不确定哪类产品适合自己，请咨询眼科专业人员。</p>
+
+        <h2 id="app">眨眼提醒能帮到哪一部分</h2>
+        <p>如果问题是工作时忘了停下来，提醒可以让你注意到较长的看屏时段，看看远处，或者恢复自然眨眼。Lumi 会在本机处理摄像头画面，检测完整眨眼，并在较长时间没有检测到眨眼时提醒你慢慢眨两下。</p>
+        <p>Lumi 看不到泪膜和眼表，不能检查睑板腺、识别药物副作用，也无法判断隐形眼镜是否适合继续佩戴。完成提醒不等于治疗干眼。</p>
+
+        <div class="definition-grid">
+          <div class="definition-card"><strong>软件能看到</strong><p>一段可观察的看屏区间，或两次完整眨眼之间较长的间隔。</p></div>
+          <div class="definition-card"><strong>软件能提醒</strong><p>正常眨眼、看远处，或暂时离开桌面。</p></div>
+          <div class="definition-card"><strong>软件看不到</strong><p>泪液、眼表和其他需要专业检查的情况。</p></div>
+        </div>
+
+        <h2 id="care">什么时候应该去检查</h2>
+        <p>干涩、灼热、异物感、视物模糊或其他不适持续存在、经常复发、影响工作，或者需要反复使用眼药水却不知道原因时，请安排眼科检查。检查可以评估视力矫正、眼表、眼睑和泪液等因素。</p>
+        <p>出现明显眼痛、严重发红、怕光、分泌物、眼外伤或视力突然变化时，应及时就医。佩戴隐形眼镜后出现明显疼痛、发红、怕光、分泌物或视物突然模糊时，应取下镜片并尽快联系眼科专业人员。</p>
+
+        <h2>相关页面</h2>
+        <ul>
+          <li><a href="/zh-cn/tools/20-20-20-timer/">打开免费的 20-20-20 网页计时器</a>。</li>
+          <li><a href="/zh-cn/blink-reminder/">了解 Lumi 怎样检测完整眨眼</a>。</li>
+          <li><a href="/zh-cn/privacy/">查看摄像头画面和本地记录如何处理</a>。</li>
+        </ul>
+
+        <SourceList sources={sources} locale="zh-CN" />
+        <DownloadCta compact locale="zh-CN" />
+      </article>
+    </div>
+  </main>
+  <SiteFooter locale="zh-CN" />
+</BaseLayout>
