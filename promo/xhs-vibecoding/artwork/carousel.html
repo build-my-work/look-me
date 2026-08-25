@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, initial-scale=1" />
+    <title>Lumi 小红书轮播图</title>
+    <style>
+      :root {
+        --pine: #173d3a;
+        --coral: #e96f5b;
+        --mist: #f4f8f6;
+        --sky: #75b9d2;
+        --gold: #d89a38;
+        --muted: #526b68;
+        --paper: #ffffff;
+      }
+
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      html, body { width: 1080px; height: 1440px; overflow: hidden; }
+      body {
+        color: var(--pine);
+        background: var(--mist);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .slide {
+        position: absolute;
+        inset: 0;
+        display: none;
+        overflow: hidden;
+        padding: 72px 76px 68px;
+        border: 26px solid var(--pine);
+        background: var(--mist);
+      }
+      .slide.active { display: block; }
+      .slide::before {
+        position: absolute;
+        width: 420px;
+        height: 420px;
+        top: 320px;
+        right: -240px;
+        border: 58px solid rgba(117, 185, 210, .25);
+        border-radius: 50%;
+        content: "";
+      }
+      .slide::after {
+        position: absolute;
+        width: 250px;
+        height: 250px;
+        left: -145px;
+        bottom: 320px;
+        border-radius: 50%;
+        background: rgba(216, 154, 56, .2);
+        content: "";
+      }
+
+      .topline {
+        position: relative;
+        z-index: 5;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .brand { display: flex; align-items: center; gap: 18px; font-size: 27px; font-weight: 850; }
+      .brand-mark {
+        display: grid;
+        place-items: center;
+        width: 68px;
+        height: 68px;
+        border: 4px solid var(--pine);
+        border-radius: 50%;
+        background: var(--paper);
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 20px;
+        letter-spacing: -.08em;
+      }
+      .edition {
+        padding: 13px 18px 11px;
+        border: 3px solid var(--pine);
+        border-radius: 999px;
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 18px;
+        font-weight: 800;
+        letter-spacing: .08em;
+      }
+
+      .content { position: relative; z-index: 3; margin-top: 82px; }
+      .kicker { color: var(--coral); font-size: 24px; font-weight: 850; letter-spacing: .14em; }
+      h1 { margin-top: 18px; font-size: 76px; font-weight: 900; line-height: 1.08; letter-spacing: -.065em; }
+      h1 span { display: block; }
+      .accent { color: var(--coral); }
+      .blue { color: #4d9ab7; }
+      .lede { width: 660px; margin-top: 30px; color: var(--muted); font-size: 30px; font-weight: 650; line-height: 1.5; }
+
+      .footer {
+        position: absolute;
+        z-index: 6;
+        right: 76px;
+        bottom: 70px;
+        left: 76px;
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 28px;
+        padding-top: 22px;
+        border-top: 4px solid var(--pine);
+      }
+      .footer strong { max-width: 650px; font-size: 30px; font-weight: 850; line-height: 1.3; }
+      .cat { position: absolute; z-index: 2; filter: drop-shadow(0 24px 18px rgba(23, 61, 58, .16)); }
+      .eye-meter { display: flex; align-items: center; width: 400px; margin-top: 40px; }
+      .eye {
+        position: relative;
+        flex: 0 0 54px;
+        width: 54px;
+        height: 54px;
+        border: 4px solid var(--pine);
+        border-radius: 50%;
+        box-shadow: inset 0 0 0 8px rgba(255, 255, 255, .48);
+      }
+      .eye::after {
+        position: absolute;
+        top: 10px;
+        bottom: 10px;
+        left: 50%;
+        width: 7px;
+        border-radius: 999px;
+        background: var(--pine);
+        content: "";
+        transform: translateX(-50%);
+      }
+      .eye.gold { background: var(--gold); }
+      .eye.sky { background: var(--sky); }
+      .eye-line { flex: 1; height: 4px; background: var(--pine); }
+
+      /* 01 — pain-first cover */
+      .cover-cat { width: 570px; right: -28px; bottom: 165px; }
+      .cover-widget {
+        position: relative;
+        z-index: 4;
+        display: flex;
+        width: max-content;
+        align-items: center;
+        gap: 14px;
+        margin-top: 40px;
+        padding: 14px 16px 14px 18px;
+        border: 2px solid rgba(49, 95, 102, .22);
+        border-radius: 999px;
+        background: #dcece8;
+        box-shadow:
+          0 18px 38px rgba(55, 73, 69, .2),
+          inset 0 0 0 2px rgba(255, 255, 255, .62);
+      }
+      .cover-widget-eye,
+      .cover-widget-chart {
+        display: grid;
+        width: 56px;
+        height: 56px;
+        place-items: center;
+        border-radius: 50%;
+      }
+      .cover-widget-eye { background: rgba(255, 255, 255, .7); color: #557b79; }
+      .cover-widget-eye svg { width: 31px; height: 31px; }
+      .cover-widget-copy { display: grid; gap: 2px; min-width: 155px; }
+      .cover-widget-copy small {
+        color: #6b8380;
+        font-size: 15px;
+        font-weight: 800;
+        letter-spacing: .1em;
+      }
+      .cover-widget-copy strong {
+        color: #244d53;
+        font-size: 29px;
+        font-weight: 900;
+        line-height: 1.05;
+      }
+      .cover-widget-chart {
+        margin-left: 4px;
+        background: rgba(255, 255, 255, .74);
+        color: #315f66;
+      }
+      .cover-widget-chart svg { width: 30px; height: 30px; }
+
+      /* 02 — blink reminder */
+      .blink-slide { background: #f7faf9; }
+      .blink-slide::before { border-color: rgba(233, 111, 91, .12); }
+      .blink-slide .content { max-width: 850px; }
+      .blink-cat { width: 460px; right: 16px; bottom: 150px; }
+      .blink-reminder-preview {
+        position: absolute;
+        z-index: 4;
+        left: 76px;
+        top: 500px;
+        display: flex;
+        align-items: center;
+        width: 810px;
+        min-height: 226px;
+        padding: 38px 50px 36px 150px;
+        border: 3px solid rgba(255, 255, 255, .86);
+        border-radius: 113px;
+        background: rgba(250, 252, 248, .96);
+        box-shadow: 0 28px 64px rgba(55, 73, 69, .22);
+      }
+      .blink-reminder-icon {
+        position: absolute;
+        left: 38px;
+        top: 50%;
+        display: grid;
+        width: 82px;
+        height: 82px;
+        place-items: center;
+        border-radius: 50%;
+        background: #e7e1f1;
+        color: #685c7e;
+        transform: translateY(-50%);
+      }
+      .blink-reminder-icon svg { width: 48px; height: 48px; }
+      .blink-reminder-copy { width: 100%; }
+      .blink-reminder-copy > span {
+        display: block;
+        margin-bottom: 10px;
+        color: #55777b;
+        font-size: 21px;
+        font-weight: 900;
+        letter-spacing: .12em;
+      }
+      .blink-reminder-copy strong {
+        display: block;
+        color: #244d53;
+        font-size: 40px;
+        line-height: 1.2;
+        letter-spacing: -.025em;
+      }
+      .blink-reminder-progress {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 18px;
+        margin-top: 25px;
+      }
+      .blink-reminder-progress i {
+        display: block;
+        height: 14px;
+        border-radius: 999px;
+        background: #d8ddda;
+      }
+
+      /* 03 — distance break */
+      .distance-slide { background: #f2f7f7; }
+      .distance-slide::before { border-color: rgba(117, 185, 210, .36); }
+      .distance-title em { font-style: normal; color: var(--coral); }
+      .horizon-card {
+        position: absolute;
+        z-index: 2;
+        right: 76px;
+        bottom: 185px;
+        left: 76px;
+        height: 470px;
+        overflow: hidden;
+        border: 5px solid var(--pine);
+        background: #dcebed;
+        box-shadow: 18px 18px 0 rgba(216, 154, 56, .22);
+      }
+      .horizon-card > img:first-child { width: 100%; height: 100%; object-fit: cover; }
+      .horizon-card::after {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(180deg, rgba(255, 255, 255, .05), rgba(23, 61, 58, .16));
+        content: "";
+      }
+      .horizon-cat { position: absolute; z-index: 2; right: 5px; bottom: -110px; width: 340px; }
+      .twenty-badge {
+        position: absolute;
+        z-index: 3;
+        left: 30px;
+        bottom: 28px;
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+        color: var(--paper);
+        text-shadow: 0 3px 16px rgba(23, 61, 58, .35);
+      }
+      .twenty-badge strong { font-size: 82px; line-height: 1; letter-spacing: -.08em; }
+      .twenty-badge span { font-family: ui-monospace, Menlo, monospace; font-size: 18px; font-weight: 900; letter-spacing: .1em; }
+
+      /* 04 — sedentary reminder */
+      .sit-slide::after { background: rgba(233, 111, 91, .14); }
+      .timer-card {
+        position: absolute;
+        z-index: 2;
+        left: 76px;
+        bottom: 230px;
+        display: grid;
+        place-items: center;
+        width: 470px;
+        height: 470px;
+        border: 5px solid var(--pine);
+        border-radius: 50%;
+        background: var(--paper);
+        box-shadow: 18px 18px 0 rgba(117, 185, 210, .3);
+      }
+      .timer-card::before {
+        position: absolute;
+        inset: 28px;
+        border: 24px solid #dcebed;
+        border-top-color: var(--coral);
+        border-right-color: var(--gold);
+        border-radius: 50%;
+        content: "";
+        transform: rotate(18deg);
+      }
+      .timer-value { position: relative; z-index: 1; text-align: center; }
+      .timer-value strong { display: block; font-size: 132px; line-height: .85; letter-spacing: -.1em; }
+      .timer-value span { display: block; margin-top: 22px; font-family: ui-monospace, Menlo, monospace; font-size: 22px; font-weight: 900; letter-spacing: .18em; }
+      .sit-cat { width: 500px; right: -5px; bottom: 145px; }
+
+      /* 05 — local-first */
+      .privacy-slide { background: #eef6f4; }
+      .privacy-slide::before { border-color: rgba(216, 154, 56, .2); }
+      .privacy-card {
+        position: absolute;
+        z-index: 3;
+        right: 76px;
+        bottom: 235px;
+        left: 76px;
+        display: flex;
+        align-items: center;
+        gap: 70px;
+        height: 440px;
+        padding: 54px 62px;
+        border: 5px solid var(--pine);
+        background: var(--paper);
+        box-shadow: 18px 18px 0 rgba(233, 111, 91, .18);
+      }
+      .lock {
+        position: relative;
+        flex: 0 0 320px;
+        width: 320px;
+        height: 245px;
+        margin-top: 62px;
+        border: 6px solid var(--pine);
+        border-radius: 32px;
+        background: #e5f0ef;
+      }
+      .lock::before {
+        position: absolute;
+        z-index: -1;
+        width: 178px;
+        height: 150px;
+        top: -125px;
+        left: 65px;
+        border: 28px solid var(--pine);
+        border-bottom: 0;
+        border-radius: 100px 100px 0 0;
+        content: "";
+      }
+      .lock-eyes { display: flex; align-items: center; width: 214px; margin: 85px auto 0; }
+      .lock-eyes .eye { flex-basis: 58px; width: 58px; height: 58px; }
+      .privacy-points { display: grid; gap: 19px; }
+      .privacy-points span {
+        display: block;
+        padding-bottom: 16px;
+        border-bottom: 3px solid #d9e5e2;
+        font-size: 30px;
+        font-weight: 850;
+      }
+      .privacy-points span:last-child { border-bottom: 0; }
+      .privacy-points b { display: inline-block; width: 28px; color: var(--coral); }
+
+      /* 05 — local history */
+      .stats-slide { background: #f3f8f6; }
+      .stats-slide::before { border-color: rgba(117, 185, 210, .2); }
+      .stats-slide::after { background: rgba(233, 111, 91, .12); }
+      .stats-slide .content { margin-top: 70px; }
+      .stats-slide .lede { width: 760px; }
+      .history-preview {
+        position: absolute;
+        z-index: 3;
+        top: 600px;
+        right: 76px;
+        left: 76px;
+        height: 520px;
+        padding: 30px 34px 26px;
+        border: 3px solid rgba(255, 255, 255, .9);
+        border-radius: 44px;
+        background: rgba(247, 251, 248, .97);
+        box-shadow: 0 28px 64px rgba(55, 73, 69, .2);
+      }
+      .history-preview-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+      }
+      .history-preview-title { display: flex; align-items: center; gap: 14px; }
+      .history-preview-mark {
+        display: grid;
+        width: 58px;
+        height: 58px;
+        place-items: center;
+        border-radius: 50%;
+        background: #dcece8;
+        color: #315f66;
+      }
+      .history-preview-mark svg { width: 31px; height: 31px; }
+      .history-preview-title h2 { color: #244d53; font-size: 28px; font-weight: 850; }
+      .history-preview-title p { margin-top: 4px; color: #829895; font-size: 16px; font-weight: 700; }
+      .history-date {
+        padding: 12px 18px;
+        border: 2px solid rgba(73, 106, 107, .13);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, .68);
+        color: #55777b;
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 15px;
+        font-weight: 850;
+        letter-spacing: .04em;
+      }
+      .history-preview-tabs {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 22px;
+      }
+      .history-mode,
+      .history-metrics { display: flex; align-items: center; gap: 5px; padding: 5px; border-radius: 12px; background: #e8efeb; }
+      .history-mode span,
+      .history-metrics span {
+        padding: 8px 13px;
+        border-radius: 8px;
+        color: #78908d;
+        font-size: 14px;
+        font-weight: 800;
+      }
+      .history-mode .active,
+      .history-metrics .active {
+        background: #fff;
+        box-shadow: 0 2px 6px rgba(55, 73, 69, .12);
+        color: #315f66;
+      }
+      .history-metrics span { display: flex; align-items: center; gap: 7px; }
+      .history-metrics i { width: 8px; height: 8px; border-radius: 50%; background: #315f66; opacity: .4; }
+      .history-metrics .active i { opacity: 1; }
+      .history-chart {
+        position: relative;
+        height: 300px;
+        margin-top: 18px;
+        overflow: hidden;
+        border-top: 2px solid rgba(73, 106, 107, .1);
+        border-bottom: 2px solid rgba(73, 106, 107, .1);
+        background: rgba(225, 237, 233, .22);
+      }
+      .history-chart svg { display: block; width: 100%; height: 100%; }
+      .history-preview-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 12px;
+        color: #6f8986;
+        font-size: 14px;
+        font-weight: 750;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="slide active" data-slide="1">
+      <header class="topline">
+        <div class="brand"><span class="brand-mark">LU</span><span>LUMI</span></div>
+        <div class="edition">01 / 06</div>
+      </header>
+      <section class="content">
+        <h1><span>盯屏时总忘记眨眼？</span><span class="accent">眼睛又干又涩？</span></h1>
+        <div class="cover-widget" aria-label="实时眨眼频率 18 次每分钟，可打开统计">
+          <span class="cover-widget-eye" aria-hidden="true">
+            <svg viewBox="0 0 64 64" fill="none">
+              <path d="M6 32s9-15 26-15 26 15 26 15-9 15-26 15S6 32 6 32Z" stroke="currentColor" stroke-width="5" stroke-linejoin="round" />
+              <circle cx="32" cy="32" r="8" fill="currentColor" />
+            </svg>
+          </span>
+          <span class="cover-widget-copy"><small>实时眨眼</small><strong>18 次/分</strong></span>
+          <span class="cover-widget-chart" aria-hidden="true">
+            <svg viewBox="0 0 64 64" fill="none">
+              <path d="M10 48V16M10 48h44M17 39l10-10 9 7 14-17" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </span>
+        </div>
+      </section>
+      <img class="cat cover-cat" src="../tool/assets/cat-idle.png" alt="异瞳白猫 Lumi" />
+      <footer class="footer">
+        <strong>它叫 Lumi，帮你看着你的眨眼频率。</strong>
+      </footer>
+    </main>
+
+    <main class="slide blink-slide" data-slide="2">
+      <header class="topline">
+        <div class="brand"><span class="brand-mark">LU</span><span>LUMI</span></div>
+        <div class="edition">02 / 06</div>
+      </header>
+      <section class="content">
+        <p class="kicker">眨眼提醒</p>
+        <h1><span>忘记眨眼？</span><span class="accent">Lumi 提醒你眨眼</span></h1>
+      </section>
+      <div class="blink-reminder-preview" aria-label="陪 Lumi 慢慢眨 2 下，已完成 0/2 下">
+        <div class="blink-reminder-icon" aria-hidden="true">
+          <svg viewBox="0 0 64 64" fill="none">
+            <path d="M6 32s9-15 26-15 26 15 26 15-9 15-26 15S6 32 6 32Z" stroke="currentColor" stroke-width="5" stroke-linejoin="round" />
+            <circle cx="32" cy="32" r="8" fill="currentColor" />
+          </svg>
+        </div>
+        <div class="blink-reminder-copy">
+          <span>眼睛有点忙啦</span>
+          <strong>陪 Lumi 慢慢眨 2 下</strong>
+          <div class="blink-reminder-progress" aria-hidden="true"><i></i><i></i></div>
+        </div>
+      </div>
+      <img class="cat blink-cat" src="../tool/assets/cat-blink.png" alt="闭眼示范慢眨眼的 Lumi" />
+      <footer class="footer">
+        <strong>完成 2 次慢眨眼，提醒自动结束。</strong>
+      </footer>
+    </main>
+
+    <main class="slide distance-slide" data-slide="3">
+      <header class="topline">
+        <div class="brand"><span class="brand-mark">LU</span><span>LUMI</span></div>
+        <div class="edition">03 / 06</div>
+      </header>
+      <section class="content">
+        <p class="kicker">远眺提醒</p>
+        <h1 class="distance-title"><span>看屏 <em>20</em> 分钟</span><span>去看远处 <em>20</em> 秒</span></h1>
+        <p class="lede">Lumi 陪你把视线从屏幕移开一会儿。</p>
+      </section>
+      <div class="horizon-card">
+        <img src="assets/horizon-break.webp" alt="远处的湖泊与山景" />
+        <div class="twenty-badge"><strong>20″</strong><span>LOOK FAR</span></div>
+        <img class="horizon-cat" src="../tool/assets/cat-idle.png" alt="睁眼陪你看远处的 Lumi" />
+      </div>
+      <footer class="footer">
+        <strong>忙的时候可以直接跳过。</strong>
+      </footer>
+    </main>
+
+    <main class="slide sit-slide" data-slide="4">
+      <header class="topline">
+        <div class="brand"><span class="brand-mark">LU</span><span>LUMI</span></div>
+        <div class="edition">04 / 06</div>
+      </header>
+      <section class="content">
+        <p class="kicker">久坐提醒</p>
+        <h1><span>坐太久，</span><span class="accent">Lumi 叫你起来走走</span></h1>
+        <p class="lede">默认每 30 分钟提醒一次，时间可以自己改。</p>
+      </section>
+      <div class="timer-card" aria-label="30 分钟计时器">
+        <div class="timer-value"><strong>30</strong><span>MIN</span></div>
+      </div>
+      <img class="cat sit-cat" src="../tool/assets/cat-idle.png" alt="坐着的 Lumi" />
+      <footer class="footer">
+        <strong>起来走两步，再继续。</strong>
+      </footer>
+    </main>
+
+    <main class="slide stats-slide" data-slide="5">
+      <header class="topline">
+        <div class="brand"><span class="brand-mark">LU</span><span>LUMI</span></div>
+        <div class="edition">05 / 06</div>
+      </header>
+      <section class="content">
+        <p class="kicker">时间统计</p>
+        <h1><span>眨眼次数，</span><span class="blue">按小时回看</span></h1>
+        <p class="lede">看看自己什么时候最容易忘记眨眼。</p>
+      </section>
+      <div class="history-preview" aria-label="眨眼次数时间统计曲线">
+        <header class="history-preview-header">
+          <div class="history-preview-title">
+            <span class="history-preview-mark" aria-hidden="true">
+              <svg viewBox="0 0 64 64" fill="none">
+                <path d="M10 48V16M10 48h44M17 39l10-10 9 7 14-17" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </span>
+            <div><h2>行为时间轴</h2><p>今天 · 09:00—18:00</p></div>
+          </div>
+          <span class="history-date">2026-08-25</span>
+        </header>
+        <div class="history-preview-tabs">
+          <div class="history-mode"><span>事件</span><span class="active">次数统计</span></div>
+          <div class="history-metrics"><span class="active"><i></i>眨眼</span><span><i></i>哈欠</span><span><i></i>站起</span><span><i></i>坐下</span></div>
+        </div>
+        <div class="history-chart">
+          <svg viewBox="0 0 840 300" role="img" aria-label="09:00 到 18:00 的眨眼次数折线图">
+            <g stroke="rgba(70,105,106,.14)" stroke-width="2" stroke-dasharray="4 8">
+              <path d="M58 36H818M58 102H818M58 168H818M58 234H818" />
+            </g>
+            <g fill="#6f8986" font-size="15" font-weight="700" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif">
+              <text x="18" y="41">18</text><text x="18" y="107">12</text><text x="27" y="173">6</text><text x="27" y="239">0</text>
+              <text x="58" y="280">09:00</text><text x="236" y="280">11:00</text><text x="414" y="280">13:00</text><text x="592" y="280">15:00</text><text x="758" y="280">17:00</text>
+            </g>
+            <path d="M72 84L158 64L244 98L330 50L416 118L502 204L588 176L674 76L760 58L812 92" fill="none" stroke="#315f66" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" />
+            <g fill="#315f66" stroke="#f7fbf8" stroke-width="4">
+              <circle cx="72" cy="84" r="7" /><circle cx="158" cy="64" r="7" /><circle cx="244" cy="98" r="7" /><circle cx="330" cy="50" r="7" /><circle cx="416" cy="118" r="7" /><circle cx="588" cy="176" r="7" /><circle cx="674" cy="76" r="7" /><circle cx="760" cy="58" r="7" /><circle cx="812" cy="92" r="7" />
+            </g>
+            <circle cx="502" cy="204" r="10" fill="#e96f5b" stroke="#f7fbf8" stroke-width="5" />
+            <g transform="translate(456 142)">
+              <rect width="92" height="45" rx="12" fill="#fff" stroke="rgba(49,95,102,.15)" stroke-width="2" />
+              <text x="46" y="29" text-anchor="middle" fill="#244d53" font-size="17" font-weight="850" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif">眨眼 3 次</text>
+            </g>
+          </svg>
+        </div>
+        <div class="history-preview-footer"><span>自动聚合 · 每小时</span><span>本地事件 · 最近 30 天</span></div>
+      </div>
+      <footer class="footer">
+        <strong>最近 30 天的记录都留在本机。</strong>
+      </footer>
+    </main>
+
+    <main class="slide privacy-slide" data-slide="6">
+      <header class="topline">
+        <div class="brand"><span class="brand-mark">LU</span><span>LUMI</span></div>
+        <div class="edition">06 / 06</div>
+      </header>
+      <section class="content">
+        <p class="kicker">本地优先</p>
+        <h1><span>画面只在</span><span class="accent">你的电脑里处理</span></h1>
+        <p class="lede">没有账号，也没有云端。</p>
+      </section>
+      <div class="privacy-card">
+        <div class="lock" aria-hidden="true">
+          <div class="lock-eyes"><span class="eye gold"></span><span class="eye-line"></span><span class="eye sky"></span></div>
+        </div>
+        <div class="privacy-points">
+          <span><b>✓</b> 本机识别</span>
+          <span><b>✓</b> 不上传画面</span>
+          <span><b>✓</b> 不保存画面</span>
+        </div>
+      </div>
+      <footer class="footer">
+        <strong>笔记下方，可以先陪 Lumi 慢眨两下。</strong>
+      </footer>
+    </main>
+
+    <script>
+      const requested = Number(new URLSearchParams(window.location.search).get("slide") || "1");
+      const slide = Math.min(6, Math.max(1, requested));
+      document.querySelectorAll("[data-slide]").forEach((node) => {
+        node.classList.toggle("active", Number(node.dataset.slide) === slide);
+      });
+    </script>
+  </body>
+</html>

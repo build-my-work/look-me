@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <title>Lumi · 眨眼提醒猫</title>
+    <link rel="stylesheet" href="./assets/style.css" />
+  </head>
+  <body data-stage="welcome" data-blinks="0">
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="#main-content" aria-label="跳到休息引导">
+          <span class="brand__mark" aria-hidden="true">LU</span>
+          <span>
+            <strong>Lumi</strong>
+            <small>眨眼提醒猫</small>
+          </span>
+        </a>
+
+        <ol class="stage-dots" aria-label="休息步骤">
+          <li data-step="blink"><span>1</span><em>眨眼</em></li>
+          <li data-step="horizon"><span>2</span><em>远眺</em></li>
+          <li data-step="stretch"><span>3</span><em>起身</em></li>
+        </ol>
+      </header>
+
+      <main id="main-content" class="main-content">
+        <span id="stage-number" class="stage-number" aria-hidden="true">00</span>
+
+        <section class="rest-stage" aria-labelledby="stage-title">
+          <div
+            id="eye-meter"
+            class="eye-meter"
+            role="img"
+            aria-label="异瞳眨眼进度：0 次，共 2 次"
+          >
+            <span class="eye eye--gold" aria-hidden="true"></span>
+            <span class="gaze-line" aria-hidden="true"><i id="gaze-progress"></i></span>
+            <span class="eye eye--blue" aria-hidden="true"></span>
+          </div>
+
+          <div class="cat-stage" aria-hidden="true">
+            <span class="orbit orbit--gold"></span>
+            <span class="orbit orbit--blue"></span>
+            <img id="cat" src="./assets/cat-idle.png" alt="" />
+          </div>
+
+          <p id="stage-kicker" class="stage-kicker">无摄像头 · 站内引导</p>
+          <h1 id="stage-title">让眼睛离开屏幕 25 秒</h1>
+          <p id="stage-copy" class="stage-copy">
+            和 Lumi 完成眨眼、远眺和起身。
+          </p>
+
+          <div class="timer" aria-hidden="true">
+            <span id="timer-value">20</span>
+            <small>秒</small>
+          </div>
+        </section>
+      </main>
+
+      <footer class="action-area">
+        <p id="stage-hint" class="stage-hint" aria-live="polite">
+          不用摄像头，按按钮完成这一轮。
+        </p>
+        <button id="primary-action" class="primary-action" type="button">
+          和 Lumi 休息 25 秒
+        </button>
+        <p class="privacy-note">纯本地运行 · 不联网 · 不调用摄像头</p>
+      </footer>
+    </div>
+
+    <script src="./assets/app.js"></script>
+  </body>
+</html>
