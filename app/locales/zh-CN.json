@@ -58,6 +58,10 @@
     "collecting": "采集中 {{seconds}} 秒",
     "rate": "{{rate}} 次/分"
   },
+  "lockOverlay": {
+    "title": "即将锁屏",
+    "message": "站起来活动一下吧"
+  },
   "settings": {
     "eyebrow": "LUMI",
     "title": "设置",

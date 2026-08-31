@@ -30,6 +30,8 @@ const LANGUAGE_PREFERENCES = new Set(["system", "zh-CN", "en-US"]);
 const SUPPORTED_LOCALES = new Set(["zh-CN", "en-US"]);
 const WINDOW_WIDTH = 760;
 const WINDOW_HEIGHT = 390;
+const LOCK_COUNTDOWN_WINDOW_WIDTH = 360;
+const LOCK_COUNTDOWN_WINDOW_HEIGHT = 300;
 const SETTINGS_WINDOW_WIDTH = 900;
 const SETTINGS_WINDOW_HEIGHT = 400;
 const MAX_SETTINGS_WINDOW_HEIGHT_RATIO = 0.8;
@@ -46,6 +48,7 @@ const SMOKE_ENV_KEYS = [
   "LOOK_ME_DRAG_SMOKE",
   "LOOK_ME_HISTORY_SMOKE",
   "LOOK_ME_I18N_SMOKE",
+  "LOOK_ME_LOCK_COUNTDOWN_SMOKE",
   "LOOK_ME_MONITORING_SMOKE",
   "LOOK_ME_PANEL_ANCHOR_SMOKE",
   "LOOK_ME_PERSISTENCE_SMOKE",
@@ -97,6 +100,8 @@ app.on("child-process-gone", (_event, details) => {
 });
 
 let mainWindow = null;
+let lockCountdownWindow = null;
+let lockCountdownSeconds = null;
 let tray = null;
 let settingsMenu = null;
 let settingsMenuPopupOpen = false;
@@ -221,6 +226,10 @@ async function applyLanguagePreference(preference) {
   tray?.setToolTip(mainI18n.t("main.trayTooltip"));
   updateTrayMenu();
   mainWindow?.webContents.send("look-me:locale-changed", getLanguageState());
+  lockCountdownWindow?.webContents.send(
+    "look-me:locale-changed",
+    getLanguageState(),
+  );
   return getLanguageState();
 }
 
@@ -545,6 +554,9 @@ function updateScreenLocked(locked) {
   if (locked && !systemAvailability.screenLocked) {
     systemAvailability.lockCycle += 1;
   }
+  if (locked) {
+    closeLockCountdownWindow();
+  }
   updateSystemAvailability("screenLocked", locked);
 }
 
@@ -563,6 +575,7 @@ function configurePowerMonitoring() {
     }, 1_000);
   }
   powerMonitor.on("suspend", () => {
+    closeLockCountdownWindow();
     updateSystemAvailability("systemSuspended", true);
   });
   powerMonitor.on("resume", () => {
@@ -1788,20 +1801,34 @@ async function runI18nSmoke(window) {
   app.exit(passed ? 0 : 1);
 }
 
-async function loadRenderer(window) {
-  const demoQuery = process.env.LOOK_ME_MONITORING_SMOKE === "1"
-    ? "?state=blink"
-    : process.env.LOOK_ME_HISTORY_SMOKE === "1"
-      ? "?state=idle&freeze=1&historyData=1"
-      : process.env.LOOK_ME_RAIL_DRAG_SMOKE === "1"
-        ? "?state=idle&freeze=1&petCry=1"
-        : process.env.LOOK_ME_I18N_SMOKE === "1" ||
-            process.env.LOOK_ME_PANEL_ANCHOR_SMOKE === "1" ||
-            process.env.LOOK_ME_SETTINGS_HEIGHT_SMOKE === "1"
-          ? "?state=idle&freeze=1"
-          : process.env.LOOK_ME_DEMO === "1"
-            ? "?state=distance&freeze=1"
-            : "";
+function getDemoQuery() {
+  if (process.env.LOOK_ME_LOCK_COUNTDOWN_SMOKE === "1") {
+    return "?state=idle&forceLockSmoke=1";
+  }
+  if (process.env.LOOK_ME_MONITORING_SMOKE === "1") {
+    return "?state=blink";
+  }
+  if (process.env.LOOK_ME_HISTORY_SMOKE === "1") {
+    return "?state=idle&freeze=1&historyData=1";
+  }
+  if (process.env.LOOK_ME_RAIL_DRAG_SMOKE === "1") {
+    return "?state=idle&freeze=1&petCry=1";
+  }
+  if (
+    process.env.LOOK_ME_I18N_SMOKE === "1" ||
+    process.env.LOOK_ME_PANEL_ANCHOR_SMOKE === "1" ||
+    process.env.LOOK_ME_SETTINGS_HEIGHT_SMOKE === "1"
+  ) {
+    return "?state=idle&freeze=1";
+  }
+  if (process.env.LOOK_ME_DEMO === "1") {
+    return "?state=distance&freeze=1";
+  }
+  return "";
+}
+
+async function loadRenderer(window, requestedQuery = null) {
+  const demoQuery = requestedQuery ?? getDemoQuery();
   if (process.env.LOOK_ME_DEV_URL) {
     const url = new URL(process.env.LOOK_ME_DEV_URL);
     if (demoQuery) {
@@ -1811,6 +1838,99 @@ async function loadRenderer(window) {
     return;
   }
   await window.loadURL(`lookme://app/index.html${demoQuery}`);
+}
+
+function closeLockCountdownWindow() {
+  lockCountdownSeconds = null;
+  if (!lockCountdownWindow || lockCountdownWindow.isDestroyed()) {
+    lockCountdownWindow = null;
+    return;
+  }
+  lockCountdownWindow.destroy();
+  lockCountdownWindow = null;
+}
+
+function getActiveLockCountdownDisplay() {
+  const cursorPoint = screen.getCursorScreenPoint();
+  return screen.getDisplayNearestPoint(cursorPoint);
+}
+
+function showLockCountdownWindow(seconds) {
+  lockCountdownSeconds = seconds;
+  if (lockCountdownWindow && !lockCountdownWindow.isDestroyed()) {
+    lockCountdownWindow.webContents.send("look-me:lock-countdown", seconds);
+    return;
+  }
+
+  // macOS/Electron 没有跨应用的“当前前台窗口所在屏幕”接口；鼠标所在屏幕
+  // 是当前活跃显示器最稳定的无权限代理。本轮创建后锁定该屏，避免逐秒跳屏。
+  const display = getActiveLockCountdownDisplay();
+  const { bounds } = display;
+  appendMainLog(
+    `lock countdown started on display=${display.id} bounds=${JSON.stringify(bounds)}`,
+  );
+  const window = new BrowserWindow({
+    width: LOCK_COUNTDOWN_WINDOW_WIDTH,
+    height: LOCK_COUNTDOWN_WINDOW_HEIGHT,
+    x: Math.round(
+      bounds.x + (bounds.width - LOCK_COUNTDOWN_WINDOW_WIDTH) / 2,
+    ),
+    y: Math.round(
+      bounds.y + (bounds.height - LOCK_COUNTDOWN_WINDOW_HEIGHT) / 2,
+    ),
+    show: false,
+    frame: false,
+    transparent: true,
+    resizable: false,
+    maximizable: false,
+    minimizable: false,
+    fullscreenable: false,
+    focusable: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    hasShadow: false,
+    hiddenInMissionControl: true,
+    backgroundColor: "#00000000",
+    webPreferences: {
+      preload: PRELOAD_PATH,
+      additionalArguments: [
+        `--look-me-language-preference=${encodeURIComponent(languagePreference)}`,
+        `--look-me-locale=${encodeURIComponent(resolvedLocale)}`,
+      ],
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      backgroundThrottling: false,
+    },
+  });
+
+  lockCountdownWindow = window;
+  window.setIgnoreMouseEvents(true);
+  if (process.platform === "darwin") {
+    window.setAlwaysOnTop(true, "floating");
+    window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  } else {
+    window.setAlwaysOnTop(true);
+    if (process.platform === "linux") {
+      window.setVisibleOnAllWorkspaces(true);
+    }
+  }
+  window.once("ready-to-show", () => {
+    if (lockCountdownWindow !== window || lockCountdownSeconds === null) {
+      return;
+    }
+    window.showInactive();
+    window.webContents.send("look-me:lock-countdown", lockCountdownSeconds);
+  });
+  window.on("closed", () => {
+    if (lockCountdownWindow === window) {
+      lockCountdownWindow = null;
+    }
+  });
+  void loadRenderer(
+    window,
+    `?surface=lock-countdown&seconds=${encodeURIComponent(seconds)}`,
+  );
 }
 
 function createWindow() {
@@ -2511,6 +2631,7 @@ function createWindow() {
     }
     if (mainWindow === window) {
       mainWindow = null;
+      closeLockCountdownWindow();
     }
     if (activeWindowDrag?.window === window) {
       activeWindowDrag = null;
@@ -3034,6 +3155,21 @@ ipcMain.on("look-me:panel-visibility", (event, visible) => {
   }
 });
 
+ipcMain.on("look-me:lock-countdown", (event, seconds) => {
+  const window = BrowserWindow.fromWebContents(event.sender);
+  if (!window || window !== mainWindow) {
+    return;
+  }
+  if (seconds === null) {
+    closeLockCountdownWindow();
+    return;
+  }
+  if (!Number.isInteger(seconds) || seconds < 1 || seconds > 5) {
+    return;
+  }
+  showLockCountdownWindow(seconds);
+});
+
 ipcMain.handle("look-me:get-system-availability", (event) => {
   const window = BrowserWindow.fromWebContents(event.sender);
   if (!window || window !== mainWindow) {
@@ -3079,11 +3215,20 @@ function resolveForceLockCommand() {
   return { file: "loginctl", args: ["lock-session"] };
 }
 
+function finishLockCountdownSmoke() {
+  if (process.env.LOOK_ME_LOCK_COUNTDOWN_SMOKE !== "1") {
+    return;
+  }
+  isQuitting = true;
+  setTimeout(() => app.quit(), 0);
+}
+
 ipcMain.handle("look-me:force-lock", async (event) => {
   const window = BrowserWindow.fromWebContents(event.sender);
   if (!window || window !== mainWindow) {
     return { status: "failed" };
   }
+  closeLockCountdownWindow();
   const command = resolveForceLockCommand();
   const requestedAtLockCycle = systemAvailability.lockCycle;
   appendMainLog(`force lock requested, running ${command.file}`);
@@ -3092,6 +3237,7 @@ ipcMain.handle("look-me:force-lock", async (event) => {
   });
   if (commandError) {
     appendMainLog(`force lock failed: ${commandError.message}`);
+    finishLockCountdownSmoke();
     return { status: "failed" };
   }
   appendMainLog("force lock command exited cleanly; awaiting system confirmation");
@@ -3100,17 +3246,20 @@ ipcMain.handle("look-me:force-lock", async (event) => {
   while (Date.now() < confirmDeadline) {
     if (systemAvailability.lockCycle > requestedAtLockCycle) {
       appendMainLog("force lock confirmed by system event");
+      finishLockCountdownSmoke();
       return { status: "locked" };
     }
     if (powerMonitor.getSystemIdleState(1) === "locked") {
       updateScreenLocked(true);
       appendMainLog("force lock confirmed by idle state");
+      finishLockCountdownSmoke();
       return { status: "locked" };
     }
     await wait(FORCE_LOCK_CONFIRM_POLL_MS);
   }
 
   appendMainLog("force lock confirmation timed out");
+  finishLockCountdownSmoke();
   return { status: "timeout" };
 });
 

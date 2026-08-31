@@ -71,6 +71,7 @@ interface LookMeBridge {
   syncPetPersistence: (enabled: boolean) => void;
   syncPetAttention: (attention: LookMePetAttention) => void;
   syncPanelVisibility: (visible: boolean) => void;
+  syncLockCountdown: (seconds: number | null) => void;
   getSystemAvailability: () => Promise<LookMeSystemAvailability>;
   forceLock: () => Promise<LookMeForceLockResult>;
   setLanguagePreference: (
@@ -84,6 +85,9 @@ interface LookMeBridge {
   ) => () => void;
   onSystemAvailability: (
     listener: (availability: LookMeSystemAvailability) => void,
+  ) => () => void;
+  onLockCountdown: (
+    listener: (seconds: number | null) => void,
   ) => () => void;
   quit: () => void;
   onCommand: (listener: (command: LookMeCommand) => void) => () => void;

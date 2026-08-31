@@ -58,6 +58,10 @@
     "collecting": "Collecting · {{seconds}} sec",
     "rate": "{{rate}} /min"
   },
+  "lockOverlay": {
+    "title": "Locking shortly",
+    "message": "Time to stand up and move"
+  },
   "settings": {
     "eyebrow": "LUMI",
     "title": "Settings",
