@@ -1,5 +1,6 @@
 export const FORCE_LOCK_WARNING_MS = 60 * 1_000;
 export const FORCE_LOCK_RETRY_MS = 60 * 1_000;
+export const FORCE_LOCK_OVERLAY_MS = 5 * 1_000;
 
 export type ForceLockStatus = "idle" | "counting" | "locking" | "retrying";
 
@@ -20,7 +21,16 @@ export interface ForceLockFrame {
   warning: boolean;
   /** 到达阈值，应立即锁屏（锁屏闩住直到计时重置）。 */
   due: boolean;
+  /** 最后五秒的中央提醒数字；其余时间为 null。 */
+  overlaySeconds: number | null;
   status: ForceLockStatus;
+}
+
+function getOverlaySeconds(remainingMs: number): number | null {
+  if (remainingMs <= 0 || remainingMs > FORCE_LOCK_OVERLAY_MS) {
+    return null;
+  }
+  return Math.ceil(remainingMs / 1_000);
 }
 
 export class ForceLockTimer {
@@ -50,6 +60,7 @@ export class ForceLockTimer {
         remainingMs: null,
         warning: false,
         due: false,
+        overlaySeconds: null,
         status: "idle",
       };
     }
@@ -63,6 +74,7 @@ export class ForceLockTimer {
           remainingMs: 0,
           warning: true,
           due: true,
+          overlaySeconds: null,
           status: "locking",
         };
       }
@@ -70,6 +82,7 @@ export class ForceLockTimer {
         remainingMs,
         warning: true,
         due: false,
+        overlaySeconds: getOverlaySeconds(remainingMs),
         status: "retrying",
       };
     }
@@ -81,6 +94,7 @@ export class ForceLockTimer {
         remainingMs: 0,
         warning: true,
         due: false,
+        overlaySeconds: null,
         status: "locking",
       };
     }
@@ -92,6 +106,7 @@ export class ForceLockTimer {
         remainingMs: 0,
         warning: true,
         due: true,
+        overlaySeconds: null,
         status: "locking",
       };
     }
@@ -100,6 +115,7 @@ export class ForceLockTimer {
       remainingMs,
       warning: remainingMs <= FORCE_LOCK_WARNING_MS,
       due: false,
+      overlaySeconds: getOverlaySeconds(remainingMs),
       status: "counting",
     };
   }

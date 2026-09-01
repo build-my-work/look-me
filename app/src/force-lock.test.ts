@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   FORCE_LOCK_RETRY_MS,
+  FORCE_LOCK_OVERLAY_MS,
   FORCE_LOCK_WARNING_MS,
   ForceLockTimer,
 } from "./force-lock";
@@ -25,12 +26,14 @@ describe("ForceLockTimer", () => {
       remainingMs: null,
       warning: false,
       due: false,
+      overlaySeconds: null,
       status: "idle",
     });
     expect(timer.update(input({ enabled: false }))).toEqual({
       remainingMs: null,
       warning: false,
       due: false,
+      overlaySeconds: null,
       status: "idle",
     });
   });
@@ -41,6 +44,7 @@ describe("ForceLockTimer", () => {
     expect(frame.remainingMs).toBe(45 * MINUTE);
     expect(frame.warning).toBe(false);
     expect(frame.due).toBe(false);
+    expect(frame.overlaySeconds).toBe(null);
     expect(frame.status).toBe("counting");
 
     const later = timer.update(input({ now: 10_000 + 5 * MINUTE }));
@@ -68,6 +72,28 @@ describe("ForceLockTimer", () => {
     );
     expect(inside.warning).toBe(true);
     expect(inside.due).toBe(false);
+    expect(inside.overlaySeconds).toBe(null);
+  });
+
+  it("最后五秒依次给出中央提醒数字", () => {
+    const timer = new ForceLockTimer();
+    timer.update(input({ now: 0 }));
+
+    expect(
+      timer.update(input({ now: 45 * MINUTE - FORCE_LOCK_OVERLAY_MS })),
+    ).toMatchObject({ overlaySeconds: 5, due: false });
+    expect(
+      timer.update(input({ now: 45 * MINUTE - 3_500 })),
+    ).toMatchObject({ overlaySeconds: 4, due: false });
+    expect(
+      timer.update(input({ now: 45 * MINUTE - 2_500 })),
+    ).toMatchObject({ overlaySeconds: 3, due: false });
+    expect(
+      timer.update(input({ now: 45 * MINUTE - 1_500 })),
+    ).toMatchObject({ overlaySeconds: 2, due: false });
+    expect(
+      timer.update(input({ now: 45 * MINUTE - 250 })),
+    ).toMatchObject({ overlaySeconds: 1, due: false });
   });
 
   it("到点只触发一次锁屏，并在确认新的锁屏周期后重新计时", () => {
@@ -76,6 +102,7 @@ describe("ForceLockTimer", () => {
     const due = timer.update(input({ now: 45 * MINUTE }));
     expect(due.due).toBe(true);
     expect(due.warning).toBe(true);
+    expect(due.overlaySeconds).toBe(null);
 
     const latched = timer.update(input({ now: 46 * MINUTE }));
     expect(latched.due).toBe(false);
@@ -100,6 +127,16 @@ describe("ForceLockTimer", () => {
     expect(retrying).toEqual({
       remainingMs: FORCE_LOCK_RETRY_MS,
       warning: true,
+      due: false,
+      overlaySeconds: null,
+      status: "retrying",
+    });
+
+    const retryCountdown = timer.update(
+      input({ now: 45 * MINUTE + 5_000 + FORCE_LOCK_RETRY_MS - 4_500 }),
+    );
+    expect(retryCountdown).toMatchObject({
+      overlaySeconds: 5,
       due: false,
       status: "retrying",
     });

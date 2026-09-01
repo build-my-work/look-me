@@ -198,6 +198,9 @@ export function App() {
   const { t } = useTranslation();
   const isDesktop = Boolean(window.lookMe?.isDesktop);
   const freezeDemo = new URLSearchParams(window.location.search).get("freeze") === "1";
+  const forceLockSmoke =
+    isDesktop &&
+    new URLSearchParams(window.location.search).get("forceLockSmoke") === "1";
   const statsDemo = new URLSearchParams(window.location.search).get("stats") === "1";
   const historyDemo = new URLSearchParams(window.location.search).get("history") === "1";
   const historyDataDemo =
@@ -276,6 +279,7 @@ export function App() {
     remainingMs: null,
     warning: false,
     due: false,
+    overlaySeconds: null,
     status: "idle",
   });
   const [cameraSettingsOpen, setCameraSettingsOpen] =
@@ -513,9 +517,11 @@ export function App() {
           !systemAvailability.screenLocked &&
           !systemAvailability.systemSuspended &&
           withinMonitoringWindow,
-        enabled: cameraSettings.forceLockEnabled,
+        enabled: forceLockSmoke || cameraSettings.forceLockEnabled,
         lockCycle: systemAvailability.lockCycle,
-        thresholdMs: cameraSettings.forceLockMinutes * 60 * 1_000,
+        thresholdMs: forceLockSmoke
+          ? 5_000
+          : cameraSettings.forceLockMinutes * 60 * 1_000,
       });
       if (nextForceLockFrame.due) {
         const bridge = window.lookMe;
@@ -560,6 +566,7 @@ export function App() {
     faceMonitor.postureState,
     faceMonitor.status,
     freezeDemo,
+    forceLockSmoke,
     historyOpen,
     sensingLive,
     screenObserving,
@@ -569,6 +576,20 @@ export function App() {
     systemAvailability,
     withinMonitoringWindow,
   ]);
+
+  useEffect(() => {
+    if (!isDesktop) {
+      return;
+    }
+    window.lookMe?.syncLockCountdown(forceLockFrame.overlaySeconds);
+  }, [forceLockFrame.overlaySeconds, isDesktop]);
+
+  useEffect(() => {
+    if (!isDesktop) {
+      return undefined;
+    }
+    return () => window.lookMe?.syncLockCountdown(null);
+  }, [isDesktop]);
 
   useEffect(() => {
     if (faceMonitor.mouthOpen) {

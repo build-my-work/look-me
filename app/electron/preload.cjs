@@ -48,6 +48,9 @@ contextBridge.exposeInMainWorld("lookMe", {
   syncPanelVisibility(visible) {
     ipcRenderer.send("look-me:panel-visibility", visible);
   },
+  syncLockCountdown(seconds) {
+    ipcRenderer.send("look-me:lock-countdown", seconds);
+  },
   getSystemAvailability() {
     return ipcRenderer.invoke("look-me:get-system-availability");
   },
@@ -67,6 +70,11 @@ contextBridge.exposeInMainWorld("lookMe", {
     ipcRenderer.on("look-me:system-availability", handler);
     return () =>
       ipcRenderer.removeListener("look-me:system-availability", handler);
+  },
+  onLockCountdown(listener) {
+    const handler = (_event, seconds) => listener(seconds);
+    ipcRenderer.on("look-me:lock-countdown", handler);
+    return () => ipcRenderer.removeListener("look-me:lock-countdown", handler);
   },
   quit() {
     ipcRenderer.send("look-me:quit");
