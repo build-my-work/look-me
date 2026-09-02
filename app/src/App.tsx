@@ -415,6 +415,26 @@ export function App() {
   );
   const displayedTodayTimeline =
     historyDemo || historyDataDemo ? demoTimeline : recordedTodayTimeline;
+  const activeScreenStartedAt = getActiveScreenStartedAt(currentTimeline);
+  const timelineBlinkTimestamps = getBlinkTimestamps(currentTimeline);
+  const measuredStats = calculateBlinkStatistics(
+    timelineBlinkTimestamps,
+    activeScreenStartedAt,
+    state.now,
+  );
+  const blinkStats = statsDemo
+    ? {
+        rollingRate: 14,
+        collectingSecondsRemaining: 0,
+      }
+    : measuredStats;
+  const hasVisibleFace =
+    statsDemo ||
+    (coachingEnabled && sensingLive && faceMonitor.faceVisible);
+  const lowBlinkRate =
+    hasVisibleFace &&
+    blinkStats.rollingRate !== null &&
+    blinkStats.rollingRate < LOW_BLINK_RATE_THRESHOLD;
 
   useEffect(() => {
     if (cameraPreferenceConfigured) {
@@ -548,6 +568,7 @@ export function App() {
           sensingLive && faceMonitor.faceVisible,
         coachingEnabled: coachingEnabled && !nextSedentaryReminderActive,
         blinkReminderEnabled: cameraSettings.blinkReminderEnabled,
+        lowBlinkRate,
         distanceReminderEnabled: cameraSettings.distanceReminderEnabled,
         screenObserving,
       });
@@ -568,6 +589,7 @@ export function App() {
     freezeDemo,
     forceLockSmoke,
     historyOpen,
+    lowBlinkRate,
     sensingLive,
     screenObserving,
     sedentaryReminderDemo,
@@ -839,7 +861,7 @@ export function App() {
     applyCameraSettings({ ...cameraSettings, enabled: false });
   };
 
-  const endWindowDrag = (event: React.PointerEvent<HTMLDivElement>) => {
+  const endWindowDrag = (event: React.PointerEvent<HTMLElement>) => {
     if (windowDragPointer.current !== event.pointerId) {
       return;
     }
@@ -856,19 +878,6 @@ export function App() {
     todayDate,
     -(TIMELINE_RETENTION_DAYS - 1),
   );
-  const activeScreenStartedAt = getActiveScreenStartedAt(currentTimeline);
-  const timelineBlinkTimestamps = getBlinkTimestamps(currentTimeline);
-  const measuredStats = calculateBlinkStatistics(
-    timelineBlinkTimestamps,
-    activeScreenStartedAt,
-    state.now,
-  );
-  const blinkStats = statsDemo
-    ? {
-        rollingRate: 14,
-        collectingSecondsRemaining: 0,
-      }
-    : measuredStats;
   const measuredTodaySummary = summarizeTimeline(
     displayedTodayTimeline,
     todayRange.startAt,
@@ -896,9 +905,6 @@ export function App() {
     ? t(`cameraErrors.${faceMonitor.errorCode}`)
     : null;
   const hasCameraSession = statsDemo || displayedTodayTimeline.sessions.length > 0;
-  const hasVisibleFace =
-    statsDemo ||
-    (coachingEnabled && sensingLive && faceMonitor.faceVisible);
   let cameraStatus: {
     label: string;
     tone: "active" | "waiting" | "off" | "error";
@@ -1037,6 +1043,61 @@ export function App() {
         data-pet-action-preference={petIdleAction}
         data-pet-idle-action={petDisplayAction}
         aria-label={t("app.stageLabel")}
+        onPointerDown={(event) => {
+          const target = event.target instanceof Element ? event.target : null;
+          const dragSurface = target?.closest<HTMLElement>("[data-window-drag]");
+          const dragBounds = document
+            .querySelector<HTMLElement>(".window-drag-region")
+            ?.getBoundingClientRect();
+          if (
+            event.button !== 0 ||
+            !dragSurface ||
+            !event.currentTarget.contains(dragSurface) ||
+            target?.closest("button") ||
+            !dragBounds
+          ) {
+            return;
+          }
+          windowDragPointer.current = event.pointerId;
+          windowDragStart.current = {
+            screenX: event.screenX,
+            screenY: event.screenY,
+          };
+          windowDragMoved.current = false;
+          setWindowDragging(true);
+          event.currentTarget.setPointerCapture(event.pointerId);
+          const petBounds = document
+            .querySelector(".coach-pet-shell")
+            ?.getBoundingClientRect();
+          window.lookMe?.dragWindow("start", event.screenX, event.screenY, {
+            x: dragBounds.x,
+            y: dragBounds.y,
+            width: dragBounds.width,
+            height: dragBounds.height,
+            petTop: petBounds?.y,
+          });
+        }}
+        onPointerMove={(event) => {
+          if (windowDragPointer.current === event.pointerId) {
+            const startedAt = windowDragStart.current;
+            if (
+              !windowDragMoved.current &&
+              startedAt &&
+              !isPetClick(startedAt, {
+                screenX: event.screenX,
+                screenY: event.screenY,
+              })
+            ) {
+              windowDragMoved.current = true;
+            }
+            if (windowDragMoved.current) {
+              window.lookMe?.dragWindow("move", event.screenX, event.screenY);
+            }
+          }
+        }}
+        onPointerUp={endWindowDrag}
+        onPointerCancel={endWindowDrag}
+        onLostPointerCapture={endWindowDrag}
       >
         <div className="coach-pet-shell">
           <div className="coach-pet-visual">
@@ -1091,51 +1152,6 @@ export function App() {
               event.preventDefault();
               window.lookMe?.openSettings();
             }}
-            onPointerDown={(event) => {
-              if (event.button !== 0) {
-                return;
-              }
-              windowDragPointer.current = event.pointerId;
-              windowDragStart.current = {
-                screenX: event.screenX,
-                screenY: event.screenY,
-              };
-              windowDragMoved.current = false;
-              setWindowDragging(true);
-              event.currentTarget.setPointerCapture(event.pointerId);
-              const bounds = event.currentTarget.getBoundingClientRect();
-              const petBounds = document
-                .querySelector(".coach-pet-shell")
-                ?.getBoundingClientRect();
-              window.lookMe?.dragWindow("start", event.screenX, event.screenY, {
-                x: bounds.x,
-                y: bounds.y,
-                width: bounds.width,
-                height: bounds.height,
-                petTop: petBounds?.y,
-              });
-            }}
-            onPointerMove={(event) => {
-              if (windowDragPointer.current === event.pointerId) {
-                const startedAt = windowDragStart.current;
-                if (
-                  !windowDragMoved.current &&
-                  startedAt &&
-                  !isPetClick(startedAt, {
-                    screenX: event.screenX,
-                    screenY: event.screenY,
-                  })
-                ) {
-                  windowDragMoved.current = true;
-                }
-                if (windowDragMoved.current) {
-                  window.lookMe?.dragWindow("move", event.screenX, event.screenY);
-                }
-              }
-            }}
-            onPointerUp={endWindowDrag}
-            onPointerCancel={endWindowDrag}
-            onLostPointerCapture={endWindowDrag}
           />
         )}
 
@@ -1434,16 +1450,19 @@ export function App() {
         )}
 
         {companionVisible && (
-          <article className="idle-companion" data-interactive>
+          <article
+            className="idle-companion"
+            data-interactive
+            data-window-drag={isDesktop ? true : undefined}
+            title={isDesktop ? t("app.dragHint") : undefined}
+          >
             <div className="idle-status" title={sensingLabel}>
               <span className="stats-eye-pulse" key={faceMonitor.blinkCount} aria-hidden>
                 <Eye size={14} weight="fill" />
               </span>
               <span
                 className={
-                  hasVisibleFace &&
-                  blinkStats.rollingRate !== null &&
-                  blinkStats.rollingRate < LOW_BLINK_RATE_THRESHOLD
+                  lowBlinkRate
                     ? "idle-status-value idle-status-value--low"
                     : "idle-status-value"
                 }

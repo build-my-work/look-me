@@ -817,6 +817,16 @@ button:focus-visible {
   transition: opacity 160ms ease;
 }
 
+.idle-companion[data-window-drag] {
+  cursor: grab;
+  -webkit-app-region: no-drag;
+  user-select: none;
+}
+
+.idle-companion[data-window-drag]:active {
+  cursor: grabbing;
+}
+
 .coach-stage[data-pet-rail="true"] .idle-companion {
   right: var(--pet-widget-anchor-x);
   left: auto;

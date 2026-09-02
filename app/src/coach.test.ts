@@ -3,7 +3,6 @@ import {
   BLINK_PROMPT_COOLDOWN_MS,
   DISTANCE_DURATION_MS,
   DISTANCE_INTERVAL_MS,
-  NO_BLINK_REMINDER_MS,
   type CoachEvent,
   coachReducer,
   createCoachState,
@@ -21,6 +20,7 @@ function tick(
     sensingAvailable: true,
     coachingEnabled: true,
     blinkReminderEnabled: true,
+    lowBlinkRate: false,
     distanceReminderEnabled: true,
     screenObserving: false,
     ...overrides,
@@ -138,19 +138,23 @@ describe("coachReducer", () => {
     });
   });
 
-  it("starts the first blink prompt after 25 seconds without a blink", () => {
+  it("starts the first blink prompt when the measured blink rate becomes low", () => {
     const initial = createCoachState(0, "idle", "camera");
-    const beforeThreshold = coachReducer(
+    const lowRateTick = tick(15_000, { lowBlinkRate: true });
+
+    const prompted = coachReducer(initial, lowRateTick);
+
+    expect(prompted.mode).toBe("blink");
+  });
+
+  it("does not start a blink prompt while the measured blink rate is healthy", () => {
+    const initial = createCoachState(0, "idle", "camera");
+    const afterFormerThreshold = coachReducer(
       initial,
-      tick(NO_BLINK_REMINDER_MS - 1),
-    );
-    const atThreshold = coachReducer(
-      beforeThreshold,
-      tick(NO_BLINK_REMINDER_MS),
+      tick(25_000, { lowBlinkRate: false }),
     );
 
-    expect(beforeThreshold.mode).toBe("idle");
-    expect(atThreshold.mode).toBe("blink");
+    expect(afterFormerThreshold.mode).toBe("idle");
   });
 
   it("keeps later blink prompts behind the cooldown", () => {
@@ -160,35 +164,33 @@ describe("coachReducer", () => {
     };
     const duringCooldown = coachReducer(
       initial,
-      tick(NO_BLINK_REMINDER_MS),
+      tick(BLINK_PROMPT_COOLDOWN_MS - 1, { lowBlinkRate: true }),
     );
     const afterCooldown = coachReducer(
       duringCooldown,
-      tick(BLINK_PROMPT_COOLDOWN_MS),
+      tick(BLINK_PROMPT_COOLDOWN_MS, { lowBlinkRate: true }),
     );
 
     expect(duringCooldown.mode).toBe("idle");
     expect(afterCooldown.mode).toBe("blink");
   });
 
-  it("restarts blink timing while sensing is unavailable", () => {
+  it("suppresses low-rate prompts while sensing is unavailable", () => {
     const unavailableAt = 60_000;
     const unavailable = coachReducer(
       createCoachState(0, "idle", "camera"),
-      tick(unavailableAt, { sensingAvailable: false }),
+      tick(unavailableAt, {
+        sensingAvailable: false,
+        lowBlinkRate: true,
+      }),
     );
-    const beforeThreshold = coachReducer(
+    const sensingRestored = coachReducer(
       unavailable,
-      tick(unavailableAt + NO_BLINK_REMINDER_MS - 1),
-    );
-    const atThreshold = coachReducer(
-      beforeThreshold,
-      tick(unavailableAt + NO_BLINK_REMINDER_MS),
+      tick(unavailableAt + 1, { lowBlinkRate: true }),
     );
 
-    expect(unavailable.lastBlinkAt).toBe(unavailableAt);
-    expect(beforeThreshold.mode).toBe("idle");
-    expect(atThreshold.mode).toBe("blink");
+    expect(unavailable.mode).toBe("idle");
+    expect(sensingRestored.mode).toBe("blink");
   });
 
   it("completes guided blinking after two detected blinks", () => {
@@ -221,7 +223,6 @@ describe("coachReducer", () => {
 
     expect(stopped).toMatchObject({
       mode: "idle",
-      lastBlinkAt: 10_000,
       lastBlinkPromptAt: null,
       distanceObservedMs: 0,
       distanceStartedAt: null,

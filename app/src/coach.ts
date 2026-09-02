@@ -1,6 +1,5 @@
 export const DISTANCE_INTERVAL_MS = 20 * 60 * 1_000;
 export const DISTANCE_DURATION_MS = 20 * 1_000;
-export const NO_BLINK_REMINDER_MS = 25 * 1_000;
 export const BLINK_PROMPT_COOLDOWN_MS = 90 * 1_000;
 
 export type CoachMode =
@@ -15,7 +14,6 @@ export interface CoachState {
   mode: CoachMode;
   now: number;
   sensingMode: SensingMode;
-  lastBlinkAt: number;
   lastBlinkPromptAt: number | null;
   distanceObservedMs: number;
   distanceStartedAt: number | null;
@@ -31,6 +29,7 @@ export type CoachEvent =
       sensingAvailable: boolean;
       coachingEnabled: boolean;
       blinkReminderEnabled: boolean;
+      lowBlinkRate: boolean;
       distanceReminderEnabled: boolean;
       screenObserving: boolean;
     }
@@ -46,7 +45,6 @@ export function createCoachState(
     mode,
     now,
     sensingMode: mode === "permission" ? "unknown" : sensingMode,
-    lastBlinkAt: now,
     lastBlinkPromptAt: null,
     distanceObservedMs: 0,
     distanceStartedAt: mode === "distance" ? now : null,
@@ -65,7 +63,6 @@ export function coachReducer(
         mode: "idle",
         now: event.now,
         sensingMode: event.sensingMode,
-        lastBlinkAt: event.now,
         lastBlinkPromptAt: null,
         distanceObservedMs: 0,
         distanceStartedAt: null,
@@ -96,7 +93,6 @@ export function coachReducer(
         return {
           ...ticked,
           mode: "idle",
-          lastBlinkAt: event.now,
           lastBlinkPromptAt: null,
           distanceObservedMs: event.screenObserving
             ? ticked.distanceObservedMs
@@ -113,7 +109,6 @@ export function coachReducer(
             mode: "idle",
             distanceObservedMs: 0,
             distanceStartedAt: null,
-            lastBlinkAt: event.now,
             guidedBlinks: 0,
           };
         }
@@ -126,7 +121,6 @@ export function coachReducer(
             mode: "idle",
             distanceObservedMs: 0,
             distanceStartedAt: null,
-            lastBlinkAt: event.now,
           };
         }
         return ticked;
@@ -137,7 +131,6 @@ export function coachReducer(
           return {
             ...ticked,
             mode: "idle",
-            lastBlinkAt: event.now,
             lastBlinkPromptAt: event.blinkReminderEnabled
               ? state.lastBlinkPromptAt
               : null,
@@ -162,7 +155,6 @@ export function coachReducer(
       if (!event.blinkReminderEnabled) {
         return {
           ...ticked,
-          lastBlinkAt: event.now,
           lastBlinkPromptAt: null,
           guidedBlinks: 0,
         };
@@ -171,17 +163,14 @@ export function coachReducer(
       if (!event.sensingAvailable) {
         return {
           ...ticked,
-          lastBlinkAt: event.now,
           guidedBlinks: 0,
         };
       }
 
-      const blinkSilence = event.now - state.lastBlinkAt;
       const promptCooldownElapsed =
         state.lastBlinkPromptAt === null ||
         event.now - state.lastBlinkPromptAt >= BLINK_PROMPT_COOLDOWN_MS;
-      const promptDue =
-        blinkSilence >= NO_BLINK_REMINDER_MS && promptCooldownElapsed;
+      const promptDue = event.lowBlinkRate && promptCooldownElapsed;
 
       if (promptDue) {
         return {
@@ -203,7 +192,6 @@ export function coachReducer(
         ...state,
         mode: completedPrompt ? "idle" : state.mode,
         now: event.now,
-        lastBlinkAt: event.now,
         lastBlinkPromptAt: completedPrompt ? event.now : state.lastBlinkPromptAt,
         guidedBlinks,
       };
@@ -216,7 +204,6 @@ export function coachReducer(
         now: event.now,
         distanceObservedMs: 0,
         distanceStartedAt: null,
-        lastBlinkAt: event.now,
         lastBlinkPromptAt: event.now,
         guidedBlinks: 0,
       };

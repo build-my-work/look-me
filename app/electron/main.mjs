@@ -649,6 +649,9 @@ async function runDragSmoke(window, rail = false) {
     ? process.env.LOOK_ME_PET_SIZE
     : "standard";
   window.webContents.send("look-me:command", `pet-size:${requestedPetSize}`);
+  if (!rail) {
+    window.webContents.send("look-me:command", "panel:show:left");
+  }
   await wait(150);
   if (rail) {
     await window.webContents.executeJavaScript(
@@ -658,6 +661,44 @@ async function runDragSmoke(window, rail = false) {
   }
   const before = window.getBounds();
   window.setIgnoreMouseEvents(false);
+  const sendMouseGesture = async (startPoint, endPoint, origin, settleMs) => {
+    window.webContents.sendInputEvent({
+      type: "mouseMove",
+      ...startPoint,
+      globalX: origin.x + startPoint.x,
+      globalY: origin.y + startPoint.y,
+    });
+    window.webContents.sendInputEvent({
+      type: "mouseDown",
+      ...startPoint,
+      globalX: origin.x + startPoint.x,
+      globalY: origin.y + startPoint.y,
+      button: "left",
+      clickCount: 1,
+    });
+    await wait(50);
+    if (startPoint.x !== endPoint.x || startPoint.y !== endPoint.y) {
+      window.webContents.sendInputEvent({
+        type: "mouseMove",
+        ...endPoint,
+        globalX: origin.x + endPoint.x,
+        globalY: origin.y + endPoint.y,
+        movementX: endPoint.x - startPoint.x,
+        movementY: endPoint.y - startPoint.y,
+        modifiers: ["leftbuttondown"],
+      });
+      await wait(50);
+    }
+    window.webContents.sendInputEvent({
+      type: "mouseUp",
+      ...endPoint,
+      globalX: origin.x + endPoint.x,
+      globalY: origin.y + endPoint.y,
+      button: "left",
+      clickCount: 1,
+    });
+    await wait(settleMs);
+  };
   const currentGeometry = await window.webContents.executeJavaScript(`(() => {
     const dragBounds = document.querySelector("[data-window-drag]")?.getBoundingClientRect();
     const petBounds = document.querySelector(".coach-pet-shell")?.getBoundingClientRect();
@@ -730,40 +771,7 @@ async function runDragSmoke(window, rail = false) {
         : null,
     };
   })()`);
-  window.webContents.sendInputEvent({
-    type: "mouseMove",
-    ...start,
-    globalX: before.x + start.x,
-    globalY: before.y + start.y,
-  });
-  window.webContents.sendInputEvent({
-    type: "mouseDown",
-    ...start,
-    globalX: before.x + start.x,
-    globalY: before.y + start.y,
-    button: "left",
-    clickCount: 1,
-  });
-  await wait(50);
-  window.webContents.sendInputEvent({
-    type: "mouseMove",
-    ...end,
-    globalX: before.x + end.x,
-    globalY: before.y + end.y,
-    movementX: end.x - start.x,
-    movementY: end.y - start.y,
-    modifiers: ["leftbuttondown"],
-  });
-  await wait(50);
-  window.webContents.sendInputEvent({
-    type: "mouseUp",
-    ...end,
-    globalX: before.x + end.x,
-    globalY: before.y + end.y,
-    button: "left",
-    clickCount: 1,
-  });
-  await wait(250);
+  await sendMouseGesture(start, end, before, 250);
   const after = window.getBounds();
   const moved = before.x !== after.x || before.y !== after.y;
   const activeHandleBounds = await window.webContents.executeJavaScript(`(() => {
@@ -846,10 +854,108 @@ async function runDragSmoke(window, rail = false) {
     app.exit(passed ? 0 : 1);
     return;
   }
-  const workArea = screen.getDisplayMatching(before).workArea;
+
+  const companionTarget = await window.webContents.executeJavaScript(`(() => {
+    const surface = document.querySelector(".idle-status");
+    const bounds = surface?.getBoundingClientRect();
+    if (!bounds) {
+      return null;
+    }
+    const point = {
+      x: Math.round(bounds.x + bounds.width / 2),
+      y: Math.round(bounds.y + bounds.height / 2),
+    };
+    const target = document.elementFromPoint(point.x, point.y);
+    return {
+      point,
+      tag: target?.tagName ?? null,
+      className: target?.className ?? null,
+      companion: Boolean(target?.closest(".idle-companion")),
+      dragHandle: Boolean(target?.closest("[data-window-drag]")),
+      control: Boolean(target?.closest("button")),
+    };
+  })()`);
+  const companionBefore = window.getBounds();
+  let companionAfter = companionBefore;
+  if (companionTarget) {
+    const companionDisplay = screen.getDisplayMatching(companionBefore);
+    const handleCenterX =
+      companionBefore.x + handleBounds.x + handleBounds.width / 2;
+    const handleCenterY =
+      companionBefore.y + handleBounds.y + handleBounds.height / 2;
+    const companionEnd = {
+      x:
+        companionTarget.point.x +
+        (handleCenterX <
+        companionDisplay.workArea.x + companionDisplay.workArea.width / 2
+          ? 80
+          : -80),
+      y:
+        companionTarget.point.y +
+        (handleCenterY <
+        companionDisplay.workArea.y + companionDisplay.workArea.height / 2
+          ? 40
+          : -40),
+    };
+    await sendMouseGesture(
+      companionTarget.point,
+      companionEnd,
+      companionBefore,
+      250,
+    );
+    companionAfter = window.getBounds();
+  }
+  const companionMoved =
+    companionBefore.x !== companionAfter.x ||
+    companionBefore.y !== companionAfter.y;
+
+  const statsButtonBefore = await window.webContents.executeJavaScript(`(() => {
+    const button = document.querySelector('[data-action="open-stats"]');
+    const bounds = button?.getBoundingClientRect();
+    return bounds
+      ? {
+          point: {
+            x: Math.round(bounds.x + bounds.width / 2),
+            y: Math.round(bounds.y + bounds.height / 2),
+          },
+          expanded: button.getAttribute("aria-expanded"),
+        }
+      : null;
+  })()`);
+  let statsButtonAfter = null;
+  if (statsButtonBefore) {
+    const buttonWindowBefore = window.getBounds();
+    await sendMouseGesture(
+      statsButtonBefore.point,
+      statsButtonBefore.point,
+      buttonWindowBefore,
+      150,
+    );
+    const buttonWindowAfter = window.getBounds();
+    const expanded = await window.webContents.executeJavaScript(
+      "document.querySelector('[data-action=\"open-stats\"]')?.getAttribute('aria-expanded') ?? null",
+    );
+    statsButtonAfter = {
+      expanded,
+      windowMoved:
+        buttonWindowBefore.x !== buttonWindowAfter.x ||
+        buttonWindowBefore.y !== buttonWindowAfter.y,
+    };
+    await window.webContents.executeJavaScript(
+      "document.querySelector('[data-action=\"open-stats\"]')?.click()",
+    );
+    await wait(100);
+  }
+  const statsButtonPassed =
+    statsButtonBefore !== null &&
+    statsButtonAfter !== null &&
+    statsButtonBefore.expanded !== statsButtonAfter.expanded &&
+    !statsButtonAfter.windowMoved;
+
+  const workArea = screen.getDisplayMatching(companionAfter).workArea;
   const leftTopStart = {
-    x: Math.round(after.x + handleBounds.x + handleBounds.width / 2),
-    y: Math.round(after.y + handleBounds.y + handleBounds.height / 2),
+    x: Math.round(companionAfter.x + handleBounds.x + handleBounds.width / 2),
+    y: Math.round(companionAfter.y + handleBounds.y + handleBounds.height / 2),
   };
   await window.webContents.executeJavaScript(`(() => {
     window.lookMe.dragWindow(
@@ -942,13 +1048,28 @@ async function runDragSmoke(window, rail = false) {
         (finalHandleBounds?.y ?? handleBounds.y) +
         (finalHandleBounds?.height ?? handleBounds.height),
     ) === workAreaBottom;
-  const passed = hitTarget.dragHandle && moved && edgeClampPassed;
+  const passed =
+    hitTarget.dragHandle &&
+    moved &&
+    companionTarget?.companion &&
+    companionTarget.dragHandle &&
+    !companionTarget.control &&
+    companionMoved &&
+    statsButtonPassed &&
+    edgeClampPassed;
   console.log(`LOOK_ME_DRAG ${JSON.stringify({
     target: hitTarget,
     before,
     after,
     activeHandleBounds,
     moved,
+    companionTarget,
+    companionBefore,
+    companionAfter,
+    companionMoved,
+    statsButtonBefore,
+    statsButtonAfter,
+    statsButtonPassed,
     workArea,
     atLeftTop,
     expectedLeftTop,
