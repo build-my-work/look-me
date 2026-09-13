@@ -48,6 +48,9 @@ contextBridge.exposeInMainWorld("lookMe", {
   syncPanelVisibility(visible) {
     ipcRenderer.send("look-me:panel-visibility", visible);
   },
+  syncQuietMode(enabled) {
+    ipcRenderer.send("look-me:quiet-mode", enabled);
+  },
   syncLockCountdown(seconds) {
     ipcRenderer.send("look-me:lock-countdown", seconds);
   },

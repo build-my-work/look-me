@@ -17,6 +17,8 @@ type LookMeCommand =
   | "pet-persistent:off"
   | `pet-side:${"left" | "right"}`
   | `pet-offset-y:${number}`
+  | "quiet-mode:on"
+  | "quiet-mode:off"
   | `pet-size:${LookMePetSize}`;
 
 interface LookMePetAttention {
@@ -71,6 +73,7 @@ interface LookMeBridge {
   syncPetPersistence: (enabled: boolean) => void;
   syncPetAttention: (attention: LookMePetAttention) => void;
   syncPanelVisibility: (visible: boolean) => void;
+  syncQuietMode: (enabled: boolean) => void;
   syncLockCountdown: (seconds: number | null) => void;
   getSystemAvailability: () => Promise<LookMeSystemAvailability>;
   forceLock: () => Promise<LookMeForceLockResult>;

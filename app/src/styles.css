@@ -19,6 +19,12 @@ body,
   margin: 0;
 }
 
+html:has(.app-shell--quiet),
+body:has(.app-shell--quiet),
+#root:has(.app-shell--quiet) {
+  min-width: 0;
+}
+
 body {
   min-height: 100vh;
   overflow: hidden;
@@ -167,6 +173,11 @@ button:focus-visible {
   background: transparent;
 }
 
+.app-shell--desktop.app-shell--quiet {
+  width: 44px;
+  height: 28px;
+}
+
 .app-shell--desktop.app-shell--settings {
   /* 设置面板会按需撑高窗口（主进程同步 resize），shell 必须填满视口，
      否则固定 400px + overflow hidden 会把面板下半部分裁掉。 */
@@ -242,6 +253,57 @@ button:focus-visible {
 .app-shell--desktop .coach-stage[data-camera-settings-open="true"] {
   width: 900px;
   height: 400px;
+}
+
+.app-shell--desktop.app-shell--quiet .coach-stage {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: none;
+  translate: none;
+}
+
+.quiet-rate {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 28px;
+  color: #315d62;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 750;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  border: 1px solid rgba(49, 95, 102, 0.24);
+  border-radius: 14px;
+  background: #dcece8;
+  box-shadow:
+    0 8px 18px rgba(55, 73, 69, 0.2),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.72);
+  cursor: grab;
+  -webkit-app-region: no-drag;
+  user-select: none;
+}
+
+.quiet-rate:active {
+  cursor: grabbing;
+}
+
+.quiet-rate--low {
+  color: #d12f2f;
+}
+
+.quiet-rate__icon {
+  color: #789392;
+}
+
+.quiet-rate__placeholder {
+  display: inline-flex;
+  color: #789392;
+  font-size: 12px;
+  letter-spacing: 0.12em;
 }
 
 .app-shell--desktop .coach-stage[data-history-open="true"] {
@@ -2227,6 +2289,18 @@ button:focus-visible {
 }
 
 @media (prefers-reduced-motion: no-preference) {
+  .quiet-rate__dot {
+    animation: quiet-dot-loading 1.4s ease-in-out infinite;
+  }
+
+  .quiet-rate__dot:nth-child(2) {
+    animation-delay: 180ms;
+  }
+
+  .quiet-rate__dot:nth-child(3) {
+    animation-delay: 360ms;
+  }
+
   .coach-pet-shell {
     animation: companion-breathe 4.8s ease-in-out infinite;
   }
@@ -2446,6 +2520,19 @@ button:focus-visible {
 
   .pet-blink--demo {
     animation-duration: 3.2s;
+  }
+}
+
+@keyframes quiet-dot-loading {
+  0%,
+  60%,
+  100% {
+    opacity: 0.55;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-1.5px);
   }
 }
 

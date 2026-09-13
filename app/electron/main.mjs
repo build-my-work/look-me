@@ -1,6 +1,7 @@
 import {
   app,
   BrowserWindow,
+  globalShortcut,
   ipcMain,
   Menu,
   nativeImage,
@@ -30,6 +31,11 @@ const LANGUAGE_PREFERENCES = new Set(["system", "zh-CN", "en-US"]);
 const SUPPORTED_LOCALES = new Set(["zh-CN", "en-US"]);
 const WINDOW_WIDTH = 760;
 const WINDOW_HEIGHT = 390;
+const QUIET_WINDOW_WIDTH = 44;
+const QUIET_WINDOW_HEIGHT = 28;
+const SHOW_WINDOW_ACCELERATOR = "CommandOrControl+Shift+L";
+// 顶部应用 tab/header 可能不属于 Electron 的 workArea，给安静数字留出安全带。
+const QUIET_TOP_SAFE_INSET = 48;
 const LOCK_COUNTDOWN_WINDOW_WIDTH = 360;
 const LOCK_COUNTDOWN_WINDOW_HEIGHT = 300;
 const SETTINGS_WINDOW_WIDTH = 900;
@@ -56,6 +62,8 @@ const SMOKE_ENV_KEYS = [
   "LOOK_ME_RAIL_DRAG_SMOKE",
   "LOOK_ME_SMOKE",
   "LOOK_ME_SETTINGS_HEIGHT_SMOKE",
+  "LOOK_ME_QUIET_SMOKE",
+  "LOOK_ME_SHORTCUT_SMOKE",
 ];
 const PET_ATTENTION_PHASES = new Set([
   "parked",
@@ -109,6 +117,7 @@ let settingsMenuRefreshPending = false;
 let petSize = "standard";
 let petPersistent = false;
 let panelVisible = false;
+let quietMode = false;
 let panelPetSide = null;
 let cameraSettingsOpen = false;
 let settingsWindowHeight = SETTINGS_WINDOW_HEIGHT;
@@ -303,6 +312,9 @@ function getWindowSize(
   if (timelineOpen) {
     return { width: HISTORY_WINDOW_WIDTH, height: HISTORY_WINDOW_HEIGHT };
   }
+  if (quietMode) {
+    return { width: QUIET_WINDOW_WIDTH, height: QUIET_WINDOW_HEIGHT };
+  }
   return { width: WINDOW_WIDTH, height: WINDOW_HEIGHT };
 }
 
@@ -319,6 +331,14 @@ function getPetHitBoundsForSide(
   activePanelSide = panelPetSide,
   offsetY = petWindowOffsetY,
 ) {
+  if (quietMode && !cameraSettingsOpen && !historyOpen) {
+    return {
+      x: 0,
+      y: 0,
+      width: windowSize.width,
+      height: windowSize.height,
+    };
+  }
   const dragHandle = getPetDragHandle();
   const scale = PET_SCALES[petSize] ?? PET_SCALES.standard;
   const width = dragHandle.width * scale;
@@ -401,6 +421,9 @@ function setPetSide(window, nextSide) {
 }
 
 function showPanelBesidePet(window, forceCommand = false) {
+  if (quietMode) {
+    return;
+  }
   const nextSide = resolvePanelPetSide(window);
   const sideChanged = setPetSide(window, nextSide);
   if (sideChanged || forceCommand) {
@@ -410,6 +433,44 @@ function showPanelBesidePet(window, forceCommand = false) {
 
 function hidePanelBesidePet(window) {
   window.webContents.send("look-me:command", "panel:hide");
+}
+
+function resizeWindowForQuietMode(window, enabled) {
+  const bounds = window.getBounds();
+  const display = screen.getDisplayMatching(bounds);
+  const workArea = display.workArea;
+  if (enabled) {
+    const nextWidth = QUIET_WINDOW_WIDTH;
+    const nextHeight = QUIET_WINDOW_HEIGHT;
+    const onRight = bounds.x + bounds.width / 2 >= workArea.x + workArea.width / 2;
+    const quietTop = Math.min(
+      workArea.y + QUIET_TOP_SAFE_INSET,
+      workArea.y + Math.max(0, workArea.height - nextHeight),
+    );
+    const nextX = onRight
+      ? workArea.x + workArea.width - nextWidth
+      : workArea.x;
+    const nextY = Math.min(
+      workArea.y + workArea.height - nextHeight,
+      Math.max(quietTop, bounds.y),
+    );
+    currentWindowSize = { width: nextWidth, height: nextHeight };
+    window.setBounds({ x: nextX, y: nextY, width: nextWidth, height: nextHeight }, false);
+  } else {
+    const nextWidth = WINDOW_WIDTH;
+    const nextHeight = WINDOW_HEIGHT;
+    const onRight = bounds.x + bounds.width / 2 >= workArea.x + workArea.width / 2;
+    const nextX = onRight
+      ? workArea.x + workArea.width - nextWidth
+      : workArea.x;
+    const nextY = Math.min(
+      workArea.y + workArea.height - nextHeight - 24,
+      Math.max(workArea.y, bounds.y),
+    );
+    currentWindowSize = { width: nextWidth, height: nextHeight };
+    window.setBounds({ x: nextX, y: nextY, width: nextWidth, height: nextHeight }, false);
+  }
+  updatePointerHitTest(window);
 }
 
 function resizeWindowForExpandedPanel(window, nextState) {
@@ -425,6 +486,12 @@ function resizeWindowForExpandedPanel(window, nextState) {
 
   const wasExpanded = cameraSettingsOpen || historyOpen;
   const expanded = nextCameraSettingsOpen || nextHistoryOpen;
+  if (!expanded && quietMode) {
+    cameraSettingsOpen = false;
+    historyOpen = false;
+    resizeWindowForQuietMode(window, true);
+    return;
+  }
   if (expanded) {
     setPetSide(window, resolvePanelPetSide(window));
   }
@@ -1179,6 +1246,7 @@ async function runPetSettingsSmoke(window) {
       "pet-size",
       "pet-persistent",
       "panel-visible",
+      "quiet-mode",
       "quit",
     ].join("|");
   const firstPopupMenu = settingsMenu;
@@ -2132,6 +2200,19 @@ function createWindow() {
   window.once("ready-to-show", async () => {
     window.showInactive();
     console.log(`LOOK_ME_READY ${JSON.stringify(window.getBounds())}`);
+    if (process.env.LOOK_ME_SHORTCUT_SMOKE === "1") {
+      const registered = globalShortcut.isRegistered(SHOW_WINDOW_ACCELERATOR);
+      toggleWindow();
+      await wait(50);
+      const hidden = !window.isVisible();
+      toggleWindow();
+      await wait(50);
+      const restored = window.isVisible();
+      const passed = registered && hidden && restored;
+      console.log(`LOOK_ME_SHORTCUT ${JSON.stringify({ accelerator: SHOW_WINDOW_ACCELERATOR, registered, hidden, restored, passed })}`);
+      app.exit(passed ? 0 : 1);
+      return;
+    }
     if (
       process.env.LOOK_ME_DRAG_SMOKE === "1" ||
       process.env.LOOK_ME_RAIL_DRAG_SMOKE === "1"
@@ -2247,6 +2328,7 @@ function createWindow() {
         "pet-size",
         "pet-persistent",
         "panel-visible",
+        "quiet-mode",
         "quit",
       ].join("|");
       selectMonitoringEnabled(originalMonitoringEnabled);
@@ -2309,6 +2391,39 @@ function createWindow() {
         shellMenuOnly,
         passed,
       })}`);
+      app.exit(passed ? 0 : 1);
+      return;
+    }
+    if (process.env.LOOK_ME_QUIET_SMOKE === "1") {
+      await wait(600);
+      await window.webContents.executeJavaScript(
+        "window.lookMe.syncQuietMode(true)",
+      );
+      await wait(250);
+      const quietRendererState = await window.webContents.executeJavaScript(`(() => ({
+        quiet: document.querySelector("main")?.classList.contains("app-shell--quiet"),
+        quietControl: Boolean(document.querySelector(".quiet-rate")),
+        catVisible: Boolean(document.querySelector(".coach-pet-shell")),
+      }))()`);
+      const quietBounds = window.getBounds();
+      const workArea = screen.getDisplayMatching(quietBounds).workArea;
+      const centerX = quietBounds.x + quietBounds.width / 2;
+      await window.webContents.executeJavaScript(`window.lookMe.dragWindow("start", ${centerX}, ${quietBounds.y + 12}, { x: 0, y: 0, width: ${quietBounds.width}, height: ${quietBounds.height} })`);
+      await window.webContents.executeJavaScript(`window.lookMe.dragWindow("move", ${workArea.x + 220}, ${workArea.y})`);
+      await window.webContents.executeJavaScript(`window.lookMe.dragWindow("end", ${workArea.x + 220}, ${workArea.y})`);
+      await wait(150);
+      const movedBounds = window.getBounds();
+      const passed =
+        quietRendererState.quiet &&
+        quietRendererState.quietControl &&
+        !quietRendererState.catVisible &&
+        movedBounds.width === QUIET_WINDOW_WIDTH &&
+        movedBounds.height === QUIET_WINDOW_HEIGHT &&
+        movedBounds.x > workArea.x &&
+        movedBounds.x < workArea.x + workArea.width - QUIET_WINDOW_WIDTH &&
+        movedBounds.y >= workArea.y + QUIET_TOP_SAFE_INSET &&
+        movedBounds.y < workArea.y + workArea.height - QUIET_WINDOW_HEIGHT;
+      console.log(`LOOK_ME_QUIET ${JSON.stringify({ quietRendererState, quietBounds, movedBounds, passed })}`);
       app.exit(passed ? 0 : 1);
       return;
     }
@@ -2767,6 +2882,27 @@ function showWindow() {
     return;
   }
   mainWindow.showInactive();
+  mainWindow.moveTop();
+}
+
+function toggleWindow() {
+  if (!mainWindow) {
+    createWindow();
+    return;
+  }
+  if (mainWindow.isVisible()) {
+    mainWindow.hide();
+    return;
+  }
+  showWindow();
+}
+
+function registerGlobalShortcut() {
+  const registered = globalShortcut.register(SHOW_WINDOW_ACCELERATOR, toggleWindow);
+  if (!registered) {
+    appendMainLog(`global shortcut registration failed: ${SHOW_WINDOW_ACCELERATOR}`);
+  }
+  return registered;
 }
 
 function updateTrayMenu() {
@@ -2778,6 +2914,13 @@ function updateTrayMenu() {
     return;
   }
   settingsMenu = Menu.buildFromTemplate([
+      {
+        id: "show",
+        label: mainI18n.t("main.menu.showLumi"),
+        accelerator: SHOW_WINDOW_ACCELERATOR,
+        click: showWindow,
+      },
+      { type: "separator" },
       {
         id: "settings",
         label: mainI18n.t("main.menu.settings"),
@@ -2832,6 +2975,13 @@ function updateTrayMenu() {
         type: "checkbox",
         checked: panelVisible,
         click: () => selectPanelVisibility(!panelVisible),
+      },
+      {
+        id: "quiet-mode",
+        label: mainI18n.t("main.menu.quietMode"),
+        type: "checkbox",
+        checked: quietMode,
+        click: () => selectQuietMode(!quietMode),
       },
       { type: "separator" },
       {
@@ -2896,6 +3046,25 @@ function selectPanelVisibility(visible) {
   } else {
     hidePanelBesidePet(mainWindow);
   }
+}
+
+function selectQuietMode(enabled) {
+  quietMode = Boolean(enabled);
+  updateTrayMenu();
+  if (!mainWindow) {
+    createWindow();
+  }
+  if (!mainWindow) {
+    return;
+  }
+  mainWindow.showInactive();
+  if (!cameraSettingsOpen && !historyOpen) {
+    resizeWindowForQuietMode(mainWindow, quietMode);
+  }
+  mainWindow.webContents.send(
+    "look-me:command",
+    quietMode ? "quiet-mode:on" : "quiet-mode:off",
+  );
 }
 
 function showCameraSettings() {
@@ -3020,6 +3189,10 @@ ipcMain.on("look-me:window-drag", (event, payload) => {
         petRailWindowX = null;
       }
       activeWindowDrag = null;
+      if (quietMode && !cameraSettingsOpen && !historyOpen) {
+        updatePointerHitTest(window);
+        return;
+      }
       setPetSide(window, resolvePanelPetSide(window));
       if (cameraSettingsOpen || historyOpen) {
         expandedPanelPetAnchor = getPetScreenAnchor(window);
@@ -3067,8 +3240,13 @@ ipcMain.on("look-me:window-drag", (event, payload) => {
     );
   } else {
     const pointerDeltaY = screenY - activeWindowDrag.screenY;
-    const minimumDeltaY =
-      display.workArea.y - activeWindowDrag.anchorScreenY;
+    const quietTop = quietMode
+      ? Math.min(
+        display.workArea.y + QUIET_TOP_SAFE_INSET,
+        display.workArea.y + Math.max(0, display.workArea.height - currentWindowSize.height),
+      )
+      : display.workArea.y;
+    const minimumDeltaY = quietTop - activeWindowDrag.anchorScreenY;
     const maximumDeltaY =
       display.workArea.y +
       display.workArea.height -
@@ -3083,7 +3261,7 @@ ipcMain.on("look-me:window-drag", (event, payload) => {
         clampedDeltaY -
         activeWindowDrag.anchorInsetY,
     );
-    nextY = Math.max(display.workArea.y, targetWindowY);
+    nextY = Math.max(quietTop, targetWindowY);
     nextOffsetY = targetWindowY - nextY;
   }
   window.setPosition(
@@ -3106,6 +3284,10 @@ ipcMain.on("look-me:pet-attention", (event, payload) => {
     typeof rail !== "boolean" ||
     activeWindowDrag?.window === window
   ) {
+    return;
+  }
+  if (quietMode) {
+    petAttentionPhase = phase;
     return;
   }
   petAttentionPhase = phase;
@@ -3276,6 +3458,30 @@ ipcMain.on("look-me:panel-visibility", (event, visible) => {
   }
 });
 
+ipcMain.on("look-me:quiet-mode", (event, enabled) => {
+  const window = BrowserWindow.fromWebContents(event.sender);
+  if (!window || window !== mainWindow || typeof enabled !== "boolean") {
+    return;
+  }
+  if (quietMode === enabled) {
+    updateTrayMenu();
+    window.webContents.send(
+      "look-me:command",
+      quietMode ? "quiet-mode:on" : "quiet-mode:off",
+    );
+    return;
+  }
+  quietMode = enabled;
+  updateTrayMenu();
+  if (!cameraSettingsOpen && !historyOpen) {
+    resizeWindowForQuietMode(window, quietMode);
+  }
+  window.webContents.send(
+    "look-me:command",
+    quietMode ? "quiet-mode:on" : "quiet-mode:off",
+  );
+});
+
 ipcMain.on("look-me:lock-countdown", (event, seconds) => {
   const window = BrowserWindow.fromWebContents(event.sender);
   if (!window || window !== mainWindow) {
@@ -3401,12 +3607,14 @@ app.whenReady().then(async () => {
   configurePowerMonitoring();
   createTray();
   createWindow();
+  registerGlobalShortcut();
 
   app.on("activate", showWindow);
 });
 
 app.on("before-quit", () => {
   isQuitting = true;
+  globalShortcut.unregisterAll();
   if (screenLockPollTimer !== null) {
     clearInterval(screenLockPollTimer);
     screenLockPollTimer = null;

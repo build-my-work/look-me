@@ -9,6 +9,7 @@
   "main": {
     "trayTooltip": "Lumi · 护眼伙伴",
     "menu": {
+      "showLumi": "显示 Lumi",
       "settings": "Lumi 设置",
       "monitoring": "监测与提醒",
       "petSize": "Lumi 大小",
@@ -17,6 +18,7 @@
       "petSizeLarge": "大",
       "petPersistent": "始终显示 Lumi",
       "panelVisible": "显示小组件",
+      "quietMode": "安静模式",
       "quit": "退出 Lumi"
     }
   },

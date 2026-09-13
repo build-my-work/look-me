@@ -9,6 +9,7 @@
   "main": {
     "trayTooltip": "Lumi · Eye Care Companion",
     "menu": {
+      "showLumi": "Show Lumi",
       "settings": "Lumi Settings",
       "monitoring": "Monitoring & Reminders",
       "petSize": "Lumi Size",
@@ -17,6 +18,7 @@
       "petSizeLarge": "Large",
       "petPersistent": "Always Show Lumi",
       "panelVisible": "Show Widget",
+      "quietMode": "Quiet Mode",
       "quit": "Quit Lumi"
     }
   },

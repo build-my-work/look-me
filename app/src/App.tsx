@@ -3,7 +3,9 @@ import {
   Camera,
   ChartLineUp,
   Eye,
+  EyeSlash,
   LockSimple,
+  Pause,
   PersonSimpleWalk,
   ShieldCheck,
   SkipForward,
@@ -113,6 +115,7 @@ const BlinkHistoryPanel = lazy(() => import("./BlinkHistoryPanel"));
 const PET_SIZE_STORAGE_KEY = "look-me:pet-size:v1";
 const PET_PERSISTENCE_STORAGE_KEY = "look-me:pet-persistent:v1";
 const PANEL_VISIBILITY_STORAGE_KEY = "look-me:panel-visible:v1";
+const QUIET_MODE_STORAGE_KEY = "look-me:quiet-mode:v1";
 const LOW_BLINK_RATE_THRESHOLD = 10;
 const MOUTH_SYNC_ANIMATION_MS = 780;
 const PET_SIZES = new Set<LookMePetSize>(["small", "standard", "large"]);
@@ -310,6 +313,13 @@ export function App() {
     try {
       const stored = window.localStorage.getItem(PANEL_VISIBILITY_STORAGE_KEY);
       return stored === "true";
+    } catch {
+      return false;
+    }
+  });
+  const [quietMode, setQuietMode] = useState(() => {
+    try {
+      return window.localStorage.getItem(QUIET_MODE_STORAGE_KEY) === "true";
     } catch {
       return false;
     }
@@ -756,6 +766,15 @@ export function App() {
   }, [panelVisible]);
 
   useEffect(() => {
+    try {
+      window.localStorage.setItem(QUIET_MODE_STORAGE_KEY, String(quietMode));
+    } catch {
+      // Keep the selected mode for this session if local storage is unavailable.
+    }
+    window.lookMe?.syncQuietMode(quietMode);
+  }, [quietMode]);
+
+  useEffect(() => {
     const bridge = window.lookMe;
     if (!bridge) {
       return undefined;
@@ -796,6 +815,10 @@ export function App() {
       }
       if (command === "panel:hide") {
         setPanelVisible(false);
+        return;
+      }
+      if (command === "quiet-mode:on" || command === "quiet-mode:off") {
+        setQuietMode(command === "quiet-mode:on");
         return;
       }
       if (command.startsWith("pet-side:")) {
@@ -985,7 +1008,7 @@ export function App() {
       }
     : persistentAttentionFrame;
   const standardCoachVisible =
-    !cameraSettingsOpen && !historyOpen && !sedentaryReminderActive;
+    !quietMode && !cameraSettingsOpen && !historyOpen && !sedentaryReminderActive;
   const companionVisible = standardCoachVisible && panelVisible;
   const forceLockCountdownSeconds =
     cameraSettings.forceLockEnabled && forceLockFrame.remainingMs !== null
@@ -1022,11 +1045,12 @@ export function App() {
     <main
       className={
         isDesktop
-          ? `app-shell app-shell--desktop${cameraSettingsOpen ? " app-shell--settings" : ""}${historyOpen ? " app-shell--history" : ""}`
+          ? `app-shell app-shell--desktop${quietMode ? " app-shell--quiet" : ""}${cameraSettingsOpen ? " app-shell--settings" : ""}${historyOpen ? " app-shell--history" : ""}`
           : "app-shell app-shell--preview"
       }
       style={isDesktop ? undefined : { backgroundImage: `url(${PREVIEW_IMAGE})` }}
       data-mode={sedentaryReminderActive ? "sedentary" : state.mode}
+      data-quiet-mode={quietMode ? "true" : undefined}
       data-pet-attention={displayedAttentionFrame.phase}
     >
       <video ref={faceMonitor.videoRef} className="sensor-video" muted playsInline />
@@ -1046,9 +1070,7 @@ export function App() {
         onPointerDown={(event) => {
           const target = event.target instanceof Element ? event.target : null;
           const dragSurface = target?.closest<HTMLElement>("[data-window-drag]");
-          const dragBounds = document
-            .querySelector<HTMLElement>(".window-drag-region")
-            ?.getBoundingClientRect();
+          const dragBounds = dragSurface?.getBoundingClientRect();
           if (
             event.button !== 0 ||
             !dragSurface ||
@@ -1074,7 +1096,7 @@ export function App() {
             y: dragBounds.y,
             width: dragBounds.width,
             height: dragBounds.height,
-            petTop: petBounds?.y,
+            ...(quietMode ? {} : { petTop: petBounds?.y }),
           });
         }}
         onPointerMove={(event) => {
@@ -1099,6 +1121,7 @@ export function App() {
         onPointerCancel={endWindowDrag}
         onLostPointerCapture={endWindowDrag}
       >
+        {!quietMode && <>
         <div className="coach-pet-shell">
           <div className="coach-pet-visual">
             <img className="coach-pet" src={PET_IMAGE} alt={t("app.petAlt")} />
@@ -1154,6 +1177,35 @@ export function App() {
             }}
           />
         )}
+        </>}
+
+        {isDesktop && quietMode && !cameraSettingsOpen && !historyOpen && (
+          <div
+            className={lowBlinkRate ? "quiet-rate quiet-rate--low" : "quiet-rate"}
+            data-interactive
+            data-window-drag
+            aria-label={sensingLabel}
+            title={sensingLabel}
+            onContextMenu={(event) => {
+              event.preventDefault();
+              window.lookMe?.openSettings();
+            }}
+          >
+            {hasVisibleFace && blinkStats.rollingRate !== null ? (
+              blinkStats.rollingRate
+            ) : !cameraSettings.enabled ? (
+              <Pause className="quiet-rate__icon" size={14} weight="bold" aria-hidden />
+            ) : faceMonitor.status === "ready" && sensingLive && !faceMonitor.faceVisible ? (
+              <EyeSlash className="quiet-rate__icon" size={16} weight="bold" aria-hidden />
+            ) : (
+              <span className="quiet-rate__placeholder" aria-hidden>
+                <span className="quiet-rate__dot">·</span>
+                <span className="quiet-rate__dot">·</span>
+                <span className="quiet-rate__dot">·</span>
+              </span>
+            )}
+          </div>
+        )}
 
         {cameraSettingsOpen && (
           <CameraSettingsPanel
@@ -1196,7 +1248,7 @@ export function App() {
           </HistoryPanelErrorBoundary>
         )}
 
-        {!cameraSettingsOpen && !historyOpen && sedentaryReminderActive && (
+        {!quietMode && !cameraSettingsOpen && !historyOpen && sedentaryReminderActive && (
           <article
             className="coach-card coach-card--sedentary"
             data-interactive
