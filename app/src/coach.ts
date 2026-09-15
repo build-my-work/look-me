@@ -1,6 +1,7 @@
 export const DISTANCE_INTERVAL_MS = 20 * 60 * 1_000;
 export const DISTANCE_DURATION_MS = 20 * 1_000;
 export const BLINK_PROMPT_COOLDOWN_MS = 90 * 1_000;
+export const BLINK_COMPLETE_LINGER_MS = 500;
 
 export type CoachMode =
   | "permission"
@@ -18,6 +19,7 @@ export interface CoachState {
   distanceObservedMs: number;
   distanceStartedAt: number | null;
   guidedBlinks: number;
+  blinkCompletedAt: number | null;
 }
 
 export type CoachEvent =
@@ -49,6 +51,7 @@ export function createCoachState(
     distanceObservedMs: 0,
     distanceStartedAt: mode === "distance" ? now : null,
     guidedBlinks: 0,
+    blinkCompletedAt: null,
   };
 }
 
@@ -67,6 +70,7 @@ export function coachReducer(
         distanceObservedMs: 0,
         distanceStartedAt: null,
         guidedBlinks: 0,
+        blinkCompletedAt: null,
       };
 
     case "SET_SENSING_MODE":
@@ -99,6 +103,7 @@ export function coachReducer(
             : 0,
           distanceStartedAt: null,
           guidedBlinks: 0,
+          blinkCompletedAt: null,
         };
       }
 
@@ -110,6 +115,7 @@ export function coachReducer(
             distanceObservedMs: 0,
             distanceStartedAt: null,
             guidedBlinks: 0,
+            blinkCompletedAt: null,
           };
         }
         if (
@@ -135,6 +141,18 @@ export function coachReducer(
               ? state.lastBlinkPromptAt
               : null,
             guidedBlinks: 0,
+            blinkCompletedAt: null,
+          };
+        }
+        if (
+          state.blinkCompletedAt !== null &&
+          event.now - state.blinkCompletedAt >= BLINK_COMPLETE_LINGER_MS
+        ) {
+          return {
+            ...ticked,
+            mode: "idle",
+            guidedBlinks: 0,
+            blinkCompletedAt: null,
           };
         }
         return ticked;
@@ -149,6 +167,7 @@ export function coachReducer(
           mode: "distance",
           distanceStartedAt: event.now,
           guidedBlinks: 0,
+          blinkCompletedAt: null,
         };
       }
 
@@ -157,6 +176,7 @@ export function coachReducer(
           ...ticked,
           lastBlinkPromptAt: null,
           guidedBlinks: 0,
+          blinkCompletedAt: null,
         };
       }
 
@@ -164,6 +184,7 @@ export function coachReducer(
         return {
           ...ticked,
           guidedBlinks: 0,
+          blinkCompletedAt: null,
         };
       }
 
@@ -178,6 +199,7 @@ export function coachReducer(
           mode: "blink",
           lastBlinkPromptAt: event.now,
           guidedBlinks: 0,
+          blinkCompletedAt: null,
         };
       }
 
@@ -185,15 +207,26 @@ export function coachReducer(
     }
 
     case "BLINK": {
-      const guidedBlinks =
-        state.mode === "blink" ? Math.min(2, state.guidedBlinks + 1) : 0;
-      const completedPrompt = state.mode === "blink" && guidedBlinks >= 2;
+      if (state.mode !== "blink") {
+        return {
+          ...state,
+          now: event.now,
+          guidedBlinks: 0,
+          blinkCompletedAt: null,
+        };
+      }
+      const guidedBlinks = Math.min(2, state.guidedBlinks + 1);
+      // On the completing blink, stay in "blink" so the filled-in progress is
+      // visible; TICK closes the card once BLINK_COMPLETE_LINGER_MS elapses.
+      const completesPrompt = guidedBlinks >= 2 && state.blinkCompletedAt === null;
       return {
         ...state,
-        mode: completedPrompt ? "idle" : state.mode,
         now: event.now,
-        lastBlinkPromptAt: completedPrompt ? event.now : state.lastBlinkPromptAt,
         guidedBlinks,
+        blinkCompletedAt: completesPrompt ? event.now : state.blinkCompletedAt,
+        lastBlinkPromptAt: completesPrompt
+          ? event.now
+          : state.lastBlinkPromptAt,
       };
     }
 
@@ -206,6 +239,7 @@ export function coachReducer(
         distanceStartedAt: null,
         lastBlinkPromptAt: event.now,
         guidedBlinks: 0,
+        blinkCompletedAt: null,
       };
 
   }

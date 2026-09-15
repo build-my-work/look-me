@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  BLINK_COMPLETE_LINGER_MS,
   BLINK_PROMPT_COOLDOWN_MS,
   DISTANCE_DURATION_MS,
   DISTANCE_INTERVAL_MS,
@@ -200,10 +201,43 @@ describe("coachReducer", () => {
 
     state = coachReducer(state, { type: "BLINK", now: 200 });
     expect(state).toMatchObject({
-      mode: "idle",
+      mode: "blink",
       guidedBlinks: 2,
+      blinkCompletedAt: 200,
       lastBlinkPromptAt: 200,
     });
+
+    // The card lingers so the completed progress stays visible.
+    state = coachReducer(
+      state,
+      tick(200 + BLINK_COMPLETE_LINGER_MS - 1),
+    );
+    expect(state).toMatchObject({ mode: "blink", guidedBlinks: 2 });
+
+    state = coachReducer(state, tick(200 + BLINK_COMPLETE_LINGER_MS));
+    expect(state).toMatchObject({
+      mode: "idle",
+      guidedBlinks: 0,
+      blinkCompletedAt: null,
+      lastBlinkPromptAt: 200,
+    });
+  });
+
+  it("ignores extra blinks while the completed prompt lingers", () => {
+    let state = createCoachState(0, "blink", "camera");
+    state = coachReducer(state, { type: "BLINK", now: 100 });
+    state = coachReducer(state, { type: "BLINK", now: 200 });
+
+    state = coachReducer(state, { type: "BLINK", now: 300 });
+    expect(state).toMatchObject({
+      mode: "blink",
+      guidedBlinks: 2,
+      blinkCompletedAt: 200,
+      lastBlinkPromptAt: 200,
+    });
+
+    state = coachReducer(state, tick(200 + BLINK_COMPLETE_LINGER_MS));
+    expect(state.mode).toBe("idle");
   });
 
   it("resets reminders when monitoring stops", () => {
