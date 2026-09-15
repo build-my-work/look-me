@@ -794,18 +794,17 @@ button:focus-visible {
 }
 
 .coach-card--blink {
-  width: 320px;
+  width: max-content;
+  min-width: 320px;
+  max-width: 460px;
   min-height: 156px;
   padding: 25px 28px 25px 78px;
   border-radius: 48px;
 }
 
-.coach-card--blink h1 {
-  white-space: nowrap;
-}
-
 .coach-card--blink .blink-copy {
   width: max-content;
+  max-width: 100%;
 }
 
 .coach-card--sedentary {
